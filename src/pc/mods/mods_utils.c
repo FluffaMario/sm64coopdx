@@ -3,7 +3,6 @@
 #include "mods.h"
 #include "mods_utils.h"
 #include "pc/debuglog.h"
-#include "pc/pc_main.h"
 
 #if defined(_WIN32) || defined(_WIN64)
 #include <windows.h>
@@ -29,7 +28,7 @@ void mods_size_enforce(struct Mods* mods) {
 void mods_deluxe_enforce(struct Mods* mods) {
     for (int i = 0; i < mods->entryCount; i++) {
         struct Mod* mod = mods->entries[i];
-        if (mod->deluxe && gCoopCompatibility) {
+        if (mod->deluxe && configCoopCompatibility) {
             mod->enabled = false;
             mod->selectable = false;
         }
@@ -44,8 +43,8 @@ static bool mods_incompatible_match(struct Mod* a, struct Mod* b) {
         return false;
     }
 
-    char* ai = a->incompatible;
-    char* bi = b->incompatible;
+    char* ai = strdup(a->incompatible);
+    char* bi = strdup(b->incompatible);
     char* atoken = NULL;
     char* btoken = NULL;
     char* arest = NULL;
@@ -58,6 +57,9 @@ static bool mods_incompatible_match(struct Mod* a, struct Mod* b) {
             }
         }
     }
+
+    free(ai);
+    free(bi);
 
     return false;
 }

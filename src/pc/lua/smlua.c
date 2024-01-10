@@ -26,11 +26,12 @@ void smlua_mod_error(void) {
     djui_lua_error(txt);
 }
 
-int smlua_error_handler(UNUSED lua_State* L) {
+int smlua_error_handler(lua_State* L) {
     if (lua_type(L, -1) == LUA_TSTRING) {
         LOG_LUA("%s", lua_tostring(L, -1));
     }
     smlua_logline();
+    smlua_dump_stack();
     return 0;
 }
 
@@ -176,7 +177,13 @@ static void smlua_load_script(struct Mod* mod, struct ModFile* file, u16 remoteI
     gSmLuaConvertSuccess = true;
     gLuaInitializingScript = 1;
     LOG_INFO("Loading lua script '%s'", file->cachedPath);
-    bool failed = (luaL_loadfile(L, file->cachedPath) != LUA_OK);
+
+    if (luaL_loadfile(L, file->cachedPath) != LUA_OK) { // only run on success
+        LOG_LUA("Failed to load lua script '%s'.", file->cachedPath);
+        LOG_LUA("%s", smlua_to_string(L, lua_gettop(L)));
+        gLuaInitializingScript = 0;
+        return;
+    }
 
     // check if this is the first time this mod has been loaded
     lua_getfield(L, LUA_REGISTRYINDEX, mod->relativePath);
@@ -214,22 +221,10 @@ static void smlua_load_script(struct Mod* mod, struct ModFile* file, u16 remoteI
         smlua_cobject_init_per_file_globals(mod->relativePath);
     }
 
-    // only run on success
-    if (failed) {
-        LOG_LUA("Failed to load lua script '%s'.", file->cachedPath);
-        LOG_LUA("%s", smlua_to_string(L, lua_gettop(L)));
-        gLuaInitializingScript = 0;
-        return;
-    }
-
     // run chunks
     LOG_INFO("Executing '%s'", file->relativePath);
     if (smlua_pcall(L, 0, LUA_MULTRET, 0) != LUA_OK) {
         LOG_LUA("Failed to execute lua script '%s'.", file->cachedPath);
-        LOG_LUA("%s", smlua_to_string(L, lua_gettop(L)));
-        smlua_dump_stack();
-        gLuaInitializingScript = 0;
-        return;
     }
     gLuaInitializingScript = 0;
 }
@@ -280,7 +275,7 @@ void smlua_init(void) {
         gPcDebug.lastModRun = gLuaActiveMod;
         for (int j = 0; j < mod->fileCount; j++) {
             struct ModFile* file = &mod->files[j];
-            if (!str_ends_with(file->relativePath, ".lua")) {
+            if (!(str_ends_with(file->relativePath, ".lua") || str_ends_with(file->relativePath, ".luac"))) {
                 continue;
             }
             smlua_load_script(mod, file, i);
@@ -293,7 +288,7 @@ void smlua_init(void) {
 void smlua_update(void) {
     lua_State* L = gLuaState;
     if (L == NULL) { return; }
-    
+
     smlua_call_event_hooks(HOOK_UPDATE);
     // Collect our garbage after calling our hooks.
     // If we don't, Lag can quickly build up from our mods.

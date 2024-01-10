@@ -1,9 +1,6 @@
 # Set the default behavior, in case people don't have core.autocrlf set.
 * text=auto
 
-# Fix line endings
-*.* text eol=lf
-
 # List text files in case git doesn't characterize correctly
 *.c text
 *.h text
@@ -16,6 +13,7 @@
 *.ld text
 *.inc text
 *.txt text
+*.lua text
 *.json text
 *.yaml text
 
@@ -28,3 +26,4 @@
 *.mp3 binary
 *.lvl binary
 *.tex binary
+*.luac binary
