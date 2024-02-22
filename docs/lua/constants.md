@@ -1169,9 +1169,10 @@
 | FONT_NORMAL | 0 |
 | FONT_MENU | 1 |
 | FONT_HUD | 2 |
-| FONT_TINY | 3 |
-| FONT_ALIASED | 4 |
-| FONT_COUNT | 5 |
+| FONT_ALIASED | 3 |
+| FONT_CUSTOM_HUD | 4 |
+| FONT_RECOLOR_HUD | 5 |
+| FONT_COUNT | 6 |
 
 ### [enum HudUtilsFilter](#HudUtilsFilter)
 | Identifier | Value |
@@ -3325,7 +3326,8 @@
 | HOOK_MIRROR_MARIO_RENDER | 38 |
 | HOOK_OVERRIDE_PHYS_STEP_DEFACTO_SPEED | 39 |
 | HOOK_ON_OBJECT_LOAD | 40 |
-| HOOK_MAX | 41 |
+| HOOK_ON_PLAY_SOUND | 41 |
+| HOOK_MAX | 42 |
 
 [:arrow_up_small:](#)
 

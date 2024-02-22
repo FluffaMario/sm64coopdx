@@ -198,6 +198,7 @@
 --- @field public RacingPenguinHeight number
 --- @field public RacingPenguinRadius number
 --- @field public RespawnShellBoxes integer
+--- @field public ShowStarDialog integer
 --- @field public ShowStarMilestones integer
 --- @field public ToadStar1Requirement integer
 --- @field public ToadStar2Requirement integer
@@ -919,6 +920,7 @@
 --- @field public skipCreditsAt LevelNum
 --- @field public starHeal integer
 --- @field public starPositions StarPositions
+--- @field public useGlobalStarIds integer
 --- @field public vanishCapDuration integer
 --- @field public vanishCapDurationVcutm integer
 --- @field public vanishCapSequence SeqId

@@ -29,6 +29,8 @@ static enum HudUtilsFilter sFilter = FILTER_NEAREST;
 static enum DjuiFontType sFont = FONT_NORMAL;
 static struct HudUtilsRotation sRotation = { 0, 0, 0 };
 static struct DjuiColor sColor = { 255, 255, 255, 255 };
+static struct DjuiColor sRefColor = { 255, 255, 255, 255 };
+static bool sLegacy = false;
 
 f32 gDjuiHudUtilsZ = 0;
 u8 gDjuiHudLockMouse = false;
@@ -167,13 +169,19 @@ u8 djui_hud_get_font(void) {
     return sFont;
 }
 
-void djui_hud_set_font(enum DjuiFontType fontType) {
+void djui_hud_set_font(s8 fontType) {
     if (fontType >= FONT_COUNT) { return; }
+    sLegacy = fontType == -1;
+    if (sLegacy) { fontType = 0; }
     sFont = fontType;
 }
 
 struct DjuiColor* djui_hud_get_color(void) {
-    return &sColor;
+    sRefColor.r = sColor.r;
+    sRefColor.g = sColor.g;
+    sRefColor.b = sColor.b;
+    sRefColor.a = sColor.a;
+    return &sRefColor;
 }
 
 void djui_hud_set_color(u8 r, u8 g, u8 b, u8 a) {
@@ -265,7 +273,7 @@ f32 djui_hud_measure_text(const char* message) {
     f32 width = 0;
     const char* c = message;
     while(*c != '\0') {
-        width += font->char_width((char*)c);
+        width += font->char_width((char*)c) * (sLegacy ? 0.5f : 1.0f);
         c = djui_unicode_next_char((char*)c);
     }
     return width * font->defaultFontScale;
@@ -274,6 +282,8 @@ f32 djui_hud_measure_text(const char* message) {
 void djui_hud_print_text(const char* message, f32 x, f32 y, f32 scale) {
     if (message == NULL) { return; }
     gDjuiHudUtilsZ += 0.01f;
+
+    if (sLegacy) { scale *= 0.5f; }
 
     const struct DjuiFont* font = gDjuiFonts[sFont];
     f32 fontScale = font->defaultFontScale * scale;
@@ -322,6 +332,11 @@ void djui_hud_print_text_interpolated(const char* message, f32 prevX, f32 prevY,
     if (message == NULL) { return; }
     f32 savedZ = gDjuiHudUtilsZ;
     gDjuiHudUtilsZ += 0.01f;
+
+    if (sLegacy) {
+        prevScale *= 0.5f;
+        scale *= 0.5f;
+    }
 
     const struct DjuiFont* font = gDjuiFonts[sFont];
     f32 fontScale = font->defaultFontScale * scale;

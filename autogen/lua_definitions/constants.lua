@@ -2,6 +2,10 @@
 
 math.randomseed(get_time())
 
+--------------
+-- CObjects --
+--------------
+
 _CObjectPool = {}
 
 _CObject = {
@@ -89,6 +93,10 @@ _ReadOnlyTable = {
     __newindex = function (t,k,v)
     end
 }
+
+--------------------
+-- math functions --
+--------------------
 
 --- @param dest Vec3f
 --- @param src Vec3f
@@ -385,6 +393,12 @@ COURSE_MAX = 25
 COURSE_COUNT = 25
 --- @type integer
 COURSE_MIN = 1
+
+-----------------
+-- legacy font --
+-----------------
+
+FONT_TINY = -1
 
 --- @type integer
 INSTANT_WARP_INDEX_START = 0x00
@@ -3462,13 +3476,16 @@ FONT_MENU = 1
 FONT_HUD = 2
 
 --- @type DjuiFontType
-FONT_TINY = 3
+FONT_ALIASED = 3
 
 --- @type DjuiFontType
-FONT_ALIASED = 4
+FONT_CUSTOM_HUD = 4
 
 --- @type DjuiFontType
-FONT_COUNT = 5
+FONT_RECOLOR_HUD = 5
+
+--- @type DjuiFontType
+FONT_COUNT = 6
 
 --- @class HudUtilsFilter
 
@@ -5675,7 +5692,7 @@ MARIO_HAND_RIGHT_OPEN = 5
 MAX_KEYS = 512
 
 --- @type integer
-MAX_KEY_VALUE_LENGTH = 64
+MAX_KEY_VALUE_LENGTH = 256
 
 --- @type integer
 PACKET_LENGTH = 3000
@@ -9278,7 +9295,10 @@ HOOK_OVERRIDE_PHYS_STEP_DEFACTO_SPEED = 39
 HOOK_ON_OBJECT_LOAD = 40
 
 --- @type LuaHookedEventType
-HOOK_MAX = 41
+HOOK_ON_PLAY_SOUND = 41
+
+--- @type LuaHookedEventType
+HOOK_MAX = 42
 
 --- @class HudDisplayFlags
 
@@ -12579,7 +12599,7 @@ MINOR_VERSION_NUMBER = 1
 PATCH_VERSION_NUMBER = 0
 
 --- @type string
-SM64COOPDX_VERSION = "v0.1.3"
+SM64COOPDX_VERSION = "v0.1.4"
 
 --- @type integer
 VERSION_NUMBER = 36

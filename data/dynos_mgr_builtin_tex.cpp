@@ -8,11 +8,6 @@ extern "C" {
  // Textures //
 //////////////
 
-extern ALIGNED8 const Texture texture_font_normal[];
-extern ALIGNED8 const Texture texture_font_title[];
-
-extern ALIGNED8 const Texture texture_coopdx_logo[];
-
 #define define_builtin_tex(_ptr, _path, _width, _height, _bitSize) { (const char*)#_ptr, (const void*)_ptr, (const char*)_path, _width, _height, _bitSize }
 #define define_builtin_tex_(_ptr, _path, _width, _height, _bitSize) { (const char*)#_ptr "_", (const void*)_ptr, (const char*)_path, _width, _height, _bitSize }
 
@@ -674,6 +669,7 @@ static const struct BuiltinTexInfo sDynosBuiltinTexs[] = {
     define_builtin_tex(texture_hud_char_question, "textures/segment2/segment2.05000.rgba16.png", 16, 16, 16),
     define_builtin_tex(texture_hud_char_ampersand, "textures/segment2/custom_hud_ampersand.rgba16.png", 16, 16, 16),
     define_builtin_tex(texture_hud_char_percent, "textures/segment2/custom_hud_percent.rgba16.png", 16, 16, 16),
+    define_builtin_tex(texture_hud_char_slash, "textures/segment2/custom_hud_slash.rgba16.png", 16, 16, 16),
     define_builtin_tex(texture_hud_char_multiply, "textures/segment2/segment2.05600.rgba16.png", 16, 16, 16),
     define_builtin_tex(texture_hud_char_coin, "textures/segment2/segment2.05800.rgba16.png", 16, 16, 16),
     define_builtin_tex(texture_hud_char_mario_head, "textures/segment2/segment2.05A00.rgba16.png", 16, 16, 16),
@@ -1152,7 +1148,10 @@ static const struct BuiltinTexInfo sDynosBuiltinTexs[] = {
 
     // Fonts
     define_builtin_tex(texture_font_normal, "textures/custom_font/custom_font_normal.rgba32.png", 256, 128, 32),
+    define_builtin_tex(texture_font_aliased, "textures/custom_font/custom_font_aliased.rgba32.png", 512, 256, 32),
     define_builtin_tex(texture_font_title, "textures/custom_font/custom_font_title.rgba32.png", 1024, 512, 32),
+    define_builtin_tex(texture_font_hud, "textures/custom_font/custom_font_normal.rgba32.png", 512, 512, 32),
+    define_builtin_tex(texture_font_hud_recolor, "textures/custom_font/custom_font_aliased.rgba32.png", 512, 512, 32),
 
     // Logo
     define_builtin_tex(texture_coopdx_logo, "textures/segment2/custom_coopdx_logo.rgba32.png", 2048, 1024, 32),

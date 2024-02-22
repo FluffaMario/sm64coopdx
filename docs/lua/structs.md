@@ -336,6 +336,7 @@
 | RacingPenguinHeight | `number` |  |
 | RacingPenguinRadius | `number` |  |
 | RespawnShellBoxes | `integer` |  |
+| ShowStarDialog | `integer` |  |
 | ShowStarMilestones | `integer` |  |
 | ToadStar1Requirement | `integer` |  |
 | ToadStar2Requirement | `integer` |  |
@@ -1258,6 +1259,7 @@
 | skipCreditsAt | [enum LevelNum](constants.md#enum-LevelNum) |  |
 | starHeal | `integer` |  |
 | starPositions | [StarPositions](structs.md#StarPositions) | read-only |
+| useGlobalStarIds | `integer` |  |
 | vanishCapDuration | `integer` |  |
 | vanishCapDurationVcutm | `integer` |  |
 | vanishCapSequence | [enum SeqId](constants.md#enum-SeqId) |  |
