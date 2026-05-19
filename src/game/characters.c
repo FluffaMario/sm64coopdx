@@ -14,15 +14,11 @@
 #include "pc/lua/smlua.h"
 
 extern Gfx mario_cap_seg3_dl_03022F48[];
-extern Gfx mario_cap_m_logo_decal[];
 extern Gfx luigi_cap_seg3_dl_03022F48[];
-extern Gfx luigi_cap_l_logo_decal[];
 extern Gfx toad_cap_mesh_layer_1[];
 extern Gfx toad_cap_mesh_layer_5[];
 extern Gfx waluigi_cap_seg3_dl_03022F48[];
-extern Gfx waluigi_cap_r_logo_decal[];
 extern Gfx wario_cap_seg3_dl_03022F48[];
-extern Gfx wario_cap_w_logo_decal[];
 
 extern ALIGNED8 const u8 texture_hud_char_mario_head[];
 extern ALIGNED8 const u8 texture_hud_char_luigi_head[];
@@ -42,9 +38,9 @@ struct Character gCharacters[CT_MAX] = {
         .capMetalModelId       = MODEL_MARIOS_METAL_CAP,
         .capWingModelId        = MODEL_MARIOS_WING_CAP,
         .capMetalWingModelId   = MODEL_MARIOS_WINGED_METAL_CAP,
-        .capEnemyLayer         = LAYER_ALPHA,
+        .capEnemyLayer         = LAYER_OPAQUE,
         .capEnemyGfx           = mario_cap_seg3_dl_03022F48,
-        .capEnemyDecalGfx      = mario_cap_m_logo_decal,
+        .capEnemyDecalGfx      = NULL,
         .torsoRotMult          = 1.0f,
         // anim
         .animOffsetEnabled     = false,
@@ -110,7 +106,7 @@ struct Character gCharacters[CT_MAX] = {
         .capMetalWingModelId   = MODEL_LUIGIS_WINGED_METAL_CAP,
         .capEnemyLayer         = LAYER_ALPHA,
         .capEnemyGfx           = luigi_cap_seg3_dl_03022F48,
-        .capEnemyDecalGfx      = luigi_cap_l_logo_decal,
+        .capEnemyDecalGfx      = NULL,
         .torsoRotMult          = 1.0f,
         // anim
         .animOffsetEnabled     = false,
@@ -176,7 +172,7 @@ struct Character gCharacters[CT_MAX] = {
         .capMetalWingModelId   = MODEL_TOADS_WINGED_METAL_CAP,
         .capEnemyLayer         = LAYER_ALPHA,
         .capEnemyGfx           = toad_cap_mesh_layer_1,
-        .capEnemyDecalGfx      = toad_cap_mesh_layer_5,
+        .capEnemyDecalGfx      = NULL,
         .torsoRotMult          = 1.0f,
         // anim
         .animOffsetEnabled     = false,
@@ -242,7 +238,7 @@ struct Character gCharacters[CT_MAX] = {
         .capMetalWingModelId   = MODEL_WALUIGIS_WINGED_METAL_CAP,
         .capEnemyLayer         = LAYER_ALPHA,
         .capEnemyGfx           = waluigi_cap_seg3_dl_03022F48,
-        .capEnemyDecalGfx      = waluigi_cap_r_logo_decal,
+        .capEnemyDecalGfx      = NULL,
         .torsoRotMult          = 1.0f,
         // anim
         .animOffsetEnabled     = false,
@@ -308,7 +304,7 @@ struct Character gCharacters[CT_MAX] = {
         .capMetalWingModelId   = MODEL_WARIOS_WINGED_METAL_CAP,
         .capEnemyLayer         = LAYER_ALPHA,
         .capEnemyGfx           = wario_cap_seg3_dl_03022F48,
-        .capEnemyDecalGfx      = wario_cap_w_logo_decal,
+        .capEnemyDecalGfx      = NULL,
         .torsoRotMult          = 1.0f,
         // anim
         .animOffsetEnabled     = false,
