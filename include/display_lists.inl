@@ -1280,7 +1280,7 @@ DISPLAY_LIST(luigi_cap_on_eyes_half_closed)
 DISPLAY_LIST(luigi_cap_on_eyes_left)
 DISPLAY_LIST(luigi_cap_on_eyes_right)
 DISPLAY_LIST(luigi_cap_on_eyes_up)
-DISPLAY_LIST(luigi_cap_on_eyes_closed)_transparent
+DISPLAY_LIST(luigi_cap_on_eyes_closed_transparent)
 DISPLAY_LIST(luigi_cap_on_eyes_dead_transparent)
 DISPLAY_LIST(luigi_cap_on_eyes_down_transparent)
 DISPLAY_LIST(luigi_cap_on_eyes_front_transparent)
