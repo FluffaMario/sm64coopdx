@@ -41,11 +41,11 @@ static const Lights1 toad_player_black_lights_group = gdSPDefLights1(
 #define toad_player_texture_metal_wings_half_2_light mario_texture_metal_wings_half_2
 
 ALIGNED8 const Texture toad_player_texture_cap[] = {
-    #include "actors/toad_player/custom_toad_cap.ia16.inc.c"
+    #include "actors/toad_player/custom_toad_head.ia16.inc.c"
 };
 
 ALIGNED8 const Texture toad_player_texture_spots[] = {
-    #include "actors/toad_player/custom_toad_spots.ia16.inc.c"
+    #include "actors/toad_player/custom_toad_head.ia16.inc.c"
 };
 
 ALIGNED8 const Texture toad_player_texture_hair[] = {
