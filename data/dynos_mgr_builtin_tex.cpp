@@ -1107,7 +1107,7 @@ static const struct BuiltinTexInfo sDynosBuiltinTexs[] = {
     define_builtin_tex(luigi_texture_l_logo, "actors/luigi/custom_luigi_logo.ia16.png", 32, 32, G_IM_FMT_IA, G_IM_SIZ_16b),
     define_builtin_tex(luigi_texture_hair_sideburn, "actors/luigi/custom_luigi_sideburn.ia16.png", 32, 32, G_IM_FMT_IA, G_IM_SIZ_16b),
     define_builtin_tex(luigi_texture_mustache, "actors/luigi/custom_luigi_mustache.rgba16.png", 32, 32, G_IM_FMT_RGBA, G_IM_SIZ_16b),
-    define_builtin_tex(toad_player_texture_head, "actors/toad_player/custom_toad_head.ia16.png", 32, 32, G_IM_FMT_IA, G_IM_SIZ_16b),
+//    define_builtin_tex(toad_player_texture_head, "actors/toad_player/custom_toad_head.ia16.png", 32, 32, G_IM_FMT_IA, G_IM_SIZ_16b),
     define_builtin_tex(toad_player_texture_hair, "actors/toad_player/custom_toad_hair.ia16.png", 32, 32, G_IM_FMT_IA, G_IM_SIZ_16b),
     define_builtin_tex(toad_player_texture_eyes_front, "actors/toad_player/custom_toad_eyes_center.rgba32.png", 32, 32, G_IM_FMT_RGBA, G_IM_SIZ_32b),
     define_builtin_tex(toad_player_texture_eyes_half_closed, "actors/toad_player/custom_toad_eyes_half_closed.rgba32.png", 32, 32, G_IM_FMT_RGBA, G_IM_SIZ_32b),
