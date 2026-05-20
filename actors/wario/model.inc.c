@@ -76,7 +76,7 @@ ALIGNED8 const Texture wario_texture_add_sideburn[] = {
 };
 
 ALIGNED8 const Texture wario_texture_skin_sideburn[] = {
-#include "actors/wario/custom_wario_skin.rgba16.inc.c"
+#include "actors/wario/custom_wario_sideburn.ia16.inc.c"
 };
 
 ALIGNED8 const Texture wario_texture_mouth[] = {
