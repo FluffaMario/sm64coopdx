@@ -42,37 +42,37 @@ static const Lights1 wario_black_lights_group = gdSPDefLights1(
 );
 
 #include "actors/mario/mario_externs.h"
-#define wario_texture_metal_shade              mario_texture_metal_shade
-#define wario_texture_metal_light              mario_texture_metal_light
+#define wario_texture_metal_shade              mario_texture_metal
+#define wario_texture_metal_light              mario_texture_metal
 #define wario_texture_wings_half_1             mario_texture_wings_half_1
 #define wario_texture_wings_half_2             mario_texture_wings_half_2
-#define wario_texture_metal_wings_half_1_shade mario_texture_metal_wings_half_1_shade
-#define wario_texture_metal_wings_half_1_light mario_texture_metal_wings_half_1_light
-#define wario_texture_metal_wings_half_2_shade mario_texture_metal_wings_half_2_shade
-#define wario_texture_metal_wings_half_2_light mario_texture_metal_wings_half_2_light
+#define wario_texture_metal_wings_half_1_shade mario_texture_metal_wings_half_1
+#define wario_texture_metal_wings_half_1_light mario_texture_metal_wings_half_1
+#define wario_texture_metal_wings_half_2_shade mario_texture_metal_wings_half_2
+#define wario_texture_metal_wings_half_2_light mario_texture_metal_wings_half_2
 
 ALIGNED8 const Texture wario_texture_white_button[] = {
 #include "actors/wario/custom_wario_overalls_button.rgba16.inc.c"
 };
 
 ALIGNED8 const Texture wario_texture_w_logo[] = {
-#include "actors/wario/custom_wario_logo.rgba16.inc.c"
+#include "actors/wario/custom_wario_logo.ia16.inc.c"
 };
 
 ALIGNED8 const Texture wario_texture_w_blend[] = {
-#include "actors/wario/custom_wario_logo_blend.rgba16.inc.c"
+#include "actors/wario/custom_wario_logo.ia16.inc.c"
 };
 
 ALIGNED8 const Texture wario_texture_w_cap[] = {
-#include "actors/wario/custom_wario_cap.rgba16.inc.c"
+#include "actors/wario/custom_wario_logo.ia16.inc.c"
 };
 
 ALIGNED8 const Texture wario_texture_hair_sideburn[] = {
-#include "actors/wario/custom_wario_sideburn.rgba16.inc.c"
+#include "actors/wario/custom_wario_sideburn.ia16.inc.c"
 };
 
 ALIGNED8 const Texture wario_texture_add_sideburn[] = {
-#include "actors/wario/custom_wario_sideburn_add.rgba16.inc.c"
+#include "actors/wario/custom_wario_sideburn.ia16.inc.c"
 };
 
 ALIGNED8 const Texture wario_texture_skin_sideburn[] = {

@@ -8,17 +8,17 @@ static const Lights1 wario_cap_black_lights_group = gdSPDefLights1(
 
 #include "actors/mario/mario_externs.h"
 #include "actors/wario/wario_externs.h"
-#define wario_cap_texture_metal_shade              mario_texture_metal_shade
-#define wario_cap_texture_metal_light              mario_texture_metal_light
+#define wario_cap_texture_metal_shade              mario_texture_metal
+#define wario_cap_texture_metal_light              mario_texture_metal
 #define wario_cap_texture_w_logo                   wario_texture_w_logo
-#define wario_cap_texture_w_blend                  wario_texture_w_blend
-#define wario_cap_texture_w_cap                    wario_texture_w_cap
+#define wario_cap_texture_w_blend                  wario_texture_w_logo
+#define wario_cap_texture_w_cap                    wario_texture_w_logo
 #define wario_cap_texture_wings_half_1             mario_texture_wings_half_1
 #define wario_cap_texture_wings_half_2             mario_texture_wings_half_2
-#define wario_cap_texture_metal_wings_half_1_shade mario_texture_metal_wings_half_1_shade
-#define wario_cap_texture_metal_wings_half_1_light mario_texture_metal_wings_half_1_light
-#define wario_cap_texture_metal_wings_half_2_shade mario_texture_metal_wings_half_2_shade
-#define wario_cap_texture_metal_wings_half_2_light mario_texture_metal_wings_half_2_light
+#define wario_cap_texture_metal_wings_half_1_shade mario_texture_metal_wings_half_1
+#define wario_cap_texture_metal_wings_half_1_light mario_texture_metal_wings_half_1
+#define wario_cap_texture_metal_wings_half_2_shade mario_texture_metal_wings_half_2
+#define wario_cap_texture_metal_wings_half_2_light mario_texture_metal_wings_half_2
 
 // 0x03022750
 ROM_ASSET_LOAD_VTX(wario_cap_seg3_vertex_03022750, 0x00114750, 78432, 0x0001bf50, 112);
