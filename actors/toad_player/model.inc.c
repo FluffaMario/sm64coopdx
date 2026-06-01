@@ -53,11 +53,11 @@ ALIGNED8 const Texture toad_player_texture_hair[] = {
 };
 
 ALIGNED8 const Texture toad_player_texture_face_neutral[] = {
-    #include "actors/toad_player/custom_toad_face_neutral.rgba32.inc.c"
+    #include "actors/toad_player/custom_toad_eyes_center.rgba32.inc.c"
 };
 
 ALIGNED8 const Texture toad_player_texture_face_dead[] = {
-    #include "actors/toad_player/custom_toad_face_dead.rgba32.inc.c"
+    #include "actors/toad_player/custom_toad_eyes_dead.rgba32.inc.c"
 };
 
 ALIGNED8 const Texture toad_player_texture_eyes_front[] = {
