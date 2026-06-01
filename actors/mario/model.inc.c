@@ -1059,7 +1059,7 @@ const Gfx mario_face_cap_on_dl[] = {
 const Gfx mario_cap_on_eyes_front[] = {
     gsDPPipeSync(),
     gsSPCopyLightsPlayerPart(CAP),
-    gsDPSetCombineLERP(1, PRIMITIVE, TEXEL0, PRIMITIVE, 0, 0, 0, ENVIRONMENT, COMBINED, SHADE, TEXEL1_ALPHA, SHADE, 0, 0, 0, ENVIRONMENT),
+    gsDPSetCombineLERP(1, PRIMITIVE, TEXEL0, PRIMITIVE, 0, 0, 0, TEXEL0, COMBINED, SHADE, COMBINED_ALPHA, SHADE, 0, 0, 0, ENVIRONMENT),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsSPTexture(65535, 65535, 0, 0, 1),
     gsDPSetPrimColor(0, 0, 255, 0, 0, 255),
@@ -1094,7 +1094,7 @@ const Gfx mario_cap_on_eyes_front[] = {
 const Gfx mario_cap_on_eyes_half_closed[] = {
     gsDPPipeSync(),
     gsSPCopyLightsPlayerPart(CAP),
-    gsDPSetCombineLERP(1, PRIMITIVE, TEXEL0, PRIMITIVE, 0, 0, 0, ENVIRONMENT, COMBINED, SHADE, TEXEL1_ALPHA, SHADE, 0, 0, 0, ENVIRONMENT),
+    gsDPSetCombineLERP(1, PRIMITIVE, TEXEL0, PRIMITIVE, 0, 0, 0, TEXEL0, COMBINED, SHADE, COMBINED_ALPHA, SHADE, 0, 0, 0, ENVIRONMENT),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsSPTexture(65535, 65535, 0, 0, 1),
     gsDPSetPrimColor(0, 0, 255, 0, 0, 255),
@@ -1129,7 +1129,7 @@ const Gfx mario_cap_on_eyes_half_closed[] = {
 const Gfx mario_cap_on_eyes_closed[] = {
     gsDPPipeSync(),
     gsSPCopyLightsPlayerPart(CAP),
-    gsDPSetCombineLERP(1, PRIMITIVE, TEXEL0, PRIMITIVE, 0, 0, 0, ENVIRONMENT, COMBINED, SHADE, TEXEL1_ALPHA, SHADE, 0, 0, 0, ENVIRONMENT),
+    gsDPSetCombineLERP(1, PRIMITIVE, TEXEL0, PRIMITIVE, 0, 0, 0, TEXEL0, COMBINED, SHADE, COMBINED_ALPHA, SHADE, 0, 0, 0, ENVIRONMENT),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsSPTexture(65535, 65535, 0, 0, 1),
     gsDPSetPrimColor(0, 0, 255, 0, 0, 255),
@@ -1164,7 +1164,7 @@ const Gfx mario_cap_on_eyes_closed[] = {
 const Gfx mario_cap_on_eyes_right[] = {
     gsDPPipeSync(),
     gsSPCopyLightsPlayerPart(CAP),
-    gsDPSetCombineLERP(1, PRIMITIVE, TEXEL0, PRIMITIVE, 0, 0, 0, ENVIRONMENT, COMBINED, SHADE, TEXEL1_ALPHA, SHADE, 0, 0, 0, ENVIRONMENT),
+    gsDPSetCombineLERP(1, PRIMITIVE, TEXEL0, PRIMITIVE, 0, 0, 0, TEXEL0, COMBINED, SHADE, COMBINED_ALPHA, SHADE, 0, 0, 0, ENVIRONMENT),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsSPTexture(65535, 65535, 0, 0, 1),
     gsDPSetPrimColor(0, 0, 255, 0, 0, 255),
@@ -1199,7 +1199,7 @@ const Gfx mario_cap_on_eyes_right[] = {
 const Gfx mario_cap_on_eyes_left[] = {
     gsDPPipeSync(),
     gsSPCopyLightsPlayerPart(CAP),
-    gsDPSetCombineLERP(1, PRIMITIVE, TEXEL0, PRIMITIVE, 0, 0, 0, ENVIRONMENT, COMBINED, SHADE, TEXEL1_ALPHA, SHADE, 0, 0, 0, ENVIRONMENT),
+    gsDPSetCombineLERP(1, PRIMITIVE, TEXEL0, PRIMITIVE, 0, 0, 0, TEXEL0, COMBINED, SHADE, COMBINED_ALPHA, SHADE, 0, 0, 0, ENVIRONMENT),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsSPTexture(65535, 65535, 0, 0, 1),
     gsDPSetPrimColor(0, 0, 255, 0, 0, 255),
@@ -1234,7 +1234,7 @@ const Gfx mario_cap_on_eyes_left[] = {
 const Gfx mario_cap_on_eyes_up[] = {
     gsDPPipeSync(),
     gsSPCopyLightsPlayerPart(CAP),
-    gsDPSetCombineLERP(1, PRIMITIVE, TEXEL0, PRIMITIVE, 0, 0, 0, ENVIRONMENT, COMBINED, SHADE, TEXEL1_ALPHA, SHADE, 0, 0, 0, ENVIRONMENT),
+    gsDPSetCombineLERP(1, PRIMITIVE, TEXEL0, PRIMITIVE, 0, 0, 0, TEXEL0, COMBINED, SHADE, COMBINED_ALPHA, SHADE, 0, 0, 0, ENVIRONMENT),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsSPTexture(65535, 65535, 0, 0, 1),
     gsDPSetPrimColor(0, 0, 255, 0, 0, 255),
@@ -1269,7 +1269,7 @@ const Gfx mario_cap_on_eyes_up[] = {
 const Gfx mario_cap_on_eyes_down[] = {
     gsDPPipeSync(),
     gsSPCopyLightsPlayerPart(CAP),
-    gsDPSetCombineLERP(1, PRIMITIVE, TEXEL0, PRIMITIVE, 0, 0, 0, ENVIRONMENT, COMBINED, SHADE, TEXEL1_ALPHA, SHADE, 0, 0, 0, ENVIRONMENT),
+    gsDPSetCombineLERP(1, PRIMITIVE, TEXEL0, PRIMITIVE, 0, 0, 0, TEXEL0, COMBINED, SHADE, COMBINED_ALPHA, SHADE, 0, 0, 0, ENVIRONMENT),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsSPTexture(65535, 65535, 0, 0, 1),
     gsDPSetPrimColor(0, 0, 255, 0, 0, 255),
@@ -1304,7 +1304,7 @@ const Gfx mario_cap_on_eyes_down[] = {
 const Gfx mario_cap_on_eyes_dead[] = {
     gsDPPipeSync(),
     gsSPCopyLightsPlayerPart(CAP),
-    gsDPSetCombineLERP(1, PRIMITIVE, TEXEL0, PRIMITIVE, 0, 0, 0, ENVIRONMENT, COMBINED, SHADE, TEXEL1_ALPHA, SHADE, 0, 0, 0, ENVIRONMENT),
+    gsDPSetCombineLERP(1, PRIMITIVE, TEXEL0, PRIMITIVE, 0, 0, 0, TEXEL0, COMBINED, SHADE, COMBINED_ALPHA, SHADE, 0, 0, 0, ENVIRONMENT),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsSPTexture(65535, 65535, 0, 0, 1),
     gsDPSetPrimColor(0, 0, 255, 0, 0, 255),
@@ -1365,7 +1365,7 @@ const Gfx mario_face_cap_on_transparent_dl[] = {
 const Gfx mario_cap_on_eyes_front_transparent[] = {
     gsDPPipeSync(),
     gsSPCopyLightsPlayerPart(CAP),
-    gsDPSetCombineLERP(1, PRIMITIVE, TEXEL0, PRIMITIVE, 0, 0, 0, ENVIRONMENT, COMBINED, SHADE, TEXEL1_ALPHA, SHADE, 0, 0, 0, ENVIRONMENT),
+    gsDPSetCombineLERP(1, PRIMITIVE, TEXEL0, PRIMITIVE, 0, 0, 0, TEXEL0, COMBINED, SHADE, COMBINED_ALPHA, SHADE, 0, 0, 0, ENVIRONMENT),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsSPTexture(65535, 65535, 0, 0, 1),
     gsDPSetPrimColor(0, 0, 255, 0, 0, 255),
@@ -1400,7 +1400,7 @@ const Gfx mario_cap_on_eyes_front_transparent[] = {
 const Gfx mario_cap_on_eyes_half_closed_transparent[] = {
     gsDPPipeSync(),
     gsSPCopyLightsPlayerPart(CAP),
-    gsDPSetCombineLERP(1, PRIMITIVE, TEXEL0, PRIMITIVE, 0, 0, 0, ENVIRONMENT, COMBINED, SHADE, TEXEL1_ALPHA, SHADE, 0, 0, 0, ENVIRONMENT),
+    gsDPSetCombineLERP(1, PRIMITIVE, TEXEL0, PRIMITIVE, 0, 0, 0, TEXEL0, COMBINED, SHADE, COMBINED_ALPHA, SHADE, 0, 0, 0, ENVIRONMENT),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsSPTexture(65535, 65535, 0, 0, 1),
     gsDPSetPrimColor(0, 0, 255, 0, 0, 255),
@@ -1435,7 +1435,7 @@ const Gfx mario_cap_on_eyes_half_closed_transparent[] = {
 const Gfx mario_cap_on_eyes_closed_transparent[] = {
     gsDPPipeSync(),
     gsSPCopyLightsPlayerPart(CAP),
-    gsDPSetCombineLERP(1, PRIMITIVE, TEXEL0, PRIMITIVE, 0, 0, 0, ENVIRONMENT, COMBINED, SHADE, TEXEL1_ALPHA, SHADE, 0, 0, 0, ENVIRONMENT),
+    gsDPSetCombineLERP(1, PRIMITIVE, TEXEL0, PRIMITIVE, 0, 0, 0, TEXEL0, COMBINED, SHADE, COMBINED_ALPHA, SHADE, 0, 0, 0, ENVIRONMENT),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsSPTexture(65535, 65535, 0, 0, 1),
     gsDPSetPrimColor(0, 0, 255, 0, 0, 255),
@@ -1470,7 +1470,7 @@ const Gfx mario_cap_on_eyes_closed_transparent[] = {
 const Gfx mario_cap_on_eyes_right_transparent[] = {
     gsDPPipeSync(),
     gsSPCopyLightsPlayerPart(CAP),
-    gsDPSetCombineLERP(1, PRIMITIVE, TEXEL0, PRIMITIVE, 0, 0, 0, ENVIRONMENT, COMBINED, SHADE, TEXEL1_ALPHA, SHADE, 0, 0, 0, ENVIRONMENT),
+    gsDPSetCombineLERP(1, PRIMITIVE, TEXEL0, PRIMITIVE, 0, 0, 0, TEXEL0, COMBINED, SHADE, COMBINED_ALPHA, SHADE, 0, 0, 0, ENVIRONMENT),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsSPTexture(65535, 65535, 0, 0, 1),
     gsDPSetPrimColor(0, 0, 255, 0, 0, 255),
@@ -1505,7 +1505,7 @@ const Gfx mario_cap_on_eyes_right_transparent[] = {
 const Gfx mario_cap_on_eyes_left_transparent[] = {
     gsDPPipeSync(),
     gsSPCopyLightsPlayerPart(CAP),
-    gsDPSetCombineLERP(1, PRIMITIVE, TEXEL0, PRIMITIVE, 0, 0, 0, ENVIRONMENT, COMBINED, SHADE, TEXEL1_ALPHA, SHADE, 0, 0, 0, ENVIRONMENT),
+    gsDPSetCombineLERP(1, PRIMITIVE, TEXEL0, PRIMITIVE, 0, 0, 0, TEXEL0, COMBINED, SHADE, COMBINED_ALPHA, SHADE, 0, 0, 0, ENVIRONMENT),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsSPTexture(65535, 65535, 0, 0, 1),
     gsDPSetPrimColor(0, 0, 255, 0, 0, 255),
@@ -1540,7 +1540,7 @@ const Gfx mario_cap_on_eyes_left_transparent[] = {
 const Gfx mario_cap_on_eyes_up_transparent[] = {
     gsDPPipeSync(),
     gsSPCopyLightsPlayerPart(CAP),
-    gsDPSetCombineLERP(1, PRIMITIVE, TEXEL0, PRIMITIVE, 0, 0, 0, ENVIRONMENT, COMBINED, SHADE, TEXEL1_ALPHA, SHADE, 0, 0, 0, ENVIRONMENT),
+    gsDPSetCombineLERP(1, PRIMITIVE, TEXEL0, PRIMITIVE, 0, 0, 0, TEXEL0, COMBINED, SHADE, COMBINED_ALPHA, SHADE, 0, 0, 0, ENVIRONMENT),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsSPTexture(65535, 65535, 0, 0, 1),
     gsDPSetPrimColor(0, 0, 255, 0, 0, 255),
@@ -1575,7 +1575,7 @@ const Gfx mario_cap_on_eyes_up_transparent[] = {
 const Gfx mario_cap_on_eyes_down_transparent[] = {
     gsDPPipeSync(),
     gsSPCopyLightsPlayerPart(CAP),
-    gsDPSetCombineLERP(1, PRIMITIVE, TEXEL0, PRIMITIVE, 0, 0, 0, ENVIRONMENT, COMBINED, SHADE, TEXEL1_ALPHA, SHADE, 0, 0, 0, ENVIRONMENT),
+    gsDPSetCombineLERP(1, PRIMITIVE, TEXEL0, PRIMITIVE, 0, 0, 0, TEXEL0, COMBINED, SHADE, COMBINED_ALPHA, SHADE, 0, 0, 0, ENVIRONMENT),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsSPTexture(65535, 65535, 0, 0, 1),
     gsDPSetPrimColor(0, 0, 255, 0, 0, 255),
@@ -1610,7 +1610,7 @@ const Gfx mario_cap_on_eyes_down_transparent[] = {
 const Gfx mario_cap_on_eyes_dead_transparent[] = {
     gsDPPipeSync(),
     gsSPCopyLightsPlayerPart(CAP),
-    gsDPSetCombineLERP(1, PRIMITIVE, TEXEL0, PRIMITIVE, 0, 0, 0, ENVIRONMENT, COMBINED, SHADE, TEXEL1_ALPHA, SHADE, 0, 0, 0, ENVIRONMENT),
+    gsDPSetCombineLERP(1, PRIMITIVE, TEXEL0, PRIMITIVE, 0, 0, 0, TEXEL0, COMBINED, SHADE, COMBINED_ALPHA, SHADE, 0, 0, 0, ENVIRONMENT),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsSPTexture(65535, 65535, 0, 0, 1),
     gsDPSetPrimColor(0, 0, 255, 0, 0, 255),
@@ -2667,7 +2667,7 @@ const Gfx mario_right_hand_cap_wings_end_dl[] = {
 const Gfx mario_right_hand_cap[] = {
     gsDPPipeSync(),
     gsSPCopyLightsPlayerPart(CAP),
-    gsDPSetCombineLERP(1, PRIMITIVE, TEXEL0, PRIMITIVE, 0, 0, 0, ENVIRONMENT, COMBINED, SHADE, TEXEL1_ALPHA, SHADE, 0, 0, 0, ENVIRONMENT),
+    gsDPSetCombineLERP(1, PRIMITIVE, TEXEL0, PRIMITIVE, 0, 0, 0, TEXEL0, COMBINED, SHADE, COMBINED_ALPHA, SHADE, 0, 0, 0, ENVIRONMENT),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsSPTexture(65535, 65535, 0, 0, 1),
     gsDPSetPrimColor(0, 0, 255, 0, 0, 255),

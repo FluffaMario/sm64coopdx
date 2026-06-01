@@ -192,7 +192,7 @@ const Gfx mario_cap_seg3_dl_03022F20[] = {
 const Gfx mario_cap_seg3_dl_03022F48[] = {
     gsDPPipeSync(),
     gsSPCopyLightsPlayerPart(CAP),
-    gsDPSetCombineLERP(1, PRIMITIVE, TEXEL0, PRIMITIVE, 0, 0, 0, ENVIRONMENT, COMBINED, SHADE, TEXEL1_ALPHA, SHADE, 0, 0, 0, ENVIRONMENT),
+    gsDPSetCombineLERP(1, PRIMITIVE, TEXEL0, PRIMITIVE, 0, 0, 0, TEXEL0, COMBINED, SHADE, COMBINED_ALPHA, SHADE, 0, 0, 0, ENVIRONMENT),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsSPTexture(65535, 65535, 0, 0, 1),
     gsDPSetPrimColor(0, 0, 255, 0, 0, 255),
@@ -310,7 +310,7 @@ const Gfx mario_cap_seg3_dl_03023108[] = {
 const Gfx mario_cap_seg3_dl_03023160[] = {
     gsDPPipeSync(),
     gsSPCopyLightsPlayerPart(CAP),
-    gsDPSetCombineLERP(1, PRIMITIVE, TEXEL0, PRIMITIVE, 0, 0, 0, ENVIRONMENT, COMBINED, SHADE, TEXEL1_ALPHA, SHADE, 0, 0, 0, ENVIRONMENT),
+    gsDPSetCombineLERP(1, PRIMITIVE, TEXEL0, PRIMITIVE, 0, 0, 0, TEXEL0, COMBINED, SHADE, COMBINED_ALPHA, SHADE, 0, 0, 0, ENVIRONMENT),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsSPTexture(65535, 65535, 0, 0, 1),
     gsDPSetPrimColor(0, 0, 255, 0, 0, 255),
