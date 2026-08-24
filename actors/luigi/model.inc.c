@@ -3359,28 +3359,28 @@ const Gfx luigi_right_hand_cap_dl[] = {
 
 // 0x0401AF60
 static const Vtx luigi_right_hand_cap_wings_half_1_dl_vertex[] = {
-    {{{   368,    146,      7}, 0, {   990,      0}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{   166,     37,     68}, 0, {     0,   2012}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{   212,     96,    143}, 0, {   990,   2012}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{   368,    146,      7}, 0, {   990,      0}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{   322,     87,    -67}, 0, {     0,      0}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{   166,     37,     68}, 0, {     0,   2012}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{   178,   -177,    128}, 0, {   990,   2012}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{   149,   -100,     60}, 0, {     0,   2012}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{   319,   -248,    -14}, 0, {   990,      0}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{   290,   -171,    -81}, 0, {     0,      0}, {0xff, 0xff, 0xff, 0xff}}},
+    {{{   368,    146,      7}, 0, {   990,      0}, {0xbe, 0x65, 0xda, 0xff}}},
+    {{{   166,     37,     68}, 0, {     0,   2012}, {0xbe, 0x65, 0xda, 0xff}}},
+    {{{   212,     96,    143}, 0, {   990,   2012}, {0xbe, 0x65, 0xda, 0xff}}},
+    {{{   368,    146,      7}, 0, {   990,      0}, {0xbe, 0x64, 0xd9, 0xff}}},
+    {{{   322,     87,    -67}, 0, {     0,      0}, {0xbe, 0x64, 0xd9, 0xff}}},
+    {{{   166,     37,     68}, 0, {     0,   2012}, {0xbe, 0x64, 0xd9, 0xff}}},
+    {{{   178,   -177,    128}, 0, {   990,   2012}, {0xa8, 0xb4, 0xcf, 0xff}}},
+    {{{   149,   -100,     60}, 0, {     0,   2012}, {0xa8, 0xb4, 0xcf, 0xff}}},
+    {{{   319,   -248,    -14}, 0, {   990,      0}, {0xa8, 0xb4, 0xcf, 0xff}}},
+    {{{   290,   -171,    -81}, 0, {     0,      0}, {0xa8, 0xb4, 0xcf, 0xff}}},
 };
 
 // 0x0401B000
 static const Vtx luigi_right_hand_cap_wings_half_2_dl_vertex[] = {
-    {{{   414,    206,     82}, 0, {   990,      0}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{   212,     96,    143}, 0, {     0,   2012}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{   258,    156,    218}, 0, {   990,   2012}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{   368,    146,      7}, 0, {     0,      0}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{   178,   -177,    128}, 0, {     0,   2012}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{   319,   -248,    -14}, 0, {     0,      0}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{   349,   -325,     53}, 0, {   990,      0}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{   207,   -253,    195}, 0, {   990,   2012}, {0xff, 0xff, 0xff, 0xff}}},
+    {{{   414,    206,     82}, 0, {   990,      0}, {0xbe, 0x64, 0xd9, 0xff}}},
+    {{{   212,     96,    143}, 0, {     0,   2012}, {0xbe, 0x64, 0xd9, 0xff}}},
+    {{{   258,    156,    218}, 0, {   990,   2012}, {0xbe, 0x64, 0xd9, 0xff}}},
+    {{{   368,    146,      7}, 0, {     0,      0}, {0xbe, 0x64, 0xd9, 0xff}}},
+    {{{   178,   -177,    128}, 0, {     0,   2012}, {0xa8, 0xb3, 0xcf, 0xff}}},
+    {{{   319,   -248,    -14}, 0, {     0,      0}, {0xa8, 0xb3, 0xcf, 0xff}}},
+    {{{   349,   -325,     53}, 0, {   990,      0}, {0xa8, 0xb3, 0xcf, 0xff}}},
+    {{{   207,   -253,    195}, 0, {   990,   2012}, {0xa8, 0xb3, 0xcf, 0xff}}},
 };
 
 // 0x0401B080 - 0x0401B0B0
@@ -3403,7 +3403,7 @@ const Gfx luigi_right_hand_cap_wings_half_2_dl[] = {
 const Gfx luigi_right_hand_cap_wings_initial_dl[] = {
     gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_MODULATERGBFADEA, G_CC_MODULATERGBFADEA),
-    gsSPClearGeometryMode(G_LIGHTING | G_CULL_BACK),
+    gsSPClearGeometryMode(G_CULL_BACK | G_SHADING_SMOOTH),
     gsDPSetTile(G_IM_FMT_RGBA, G_IM_SIZ_16b, 0, 0, G_TX_LOADTILE, 0, G_TX_WRAP | G_TX_NOMIRROR, G_TX_NOMASK, G_TX_NOLOD, G_TX_WRAP | G_TX_NOMIRROR, G_TX_NOMASK, G_TX_NOLOD),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_ON),
     gsSPLight(&luigi_white_lights_group.l, 1),
@@ -3418,9 +3418,7 @@ const Gfx luigi_right_hand_cap_wings_initial_dl[] = {
 const Gfx luigi_right_hand_cap_wings_end_dl[] = {
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF),
     gsDPPipeSync(),
-    gsDPSetCycleType(G_CYC_1CYCLE),
-    gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),
-    gsSPSetGeometryMode(G_LIGHTING | G_CULL_BACK),
+    gsSPSetGeometryMode(G_CULL_BACK | G_SHADING_SMOOTH),
     gsSPEndDisplayList(),
 };
 
@@ -3482,11 +3480,10 @@ const Gfx luigi_metal_right_hand_cap_shared_dl[] = {
 const Gfx luigi_metal_right_hand_cap_shared_dl_wings[] = {
     gsDPPipeSync(),
     gsSPClearGeometryMode(G_TEXTURE_GEN | G_CULL_BACK),
-    gsDPSetCombineLERP(TEXEL0, 0, ENVIRONMENT, 0, TEXEL0, 0, ENVIRONMENT, 0, TEXEL1, 0, PRIMITIVE, COMBINED, 0, 0, 0, COMBINED),
+    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0, TEXEL0, 0, SHADE, 0, TEXEL1, 0, ENVIRONMENT, COMBINED, 0, 0, 0, COMBINED),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsSPTexture(65535, 65535, 0, 0, 1),
-    gsDPSetPrimColor(0, 0, 127, 127, 127, 255),
-    gsSPCopyPlayerPartToColor(G_COL_PRIM, 6, 0),
+    gsSPCopyLightsPlayerPart(CAP),
     gsDPSetEnvRGB(127, 127, 127),
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b_LOAD_BLOCK, 1, luigi_texture_metal_wings_half_1),
     gsDPSetTile(G_IM_FMT_RGBA, G_IM_SIZ_16b_LOAD_BLOCK, 0, 0, 7, 0, G_TX_WRAP | G_TX_NOMIRROR, 0, 0, G_TX_WRAP | G_TX_NOMIRROR, 0, 0),
@@ -3603,18 +3600,18 @@ const Gfx luigi_right_hand_peace[] = {
 
 // 0x0401C940
 static const Vtx luigi_wings_half_1_dl_vertex[] = {
-    {{{  -105,    212,      0}, 0, {     0,      0}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{  -105,      0,      0}, 0, {     0,   2012}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{     0,      0,      0}, 0, {   990,   2012}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{     0,    212,      0}, 0, {   990,      0}, {0xff, 0xff, 0xff, 0xff}}},
+    {{{  -105,    212,      0}, 0, {     0,      0}, {0x00, 0x00, 0x7f, 0xff}}},
+    {{{  -105,      0,      0}, 0, {     0,   2012}, {0x00, 0x00, 0x7f, 0xff}}},
+    {{{     0,      0,      0}, 0, {   990,   2012}, {0x00, 0x00, 0x7f, 0xff}}},
+    {{{     0,    212,      0}, 0, {   990,      0}, {0x00, 0x00, 0x7f, 0xff}}},
 };
 
 // 0x0401C980
 static const Vtx luigi_wings_half_2_dl_vertex[] = {
-    {{{     0,      0,      0}, 0, {     0,   2012}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{   106,    212,      0}, 0, {   990,      0}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{     0,    212,      0}, 0, {     0,      0}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{   106,      0,      0}, 0, {   990,   2012}, {0xff, 0xff, 0xff, 0xff}}},
+    {{{     0,      0,      0}, 0, {     0,   2012}, {0x00, 0x00, 0x7f, 0xff}}},
+    {{{   106,    212,      0}, 0, {   990,      0}, {0x00, 0x00, 0x7f, 0xff}}},
+    {{{     0,    212,      0}, 0, {     0,      0}, {0x00, 0x00, 0x7f, 0xff}}},
+    {{{   106,      0,      0}, 0, {   990,   2012}, {0x00, 0x00, 0x7f, 0xff}}},
 };
 
 // 0x0401C9C0 - 0x0401C9E0
