@@ -54,7 +54,7 @@ extern const Gfx wario_w_logo_dl[];
 extern const Gfx wario_eyes_cap_on_dl[];
 extern const Gfx wario_mouth_cap_on_dl[];
 extern const Gfx wario_hair_sideburn_cap_on_dl[];
-extern const Gfx wario_nose_cap_on_dl[]
+extern const Gfx wario_nose_cap_on_dl[];
 extern const Gfx wario_face_part_cap_on_dl[];
 extern const Gfx wario_face_cap_dl[];
 extern const Gfx wario_face_back_hair_cap_on_dl[];;
