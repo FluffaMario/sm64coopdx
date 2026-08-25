@@ -3433,7 +3433,7 @@ const Gfx wario_right_hand_cap_wings_half_2_dl[] = {
     gsSPEndDisplayList(),
 };
 
-const Gfx wario_right_hand_cap_wings_intial_dl[] = {
+const Gfx wario_right_hand_cap_wings_initial_dl[] = {
     gsDPPipeSync(),
     gsDPSetCombineMode(G_CC_MODULATERGBFADEA, G_CC_MODULATERGBFADEA),
     gsSPClearGeometryMode(G_CULL_BACK | G_SHADING_SMOOTH),
