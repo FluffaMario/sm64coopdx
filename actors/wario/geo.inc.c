@@ -118,7 +118,7 @@ const GeoLayout wario_geo_right_hand[] = {
 const GeoLayout wario_geo_body[] = {
    GEO_ANIMATED_PART(LAYER_OPAQUE, 0, 0, 0, NULL),
    GEO_OPEN_NODE(),
-      GEO_SCALE(0x00, 57912),
+      GEO_SCALE(0x00, 65536),
       GEO_OPEN_NODE(),
          GEO_ANIMATED_PART(LAYER_OPAQUE, 0, 0, 0, wario_butt), // starts sharing solid color with wario_torso (purple)
          GEO_OPEN_NODE(),
@@ -307,7 +307,7 @@ const GeoLayout wario_vanish_geo_right_hand[] = {
 const GeoLayout wario_vanish_geo_body[] = {
    GEO_ANIMATED_PART(LAYER_TRANSPARENT, 0, 0, 0, NULL),
    GEO_OPEN_NODE(),
-      GEO_SCALE(0x00, 57912),
+      GEO_SCALE(0x00, 65536),
       GEO_OPEN_NODE(),
          GEO_ANIMATED_PART(LAYER_TRANSPARENT, 0, 0, 0, wario_butt), // starts sharing solid color with wario_torso (purple)
          GEO_OPEN_NODE(),
@@ -475,7 +475,7 @@ const GeoLayout wario_metal_geo_right_hand[] = {
 const GeoLayout wario_metal_geo_body[] = {
    GEO_ANIMATED_PART(LAYER_OPAQUE, 0, 0, 0, NULL),
    GEO_OPEN_NODE(),
-      GEO_SCALE(0x00, 57912),
+      GEO_SCALE(0x00, 65536),
       GEO_OPEN_NODE(),
          GEO_ANIMATED_PART(LAYER_OPAQUE, 0, 0, 0, wario_metal_butt), // starts sharing metal texture with the dls below
          GEO_OPEN_NODE(),
@@ -643,7 +643,7 @@ const GeoLayout wario_metal_vanish_geo_right_hand[] = {
 const GeoLayout wario_metal_vanish_geo_body[] = {
    GEO_ANIMATED_PART(LAYER_TRANSPARENT, 0, 0, 0, NULL),
    GEO_OPEN_NODE(),
-      GEO_SCALE(0x00, 57912),
+      GEO_SCALE(0x00, 65536),
       GEO_OPEN_NODE(),
          GEO_ANIMATED_PART(LAYER_TRANSPARENT, 0, 0, 0, wario_metal_butt), // starts sharing metal texture with the dls below
          GEO_OPEN_NODE(),
@@ -732,7 +732,7 @@ const GeoLayout wario_geo[] = {
    GEO_OPEN_NODE(),
       GEO_SHADOW(SHADOW_CIRCLE_PLAYER, 0xB4, 100),
          GEO_OPEN_NODE(),
-            GEO_SCALE(0x00, 14478),
+            GEO_SCALE(0x00, 16384),
             GEO_OPEN_NODE(),
                GEO_ASM(LAYER_OPAQUE + 3, geo_mario_set_player_colors),
                GEO_ASM(LAYER_OPAQUE_DECAL + 3, geo_mario_set_player_colors),
