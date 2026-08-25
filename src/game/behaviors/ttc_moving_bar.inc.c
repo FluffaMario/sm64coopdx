@@ -7,7 +7,7 @@
  * The delay before each cycle on each setting. On random setting, this is
  * overwritten with one of the below delays after the first cycle.
  */
-static s16 sTTCMovingBarDelays[] = {
+s16 gTTCMovingBarDelays[] = {
     /* TTC_SPEED_SLOW    */ 55,
     /* TTC_SPEED_FAST    */ 30,
     /* TTC_SPEED_RANDOM  */ 55,
@@ -24,7 +24,7 @@ static s8 sTTCMovingBarRandomDelays[] = { 1, 12, 55, 100 };
  */
 void bhv_ttc_moving_bar_init(void) {
     // If on still setting, then stick out
-    if ((o->oTTCMovingBarDelay = sTTCMovingBarDelays[gTTCSpeedSetting]) == 0) {
+    if ((o->oTTCMovingBarDelay = gTTCMovingBarDelays[gTTCSpeedSetting]) == 0) {
         o->oTTCMovingBarOffset = 250.0f;
     }
 
@@ -37,11 +37,11 @@ void bhv_ttc_moving_bar_init(void) {
     struct SyncObject* so = sync_object_init(o, 4000.0f);
     if (so) {
         so->minUpdateRate = 5.0f;
-        sync_object_init_field(o, &o->oTTCMovingBarDelay);
-        sync_object_init_field(o, &o->oTTCMovingBarStoppedTimer);
-        sync_object_init_field(o, &o->oTTCMovingBarOffset);
-        sync_object_init_field(o, &o->oTTCMovingBarSpeed);
-        sync_object_init_field(o, &o->oTTCMovingBarStartOffset);
+        sync_object_init_field(o, o->oTTCMovingBarDelay);
+        sync_object_init_field(o, o->oTTCMovingBarStoppedTimer);
+        sync_object_init_field(o, o->oTTCMovingBarOffset);
+        sync_object_init_field(o, o->oTTCMovingBarSpeed);
+        sync_object_init_field(o, o->oTTCMovingBarStartOffset);
     }
 }
 

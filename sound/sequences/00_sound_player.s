@@ -2803,7 +2803,7 @@ layer_jump .layer_C4E
   chan_setinstr 0
   chan_setlayer 0, .layer_FA2_eu
   chan_end
-  
+
   .layer_FA2_eu:
   layer_delay 0x5
   layer_end
@@ -7888,11 +7888,6 @@ chan_end
   chan_setbank 8
   chan_setinstr 26
   chan_setlayer 0, .layer_311D
-  chan_setval 1
-  chan_call .delay
-  chan_setbank 4
-  chan_setinstr 14
-  chan_setlayer 1, .layer_1344
   chan_end
 
   .layer_311D:

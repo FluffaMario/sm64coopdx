@@ -1,14 +1,14 @@
 // Mr. Blizzard hitbox
 struct ObjectHitbox sMrBlizzardHitbox = {
-    /* interactType:      */ INTERACT_MR_BLIZZARD,
-    /* downOffset:        */ 24,
-    /* damageOrCoinValue: */ 2,
-    /* health:            */ 99,
-    /* numLootCoins:      */ 3,
-    /* radius:            */ 65,
-    /* height:            */ 170,
-    /* hurtboxRadius:     */ 65,
-    /* hurtboxHeight:     */ 170,
+    .interactType = INTERACT_MR_BLIZZARD,
+    .downOffset = 24,
+    .damageOrCoinValue = 2,
+    .health = 99,
+    .numLootCoins = 3,
+    .radius = 65,
+    .height = 170,
+    .hurtboxRadius = 65,
+    .hurtboxHeight = 170,
 };
 
 // Mr. Blizzard particle spawner.
@@ -49,14 +49,14 @@ void bhv_mr_blizzard_init(void) {
         o->oMrBlizzardTargetMoveYaw = o->oMoveAngleYaw;
 
         sync_object_init(o, SYNC_DISTANCE_ONLY_EVENTS);
-        sync_object_init_field(o, &o->oMrBlizzardTargetMoveYaw);
-        sync_object_init_field(o, &o->oMrBlizzardTimer);
-        sync_object_init_field(o, &o->oMrBlizzardDistFromHome);
-        sync_object_init_field(o, &o->oForwardVel);
-        sync_object_init_field(o, &o->oVelY);
-        sync_object_init_field(o, &o->oPosX);
-        sync_object_init_field(o, &o->oPosY);
-        sync_object_init_field(o, &o->oPosZ);
+        sync_object_init_field(o, o->oMrBlizzardTargetMoveYaw);
+        sync_object_init_field(o, o->oMrBlizzardTimer);
+        sync_object_init_field(o, o->oMrBlizzardDistFromHome);
+        sync_object_init_field(o, o->oForwardVel);
+        sync_object_init_field(o, o->oVelY);
+        sync_object_init_field(o, o->oPosX);
+        sync_object_init_field(o, o->oPosY);
+        sync_object_init_field(o, o->oPosZ);
     } else {
         if (o->oBehParams2ndByte != MR_BLIZZARD_STYPE_NO_CAP) {
             // Cap wearing Mr. Blizzard from SL.
@@ -70,10 +70,10 @@ void bhv_mr_blizzard_init(void) {
         o->oMrBlizzardHeldObj = NULL;
 
         sync_object_init(o, SYNC_DISTANCE_ONLY_EVENTS);
-        sync_object_init_field(o, &o->oMrBlizzardTargetMoveYaw);
-        sync_object_init_field(o, &o->oAction);
-        sync_object_init_field(o, &o->oMrBlizzardGraphYOffset);
-        sync_object_init_field(o, &o->oMoveAngleYaw);
+        sync_object_init_field(o, o->oMrBlizzardTargetMoveYaw);
+        sync_object_init_field(o, o->oAction);
+        sync_object_init_field(o, o->oMrBlizzardGraphYOffset);
+        sync_object_init_field(o, o->oMoveAngleYaw);
     }
 }
 
@@ -246,7 +246,7 @@ static void mr_blizzard_act_death(void) {
             if (o->oAnimState) {
                 gMarioStates[0].cap &= ~SAVE_FLAG_CAP_ON_MR_BLIZZARD;
 
-                cap = spawn_object_relative(0, 5, 105, 0, o, MODEL_MARIOS_CAP, bhvNormalCap);
+                cap = spawn_object_relative(0, 5, 105, 0, o, gMarioStates[0].character->capModelId, bhvNormalCap);
                 if (cap != NULL) {
                     cap->globalPlayerIndex = o->globalPlayerIndex;
                     cap->oMoveAngleYaw = o->oFaceAngleYaw + (o->oFaceAngleRoll < 0 ? 0x4000 : -0x4000);
@@ -472,15 +472,15 @@ static void mr_blizzard_snowball_act_1(void) {
 }
 // Snowball hitbox.
 struct ObjectHitbox sMrBlizzardSnowballHitbox = {
-    /* interactType:      */ INTERACT_MR_BLIZZARD,
-    /* downOffset:        */ 12,
-    /* damageOrCoinValue: */ 1,
-    /* health:            */ 99,
-    /* numLootCoins:      */ 0,
-    /* radius:            */ 30,
-    /* height:            */ 30,
-    /* hurtboxRadius:     */ 25,
-    /* hurtboxHeight:     */ 25,
+    .interactType = INTERACT_MR_BLIZZARD,
+    .downOffset = 12,
+    .damageOrCoinValue = 1,
+    .health = 99,
+    .numLootCoins = 0,
+    .radius = 30,
+    .height = 30,
+    .hurtboxRadius = 25,
+    .hurtboxHeight = 25,
 };
 
 /**

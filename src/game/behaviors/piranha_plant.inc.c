@@ -122,6 +122,7 @@ void piranha_plant_act_woken_up(void) {
      */
     o->oDamageOrCoinValue = 3;
 #endif
+
     if (o->oTimer == 0)
         stop_secondary_music(50);
 
@@ -270,6 +271,9 @@ void piranha_plant_act_biting(void) {
 
     cur_obj_init_animation_with_sound(0);
 
+    cur_obj_set_hitbox_radius_and_height(150.0f, 100.0f);
+    cur_obj_set_hurtbox_radius_and_height(150.0f, 100.0f);
+
     // Play a bite sound effect on certain frames.
     if (is_item_in_array(frame, sPiranhaPlantBiteSoundFrames)) {
         cur_obj_play_sound_2(SOUND_OBJ2_PIRANHA_PLANT_BITE);
@@ -359,27 +363,28 @@ void (*TablePiranhaPlantActions[])(void) = {
 void bhv_piranha_plant_loop(void) {
     if (!sync_object_is_initialized(o->oSyncID)) {
         sync_object_init(o, 2000.0f);
-        sync_object_init_field(o, &o->oAction);
-        sync_object_init_field(o, &o->oInteractStatus);
-        sync_object_init_field(o, &o->oInteractType);
-        sync_object_init_field(o, &o->oMoveAngleYaw);
-        sync_object_init_field(o, &o->oPiranhaPlantScale);
-        sync_object_init_field(o, &o->oPiranhaPlantSleepMusicState);
-        sync_object_init_field(o, &o->oTimer);
+        sync_object_init_field(o, o->oAction);
+        sync_object_init_field(o, o->oInteractStatus);
+        sync_object_init_field(o, o->oInteractType);
+        sync_object_init_field(o, o->oMoveAngleYaw);
+        sync_object_init_field(o, o->oPiranhaPlantScale);
+        sync_object_init_field(o, o->oPiranhaPlantSleepMusicState);
+        sync_object_init_field(o, o->oTimer);
     }
-
-    cur_obj_set_hitbox_radius_and_height(150.0f, 100.0f);
-    cur_obj_set_hurtbox_radius_and_height(150.0f, 100.0f);
 
     CUR_OBJ_CALL_ACTION_FUNCTION(TablePiranhaPlantActions);
     // In WF, hide all Piranha Plants once high enough up.
     if (gCurrLevelNum == LEVEL_WF) {
-        struct Object* player = gMarioStates[0].marioObj;
-        f32 scalar = max(draw_distance_scalar(), 1.0f);
-        if (player->oPosY > 3400.0f * scalar)
-            cur_obj_hide();
-        else
+        if (draw_distance_scalar_is_infinite()) {
             cur_obj_unhide();
+        } else {
+            struct Object* player = gMarioStates[0].marioObj;
+            f32 scalar = max(draw_distance_scalar(), 1.0f);
+            if (player->oPosY > 3400.0f * scalar)
+                cur_obj_hide();
+            else
+                cur_obj_unhide();
+        }
     }
     o->oInteractStatus = 0;
 }

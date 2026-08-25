@@ -1,19 +1,21 @@
 #pragma once
 #include "djui.h"
 
-#define DJUI_THEME_CENTERED_WIDTH 1.25f
-#define DJUI_THEME_CENTERED_HEIGHT 0.88f
+#define DJUI_THEME_CENTERED_WIDTH 1.3f
+#define DJUI_THEME_CENTERED_HEIGHT 0.921f
 
 enum DjuiThemeType {
     DJUI_THEME_LIGHT,
     DJUI_THEME_DARK,
     DJUI_THEME_FILE_SELECT,
     DJUI_THEME_MARIO,
+    DJUI_THEME_ODYSSEY,
     DJUI_THEME_MAX
 };
 
 struct DjuiInteractableTheme {
     struct DjuiColor textColor;
+    struct DjuiColor disabledTextColor;
 
     struct DjuiColor defaultRectColor;
     struct DjuiColor cursorDownRectColor;
@@ -43,5 +45,5 @@ struct DjuiTheme {
 
 extern struct DjuiTheme* gDjuiThemes[];
 
-struct DjuiColor djui_theme_shade_color(struct DjuiColor color);
+struct DjuiColor djui_theme_shade_color(struct DjuiColor color, f32 mult);
 void djui_themes_init(void);

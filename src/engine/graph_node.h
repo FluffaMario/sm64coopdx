@@ -20,6 +20,7 @@
 
 // Extra, custom, flags
 #define GRAPH_EXTRA_FORCE_3D        (1 << 0)
+#define GRAPH_EXTRA_ROTATE_HELD     (1 << 1)
 
 // Whether the node type has a function pointer of type GraphNodeFunc
 #define GRAPH_NODE_TYPE_FUNCTIONAL            0x100
@@ -44,12 +45,14 @@
 #define GRAPH_NODE_TYPE_BILLBOARD             0x01A
 #define GRAPH_NODE_TYPE_DISPLAY_LIST          0x01B
 #define GRAPH_NODE_TYPE_SCALE                 0x01C
+#define GRAPH_NODE_TYPE_SCALE_XYZ             0x01D
 #define GRAPH_NODE_TYPE_SHADOW                0x028
 #define GRAPH_NODE_TYPE_OBJECT_PARENT         0x029
 #define GRAPH_NODE_TYPE_GENERATED_LIST       (0x02A | GRAPH_NODE_TYPE_FUNCTIONAL)
 #define GRAPH_NODE_TYPE_BACKGROUND           (0x02C | GRAPH_NODE_TYPE_FUNCTIONAL)
 #define GRAPH_NODE_TYPE_HELD_OBJ             (0x02E | GRAPH_NODE_TYPE_FUNCTIONAL)
 #define GRAPH_NODE_TYPE_CULLING_RADIUS        0x02F
+#define GRAPH_NODE_TYPE_BONE                  0x030
 
 // The number of master lists. A master list determines the order and render
 // mode with which display lists are drawn.
@@ -79,6 +82,7 @@ struct FnGraphNode
 {
     /*0x00*/ struct GraphNode node;
     /*0x14*/ GraphNodeFunc func;
+    u32 luaTokenIndex; // reference to lua function resolved during geo_process_lua_function (1-indexed)
 };
 
 /** The very root of the geo tree. Specifies the viewport.
@@ -127,7 +131,7 @@ struct DisplayListNode
 {
     Mtx *transform;
     Mtx *transformPrev;
-    void *displayList;
+    Gfx *displayList;
     struct DisplayListNode *next;
     u8 usingCamSpace;
 };
@@ -174,7 +178,7 @@ struct GraphNodeSwitchCase
 {
     /*0x00*/ struct FnGraphNode fnNode;
     /*0x18*/ s32 unused;
-    /*0x1C*/ s16 numCases;
+    /*0x1C*/ s16 parameter;
     /*0x1E*/ s16 selectedCase;
 };
 
@@ -213,7 +217,7 @@ struct GraphNodeCamera
 struct GraphNodeTranslationRotation
 {
     /*0x00*/ struct GraphNode node;
-    /*0x14*/ void *displayList;
+    /*0x14*/ Gfx *displayList;
     /*0x18*/ Vec3s translation;
     /*0x1E*/ Vec3s rotation;
 };
@@ -225,7 +229,7 @@ struct GraphNodeTranslationRotation
 struct GraphNodeTranslation
 {
     /*0x00*/ struct GraphNode node;
-    /*0x14*/ void *displayList;
+    /*0x14*/ Gfx *displayList;
     /*0x18*/ Vec3s translation;
     u8 pad1E[2];
 };
@@ -238,10 +242,8 @@ struct GraphNodeTranslation
 struct GraphNodeRotation
 {
     /*0x00*/ struct GraphNode node;
-    /*0x14*/ void *displayList;
+    /*0x14*/ Gfx *displayList;
     /*0x18*/ Vec3s rotation;
-    Vec3s prevRotation;
-    u32 prevTimestamp;
 };
 
 /** GraphNode part that transforms itself and its children based on animation
@@ -254,7 +256,7 @@ struct GraphNodeRotation
 struct GraphNodeAnimatedPart
 {
     /*0x00*/ struct GraphNode node;
-    /*0x14*/ void *displayList;
+    /*0x14*/ Gfx *displayList;
     /*0x18*/ Vec3s translation;
 };
 
@@ -266,7 +268,7 @@ struct GraphNodeAnimatedPart
 struct GraphNodeBillboard
 {
     /*0x00*/ struct GraphNode node;
-    /*0x14*/ void *displayList;
+    /*0x14*/ Gfx *displayList;
     /*0x18*/ Vec3s translation;
 };
 
@@ -276,7 +278,7 @@ struct GraphNodeBillboard
 struct GraphNodeDisplayList
 {
     /*0x00*/ struct GraphNode node;
-    /*0x14*/ void *displayList;
+    /*0x14*/ Gfx *displayList;
 };
 
 /** GraphNode part that scales itself and its children.
@@ -290,9 +292,18 @@ struct GraphNodeDisplayList
 struct GraphNodeScale
 {
     /*0x00*/ struct GraphNode node;
-    /*0x14*/ void *displayList;
+    /*0x14*/ Gfx *displayList;
     /*0x18*/ f32 scale;
-    /*????*/ f32 prevScale;
+};
+
+/** GraphNodeScale but on X, Y and Z independently.
+ *  Must be another graph node type for retro-compatibility.
+ */
+struct GraphNodeScaleXYZ
+{
+    /*0x00*/ struct GraphNode node;
+    /*0x14*/ Gfx *displayList;
+    /*0x18*/ Vec3f scale;
 };
 
 /** GraphNode that draws a shadow under an object.
@@ -368,6 +379,18 @@ struct GraphNodeCullingRadius
     u8 pad1E[2];
 };
 
+/**
+ * GraphNodeAnimatedPart with initial rotation and scale values.
+ */
+struct GraphNodeBone
+{
+    struct GraphNode node;
+    Gfx *displayList;
+    Vec3s translation;
+    Vec3s rotation;
+    Vec3f scale;
+};
+
 extern struct GraphNodeMasterList *gCurGraphNodeMasterList;
 extern struct GraphNodePerspective *gCurGraphNodeCamFrustum;
 extern struct GraphNodeCamera *gCurGraphNodeCamera;
@@ -378,11 +401,6 @@ extern struct GraphNode *gCurRootGraphNode;
 extern struct GraphNode *gCurGraphNodeList[];
 
 extern s16 gCurGraphNodeIndex;
-
-extern Vec3f gVec3fZero;
-extern Vec3s gVec3sZero;
-extern Vec3f gVec3fOne;
-extern Vec3s gVec3sOne;
 
 void init_scene_graph_node_links(struct GraphNode *graphNode, s32 type);
 
@@ -396,7 +414,7 @@ struct GraphNodeMasterList *init_graph_node_master_list(struct DynamicPool *pool
 struct GraphNodeLevelOfDetail *init_graph_node_render_range(struct DynamicPool *pool, struct GraphNodeLevelOfDetail *graphNode,
                                                             s16 minDistance, s16 maxDistance);
 struct GraphNodeSwitchCase *init_graph_node_switch_case(struct DynamicPool *pool, struct GraphNodeSwitchCase *graphNode,
-                                                        s16 numCases, s16 selectedCase, GraphNodeFunc nodeFunc, s32 unused);
+                                                        s16 parameter, s16 selectedCase, GraphNodeFunc nodeFunc, s32 unused);
 struct GraphNodeCamera *init_graph_node_camera(struct DynamicPool *pool, struct GraphNodeCamera *graphNode,
                                                f32 *pos, f32 *focus, GraphNodeFunc func, s32 mode);
 struct GraphNodeTranslationRotation *init_graph_node_translation_rotation(struct DynamicPool *pool, struct GraphNodeTranslationRotation *graphNode,
@@ -407,6 +425,8 @@ struct GraphNodeRotation *init_graph_node_rotation(struct DynamicPool *pool, str
                                                    s32 drawingLayer, void *displayList, Vec3s rotation);
 struct GraphNodeScale *init_graph_node_scale(struct DynamicPool *pool, struct GraphNodeScale *graphNode,
                                              s32 drawingLayer, void *displayList, f32 scale);
+struct GraphNodeScaleXYZ *init_graph_node_scale_xyz(struct DynamicPool *pool, struct GraphNodeScaleXYZ *graphNode,
+                                             s32 drawingLayer, void *displayList, Vec3f scale);
 struct GraphNodeObject *init_graph_node_object(struct DynamicPool *pool, struct GraphNodeObject *graphNode,
                                                struct GraphNode *sharedChild, Vec3f pos, Vec3s angle, Vec3f scale);
 struct GraphNodeCullingRadius *init_graph_node_culling_radius(struct DynamicPool *pool, struct GraphNodeCullingRadius *graphNode, s16 radius);
@@ -427,10 +447,16 @@ struct GraphNodeBackground *init_graph_node_background(struct DynamicPool *pool,
 struct GraphNodeHeldObject *init_graph_node_held_object(struct DynamicPool *pool, struct GraphNodeHeldObject *sp1c,
                                                         struct Object *objNode, Vec3s translation,
                                                         GraphNodeFunc nodeFunc, s32 playerIndex);
+struct GraphNodeBone *init_graph_node_bone(struct DynamicPool *pool,
+                                           struct GraphNodeBone *graphNode,
+                                           s32 drawingLayer, void *displayList,
+                                           Vec3s translation, Vec3s rotation,
+                                           Vec3f scale);
 struct GraphNode *geo_add_child(struct GraphNode *parent, struct GraphNode *childNode);
 struct GraphNode* geo_remove_child_from_parent(struct GraphNode* parent, struct GraphNode* graphNode);
 struct GraphNode *geo_remove_child(struct GraphNode *graphNode);
 struct GraphNode *geo_make_first_child(struct GraphNode *newFirstChild);
+struct GraphNode *geo_find_shared_child(struct GraphNode *graphNode);
 
 void geo_call_global_function_nodes_helper(struct GraphNode *graphNode, s32 callContext);
 void geo_call_global_function_nodes(struct GraphNode *graphNode, s32 callContext);

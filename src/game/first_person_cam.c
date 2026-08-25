@@ -15,13 +15,13 @@
 #include "pc/controller/controller_mouse.h"
 #include "pc/djui/djui.h"
 #include "pc/djui/djui_hud_utils.h"
-#include "pc/lua/utils/smlua_misc_utils.h"
+#include "pc/lua/utils/smlua_camera_utils.h"
 #include "pc/lua/smlua_hooks.h"
-
-#define CLAMP(_val, _min, _max) MAX(MIN((_val), _max), _min)
 
 struct FirstPersonCamera gFirstPersonCamera = {
     .enabled = false,
+    .forcePitch = false,
+    .forceYaw = false,
     .forceRoll = true,
     .centerL = true,
     .pitch = 0,
@@ -37,10 +37,11 @@ bool first_person_check_cancels(struct MarioState *m) {
     if (m->action == ACT_FIRST_PERSON || m->action == ACT_IN_CANNON || m->action == ACT_READING_NPC_DIALOG || m->action == ACT_DISAPPEARED || m->action == ACT_FLYING) {
         return true;
     }
+    if (find_object_with_behavior(smlua_override_behavior(bhvActSelector)) != NULL) { return true; }
 
     if (gLuaLoadingMod != NULL) { return false; }
 
-    struct Object *bowser = find_object_with_behavior(bhvBowser);
+    struct Object *bowser = find_object_with_behavior(smlua_override_behavior(bhvBowser));
     if ((gCurrLevelNum == LEVEL_BOWSER_1 || gCurrLevelNum == LEVEL_BOWSER_2 || gCurrLevelNum == LEVEL_BOWSER_3) &&
         bowser != NULL &&
         (bowser->oAction == 5 || bowser->oAction == 6)) {
@@ -55,32 +56,39 @@ bool get_first_person_enabled(void) {
 }
 
 void set_first_person_enabled(bool enable) {
-    if (gFirstPersonCamera.enabled && !enable) { gFOVState.fov = 45.0f; }
     gFirstPersonCamera.enabled = enable;
 }
 
-void first_person_camera_update(void) {
+static void first_person_camera_update(void) {
     struct MarioState *m = &gMarioStates[0];
     f32 sensX = 0.3f * camera_config_get_x_sensitivity();
     f32 sensY = 0.4f * camera_config_get_y_sensitivity();
-    s16 invX = camera_config_is_x_inverted() ? 1 : -1;
-    s16 invY = camera_config_is_y_inverted() ? 1 : -1;
 
-    if (gMenuMode == -1 && !gDjuiChatBoxFocus && !gDjuiConsoleFocus) {
-        // update pitch
-        gFirstPersonCamera.pitch -= sensY * (invY * m->controller->extStickY - 1.5f * mouse_y);
-        gFirstPersonCamera.pitch = CLAMP(gFirstPersonCamera.pitch, -0x3F00, 0x3F00);
-
-        // update yaw
-        if (m->controller->buttonPressed & L_TRIG && gFirstPersonCamera.centerL) {
-            gFirstPersonCamera.yaw = m->faceAngle[1] + 0x8000;
-        } else {
-            gFirstPersonCamera.yaw += sensX * (invX * m->controller->extStickX - 1.5f * mouse_x);
+    if (mouse_relative_enabled) {
+        // hack: make c buttons work for moving the camera
+        s16 extStickX = m->controller->extStickX;
+        s16 extStickY = m->controller->extStickY;
+        if (extStickX == 0) {
+            extStickX = (clamp(m->controller->buttonDown & L_CBUTTONS, 0, 1) - clamp(m->controller->buttonDown & R_CBUTTONS, 0, 1)) * 32;
+        }
+        if (extStickY == 0) {
+            extStickY = (clamp(m->controller->buttonDown & U_CBUTTONS, 0, 1) - clamp(m->controller->buttonDown & D_CBUTTONS, 0, 1)) * 24;
         }
 
-        gDjuiHudLockMouse = true;
-    } else {
-        gDjuiHudLockMouse = false;
+        // update pitch
+        if (!gFirstPersonCamera.forcePitch) {
+            gFirstPersonCamera.pitch -= sensY * (extStickY - 1.5f * mouse_y);
+            gFirstPersonCamera.pitch = clamp(gFirstPersonCamera.pitch, -0x3F00, 0x3F00);
+        }
+
+        // update yaw
+        if (!gFirstPersonCamera.forceYaw) {
+            if (m->controller->buttonDown & L_TRIG && gFirstPersonCamera.centerL) {
+                gFirstPersonCamera.yaw = m->faceAngle[1] + 0x8000;
+            } else {
+                gFirstPersonCamera.yaw += sensX * (extStickX - 1.5f * mouse_x);
+            }
+        }
     }
 
     // fix yaw for some specific actions
@@ -109,9 +117,9 @@ void first_person_camera_update(void) {
     if (mario_is_crouching(m) || m->action == ACT_LEDGE_GRAB) {
         bool up = (m->controller->buttonDown & Z_TRIG) != 0 || m->action == ACT_CROUCH_SLIDE || m->action == ACT_LEDGE_GRAB;
         f32 inc = 10 * (up ? 1 : -1);
-        gFirstPersonCamera.crouch = CLAMP(gFirstPersonCamera.crouch + inc, 0, FIRST_PERSON_MARIO_HEAD_POS - FIRST_PERSON_MARIO_HEAD_POS_SHORT);
+        gFirstPersonCamera.crouch = clamp(gFirstPersonCamera.crouch + inc, 0, FIRST_PERSON_MARIO_HEAD_POS - FIRST_PERSON_MARIO_HEAD_POS_SHORT);
     } else {
-        gFirstPersonCamera.crouch = CLAMP(gFirstPersonCamera.crouch - 10, 0, FIRST_PERSON_MARIO_HEAD_POS - FIRST_PERSON_MARIO_HEAD_POS_SHORT);
+        gFirstPersonCamera.crouch = clamp(gFirstPersonCamera.crouch - 10, 0, FIRST_PERSON_MARIO_HEAD_POS - FIRST_PERSON_MARIO_HEAD_POS_SHORT);
     }
 
     if (m->action == ACT_LEDGE_GRAB) {
@@ -143,8 +151,6 @@ void first_person_camera_update(void) {
     gLakituState.focHSpeed = 0;
     gLakituState.focVSpeed = 0;
     vec3s_set(gLakituState.shakeMagnitude, 0, 0, 0);
-
-    gFOVState.fov = gFirstPersonCamera.fov;
 }
 
 void first_person_update(void) {
@@ -181,8 +187,6 @@ void first_person_update(void) {
         }
 
         first_person_camera_update();
-    } else if (!camera_config_is_mouse_look_enabled()) {
-        gDjuiHudLockMouse = false;
     }
 }
 

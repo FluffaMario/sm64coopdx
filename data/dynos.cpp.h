@@ -3,12 +3,14 @@
 #ifdef __cplusplus
 
 #include "dynos.h"
+#include <vector>
 
 extern "C" {
 #include "engine/behavior_script.h"
 #include "engine/math_util.h"
-#include "src/game/moving_texture.h"
-#include "src/pc/djui/djui_console.h"
+#include "game/moving_texture.h"
+#include "pc/djui/djui_console.h"
+#include "pc/fs/fmem.h"
 }
 
 #define FUNCTION_CODE   (u32) 0x434E5546
@@ -16,7 +18,12 @@ extern "C" {
 #define LUA_VAR_CODE    (u32) 0x5641554C
 #define TEX_REF_CODE    (u32) 0x52584554
 
-#define MOD_PACK_INDEX 99
+#define FUNCTION_GEO    1
+#define FUNCTION_BHV    2
+#define FUNCTION_LVL    3
+
+#define MOD_PACK_INDEX -1 // the pack index for actors loaded from mods
+#define PACK_MOD_INDEX -1 // the mod index for actors loaded from packs
 
 //
 // Enums
@@ -95,16 +102,16 @@ public:
 
 public:
     static BinFile *OpenR(const char *aFilename) {
-        FILE *f = fopen(aFilename, "rb");
+        FILE *f = f_open_r(aFilename);
         if (f) {
-            fseek(f, 0, SEEK_END);
+            f_seek(f, 0, SEEK_END);
             BinFile *_BinFile = (BinFile *) calloc(1, sizeof(BinFile));
             _BinFile->mFilename = (const char *) memcpy(calloc(strlen(aFilename) + 1, 1), aFilename, strlen(aFilename));
             _BinFile->mReadOnly = true;
-            _BinFile->Grow(ftell(f));
-            rewind(f);
-            fread(_BinFile->mData, 1, _BinFile->mSize, f);
-            fclose(f);
+            _BinFile->Grow(f_tell(f));
+            f_rewind(f);
+            f_read(_BinFile->mData, 1, _BinFile->mSize, f);
+            f_close(f);
             return _BinFile;
         }
         return NULL;
@@ -153,6 +160,9 @@ public:
 
     template <typename T>
     T *Read(T *aBuffer, s32 aCount) const {
+        if (aCount <= 0 || aBuffer == NULL) {
+            return aBuffer;
+        }
         if (mOffset + aCount * sizeof(T) <= mSize) {
             memcpy(aBuffer, mData + mOffset, aCount * sizeof(T));
             mOffset += aCount * sizeof(T);
@@ -171,6 +181,9 @@ public:
 
     template <typename T>
     void Write(const T *aBuffer, s32 aCount) {
+        if (aCount <= 0 || aBuffer == NULL) {
+            return;
+        }
         if (!mReadOnly) {
             Grow(mOffset + aCount * sizeof(T));
             memcpy(mData + mOffset, aBuffer, aCount * sizeof(T));
@@ -198,6 +211,10 @@ private:
 
 template <typename T>
 class Array {
+    static_assert(
+        std::is_trivially_destructible_v<T>,
+        "DynOS Array can only be used with types that have trivial destructors."
+    );
 public:
     inline Array() : mBuffer(NULL), mCount(0), mCapacity(0) {
     }
@@ -299,6 +316,10 @@ public:
 public:
     void Read(BinFile *aFile) {
         s32 _Length = aFile->Read<s32>();
+        if (_Length <= 0) {
+            Resize(0);
+            return;
+        }
         Resize(_Length);
         aFile->Read<T>(mBuffer, _Length);
     }
@@ -510,7 +531,7 @@ struct AnimData : NoCopy {
     s16 mUnk06 = 0;
     s16 mUnk08 = 0;
     Pair<String, s16> mUnk0A;
-    Pair<String, Array<s16>> mValues;
+    Pair<String, Array<u16>> mValues;
     Pair<String, Array<u16>> mIndex;
     u32 mLength = 0;
 };
@@ -521,12 +542,52 @@ struct DataNode : NoCopy {
     T* mData = NULL;
     u32 mSize = 0;
     Array<String> mTokens;
-    u64 mModelIdentifier = 0;
+    u64 mDataIdentifier = 0;
     u64 mLoadIndex = 0;
     u8 mFlags = 0;
 };
+
 template <typename T>
-using DataNodes = Array<DataNode<T>*>;
+class DataNodes : public Array<DataNode<T>*> {
+public:
+
+    // Find a node given a name.
+    // Return the first node found, ignoring the data identifier.
+    DataNode<T> *Find(const String &aName) {
+        for (auto &node : *this) {
+            if (aName == node->mName) {
+                return node;
+            }
+        }
+        return NULL;
+    }
+
+    // Find a node given a name and a data identifier.
+    // If a node with the same name and data identifier is not found,
+    // return the last loaded node with the same name.
+    DataNode<T> *Find(const String &aName, u64 aDataIdentifier) {
+        DataNode<T> *best = NULL;
+        for (auto &node : *this) {
+            if (aName == node->mName) {
+                if (aDataIdentifier == node->mDataIdentifier) {
+                    return node;
+                }
+                best = node;
+            }
+        }
+        return best;
+    }
+
+    // Find a node given a name and a data identifier.
+    DataNode<T> *FindExact(const String &aName, u64 aDataIdentifier) {
+        for (auto &node : *this) {
+            if (aName == node->mName && aDataIdentifier == node->mDataIdentifier) {
+                return node;
+            }
+        }
+        return NULL;
+    }
+};
 
 struct GfxContext {
     DataNode<TexData>* mCurrentTexture = NULL;
@@ -555,6 +616,7 @@ struct GfxData : NoCopy {
     DataNodes<Movtex> mMovtexs;
     DataNodes<MovtexQC> mMovtexQCs;
     DataNodes<u8> mRooms;
+    DataNodes<void> mRawPointers;
 
     // Animation data
     Array<AnimBuffer<s16> *> mAnimValues;
@@ -568,8 +630,9 @@ struct GfxData : NoCopy {
     // Current
     u64 mLoadIndex = 0;
     s32 mErrorCount = 0;
-    u32 mModelIdentifier = 0;
+    u64 mDataIdentifier = 0;
     s32 mModIndex = 0;
+    s32 mModFileIndex = 0;
     SysPath mPackFolder;
     Array<void *> mPointerList;
     Array<Pair<const void*, const void*>> mPointerOffsetList;
@@ -588,72 +651,11 @@ struct ActorGfx {
 struct PackData {
     s32 mIndex;
     bool mEnabled;
-    bool mEnabledSet;
     SysPath mPath;
     String mDisplayName;
-    Array<Pair<const char *, GfxData *>> mGfxData;
-    Array<DataNode<TexData>*> mTextures;
+    std::vector<std::pair<std::string, GfxData *>> mGfxData;
+    std::vector<DataNode<TexData>*> mTextures;
     bool mLoaded;
-};
-
-typedef Pair<String, const u8 *> Label;
-struct DynosOption : NoCopy {
-    String mName;
-    String mConfigName; // Name used in the config file
-    Label mLabel;
-    Label mTitle; // Full caps label, displayed with colored font
-    DynosOption *mPrev;
-    DynosOption *mNext;
-    DynosOption *mParent;
-    bool mDynos; // true from create, false from convert
-    u8 mType;
-
-    // TOGGLE
-    struct Toggle : NoCopy {
-        bool *mTog;
-    } mToggle;
-
-    // CHOICE
-    struct Choice : NoCopy {
-        Array<Label> mChoices;
-        s32 *mIndex;
-    } mChoice;
-
-    // SCROLL
-    struct Scroll : NoCopy {
-        s32 mMin;
-        s32 mMax;
-        s32 mStep;
-        s32 *mValue;
-    } mScroll;
-
-    // BIND
-    struct Bind : NoCopy {
-        u32 mMask;
-        u32 *mBinds;
-        s32 mIndex;
-    } mBind;
-
-    // BUTTON
-    struct Button : NoCopy {
-        String mFuncName;
-    } mButton;
-
-    // SUBMENU
-    struct Submenu : NoCopy {
-        DynosOption *mChild;
-        bool mEmpty;
-    } mSubMenu;
-};
-typedef bool (*DynosLoopFunc)(DynosOption *, void *);
-
-struct BuiltinTexInfo {
-    const char* identifier;
-    const void* pointer;
-    const char* path;
-    s32 width;
-    s32 height;
-    s32 bitSize;
 };
 
 struct LvlCmd {
@@ -734,23 +736,33 @@ void Print(const char *aFmt, Args... aArgs) {
 }
 
 template <typename... Args>
-void PrintConsole(const char *aFmt, Args... aArgs) {
+void PrintConsole(enum ConsoleMessageLevel level, const char *aFmt, Args... aArgs) {
     snprintf(gDjuiConsoleTmpBuffer, CONSOLE_MAX_TMP_BUFFER, aFmt, aArgs...);
     sys_swap_backslashes(gDjuiConsoleTmpBuffer);
-    djui_console_message_create(gDjuiConsoleTmpBuffer, CONSOLE_MESSAGE_INFO);
+    djui_console_message_create(gDjuiConsoleTmpBuffer, level);
+}
+
+template <typename... Args>
+void PrintInfoNoNewLine(const char *aFmt, Args... aArgs) {
+    PrintNoNewLine(aFmt, aArgs...);
+    PrintConsole(CONSOLE_MESSAGE_INFO, aFmt, aArgs...);
+}
+
+template <typename... Args>
+void PrintInfo(const char *aFmt, Args... aArgs) {
+    Print(aFmt, aArgs...);
+    PrintConsole(CONSOLE_MESSAGE_INFO, aFmt, aArgs...);
 }
 
 template <typename... Args>
 void PrintError(const char *aFmt, Args... aArgs) {
-    printf(aFmt, aArgs...);
-    printf("\r\n");
-    fflush(stdout);
-    // PrintConsole(aFmt, CONSOLE_MESSAGE_ERROR, aArgs...);
+    Print(aFmt, aArgs...);
+    PrintConsole(CONSOLE_MESSAGE_ERROR, aFmt, aArgs...);
 }
 #define PrintDataError(...) { \
     if (aGfxData->mErrorCount == 0) Print("  ERROR!"); \
     Print(__VA_ARGS__); \
-    PrintConsole(__VA_ARGS__); \
+    PrintConsole(CONSOLE_MESSAGE_ERROR, __VA_ARGS__); \
     aGfxData->mErrorCount++; \
 }
 
@@ -819,7 +831,8 @@ void DynOS_Level_Unoverride();
 const void *DynOS_Level_GetScript(s32 aLevel);
 s32 DynOS_Level_GetModIndex(s32 aLevel);
 bool DynOS_Level_IsVanillaLevel(s32 aLevel);
-s16 *DynOS_Level_GetWarp(s32 aLevel, s32 aArea, u8 aWarpId);
+Collision *DynOS_Level_GetCollision(u32 aLevel, u16 aArea);
+s16 *DynOS_Level_GetWarp(s32 aLevel, s32 aArea, s8 aWarpId);
 s16 *DynOS_Level_GetWarpEntry(s32 aLevel, s32 aArea);
 s16 *DynOS_Level_GetWarpDeath(s32 aLevel, s32 aArea);
 u64 DynOS_Level_CmdGet(void *aCmd, u64 aOffset);
@@ -848,6 +861,8 @@ const char*      DynOS_Builtin_Actor_GetFromData(const GeoLayout* aData);
 const GeoLayout* DynOS_Builtin_Actor_GetFromIndex(s32 aIndex);
 const char*      DynOS_Builtin_Actor_GetNameFromIndex(s32 aIndex);
 s32              DynOS_Builtin_Actor_GetCount();
+const MacroObject* DynOS_Builtin_LvlMacro_GetFromName(const char* aDataName);
+const char*      DynOS_Builtin_LvlMacro_GetFromData(const MacroObject* aData);
 const GeoLayout* DynOS_Builtin_LvlGeo_GetFromName(const char* aDataName);
 const char*      DynOS_Builtin_LvlGeo_GetFromData(const GeoLayout* aData);
 const Collision* DynOS_Builtin_Col_GetFromName(const char* aDataName);
@@ -857,11 +872,17 @@ const char *     DynOS_Builtin_Anim_GetFromData(const Animation *aData);
 const Texture*   DynOS_Builtin_Tex_GetFromName(const char* aDataName);
 const char*      DynOS_Builtin_Tex_GetFromData(const Texture* aData);
 const char*      DynOS_Builtin_Tex_GetNameFromFileName(const char* aDataName);
-const struct BuiltinTexInfo* DynOS_Builtin_Tex_GetInfoFromName(const char* aDataName);
-const void*      DynOS_Builtin_Func_GetFromName(const char* aDataName);
-const void*      DynOS_Builtin_Func_GetFromIndex(s32 aIndex);
-const char *     DynOS_Builtin_Func_GetNameFromIndex(s64 aIndex);
-s32              DynOS_Builtin_Func_GetIndexFromData(const void* aData);
+const struct TextureInfo* DynOS_Builtin_Tex_GetInfoFromName(const char* aDataName);
+const struct TextureInfo* DynOS_Builtin_Tex_GetInfoFromData(const Texture* aData);
+const void*      DynOS_Builtin_Func_GetFromName(const char* aDataName, u8 aFuncType);
+const void*      DynOS_Builtin_Func_GetFromIndex(s32 aIndex, u8 aFuncType);
+const char *     DynOS_Builtin_Func_GetNameFromIndex(s32 aIndex, u8 aFuncType);
+s32              DynOS_Builtin_Func_GetIndexFromData(const void* aData, u8 aFuncType);
+String           DynOS_Builtin_Func_CheckMisuse(s32 aIndex, u8 aFuncType);
+String           DynOS_Builtin_Func_CheckMisuse(const char* aDataName, u8 aFuncType);
+String           DynOS_Builtin_Func_CheckMisuse(const void* aData, u8 aFuncType);
+const Gfx *      DynOS_Builtin_Gfx_GetFromName(const char *aDataName);
+const char *     DynOS_Builtin_Gfx_GetFromData(const Gfx *aData);
 
 //
 // Pack Manager
@@ -872,8 +893,7 @@ void DynOS_Pack_SetEnabled(PackData* aPack, bool aEnabled);
 PackData* DynOS_Pack_GetFromIndex(s32 aIndex);
 PackData* DynOS_Pack_GetFromPath(const SysPath& aPath);
 PackData* DynOS_Pack_Add(const SysPath& aPath);
-void DynOS_Pack_Init();
-Pair<const char *, GfxData *>* DynOS_Pack_GetActor(PackData* aPackData, const char* aActorName);
+std::pair<std::string, GfxData *>* DynOS_Pack_GetActor(PackData* aPackData, const char* aActorName);
 void DynOS_Pack_AddActor(PackData* aPackData, const char* aActorName, GfxData* aGfxData);
 DataNode<TexData>* DynOS_Pack_GetTex(PackData* aPackData, const char* aTexName);
 void DynOS_Pack_AddTex(PackData* aPackData, DataNode<TexData>* aTexData);
@@ -882,13 +902,16 @@ void DynOS_Pack_AddTex(PackData* aPackData, DataNode<TexData>* aTexData);
 // Actor Manager
 //
 
-void DynOS_Actor_AddCustom(const SysPath &aFilename, const char *aActorName);
+std::map<const void *, ActorGfx> &DynOS_Actor_GetValidActors();
+bool DynOS_Actor_AddCustom(s32 aModIndex, s32 aModFileIndex, const SysPath &aFilename, const char *aActorName);
 const void *DynOS_Actor_GetLayoutFromName(const char *aActorName);
+bool DynOS_Actor_GetModIndexAndToken(const GraphNode *aGraphNode, u32 aTokenIndex, s32 *outModIndex, s32 *outModFileIndex, const char **outToken);
 ActorGfx* DynOS_Actor_GetActorGfx(const GraphNode* aGraphNode);
 void DynOS_Actor_Valid(const void* aGeoref, ActorGfx& aActorGfx);
 void DynOS_Actor_Invalid(const void* aGeoref, s32 aPackIndex);
-void DynOS_Actor_Override(void** aSharedChild);
+void DynOS_Actor_Override(struct Object* obj, void** aSharedChild);
 void DynOS_Actor_Override_All(void);
+void DynOS_Actor_RegisterModifiedGraphNode(GraphNode *aNode);
 void DynOS_Actor_ModShutdown();
 
 //
@@ -908,8 +931,9 @@ u8 *DynOS_Tex_ConvertToRGBA32(const u8 *aData, u64 aLength, s32 aFormat, s32 aSi
 bool DynOS_Tex_Import(void **aOutput, void *aPtr, s32 aTile, void *aGfxRApi, void **aHashMap, void *aPool, u32 *aPoolPos, u32 aPoolSize);
 void DynOS_Tex_Activate(DataNode<TexData>* aNode, bool aCustomTexture);
 void DynOS_Tex_Deactivate(DataNode<TexData>* aNode);
-void DynOS_Tex_AddCustom(const SysPath &aFilename, const char *aTexName);
+bool DynOS_Tex_AddCustom(const SysPath &aFilename, const char *aTexName);
 bool DynOS_Tex_Get(const char* aTexName, struct TextureInfo* aOutTexInfo);
+bool DynOS_Tex_GetFromData(const Texture *aTex, struct TextureInfo* aOutTexInfo);
 void DynOS_Tex_Override_Set(const char* textureName, struct TextureInfo* aOverrideTexInfo);
 void DynOS_Tex_Override_Reset(const char* textureName);
 void DynOS_Tex_ModShutdown();
@@ -918,7 +942,7 @@ void DynOS_Tex_ModShutdown();
 // Lvl Manager
 //
 
-Array<Pair<const char*, GfxData*>> &DynOS_Lvl_GetArray();
+std::vector<std::pair<std::string, GfxData *>> &DynOS_Lvl_GetArray();
 LevelScript* DynOS_Lvl_GetScript(const char* aScriptEntryName);
 void  DynOS_Lvl_Activate(s32 modIndex, const SysPath &aFilePath, const char *aLevelName);
 GfxData* DynOS_Lvl_GetActiveGfx(void);
@@ -933,10 +957,10 @@ void DynOS_Lvl_ModShutdown();
 // Bhv Manager
 //
 
-Array<Pair<const char *, GfxData *>> &DynOS_Bhv_GetArray();
+std::vector<std::pair<std::string, GfxData *>> &DynOS_Bhv_GetArray();
 void DynOS_Bhv_Activate(s32 modIndex, const SysPath &aFilename, const char *aBehaviorName);
 GfxData *DynOS_Bhv_GetActiveGfx(BehaviorScript *bhvScript);
-s32 DynOS_Bhv_GetActiveModIndex(BehaviorScript *bhvScript);
+bool DynOS_Bhv_GetActiveModIndex(BehaviorScript *bhvScript, s32 *modIndex, s32 *modFileIndex);
 const char *DynOS_Bhv_GetToken(BehaviorScript *bhvScript, u32 index);
 void DynOS_Bhv_HookAllCustomBehaviors();
 void DynOS_Bhv_ModShutdown();
@@ -945,7 +969,7 @@ void DynOS_Bhv_ModShutdown();
 // Col Manager
 //
 
-void DynOS_Col_Activate(const SysPath &aFilePath, const char *aCollisionName);
+bool DynOS_Col_Activate(const SysPath &aFilePath, const char *aCollisionName);
 Collision* DynOS_Col_Get(const char* collisionName);
 void DynOS_Col_ModShutdown();
 
@@ -968,8 +992,34 @@ struct GraphNode* DynOS_Model_StoreGeo(u32* aId, enum ModelPool aModelPool, void
 struct GraphNode* DynOS_Model_GetGeo(u32 aId);
 u32 DynOS_Model_GetIdFromAsset(void* asset);
 u32 DynOS_Model_GetIdFromGraphNode(struct GraphNode* aNode);
+enum ModelPool DynOS_Model_GetModelPoolFromGraphNode(struct GraphNode* aNode);
 void DynOS_Model_OverwriteSlot(u32 srcSlot, u32 dstSlot);
 void DynOS_Model_ClearPool(enum ModelPool aModelPool);
+
+//
+// Gfx Manager
+//
+
+Gfx *DynOS_Gfx_GetWritableDisplayList(Gfx *aGfx);
+Gfx *DynOS_Gfx_Get(const char *aName, u32 *outLength);
+const char *DynOS_Gfx_GetName(Gfx *aGfx);
+Gfx *DynOS_Gfx_Create(const char *aName, u32 aLength);
+bool DynOS_Gfx_Resize(Gfx *aGfx, u32 aNewLength);
+bool DynOS_Gfx_Delete(Gfx *aGfx);
+void DynOS_Gfx_DeleteAll();
+Vtx *DynOS_Vtx_Get(const char *aName, u32 *outCount);
+const char *DynOS_Vtx_GetName(Vtx *aVtx);
+Vtx *DynOS_Vtx_Create(const char *aName, u32 aCount);
+bool DynOS_Vtx_Resize(Vtx *aVtx, u32 aNewCount);
+bool DynOS_Vtx_Delete(Vtx *aVtx);
+void DynOS_Vtx_DeleteAll();
+void DynOS_Gfx_ModShutdown();
+
+//
+// Mod Data Manager
+//
+
+#include "dynos_mgr_moddata.hpp"
 
 //
 // Bin
@@ -977,11 +1027,20 @@ void DynOS_Model_ClearPool(enum ModelPool aModelPool);
 
 typedef s64 (*RDConstantFunc)(const String& _Arg, bool* found);
 
-u32 DynOS_Lua_RememberVariable(GfxData* aGfxData, void* aPtr, String& token);
+u32 DynOS_Lua_RememberVariable(GfxData* aGfxData, void* aPtr, const String& token);
+void DynOS_Gfx_GenerateModPacks(char* modPath);
 void DynOS_Gfx_GeneratePacks(const char* directory);
 s64 DynOS_RecursiveDescent_Parse(const char* expr, bool* success, RDConstantFunc func);
+
+u64 DynOS_NewDataIdentifier();
 void DynOS_Read_Source(GfxData *aGfxData, const SysPath &aFilename);
 char *DynOS_Read_Buffer(FILE* aFile, GfxData* aGfxData);
+
+bool DynOS_ShouldGeneratePack(const SysPath &aPackFolder, std::initializer_list<const char*> aExtensions);
+bool DynOS_ShouldGeneratePack2Ext(const SysPath &aPackFolder, const char *aGenExtension, const char *aSrcExtension);
+bool DynOS_GenFileExistsAndIsNewerThanFile(const SysPath &aGenFile, const SysPath &aSrcFile);
+bool DynOS_GenFileExistsAndIsNewerThanFolder(const SysPath &aGenFile, const SysPath &aSrcFolder);
+String DynOS_GetActorFolder(const Array<Pair<u64, String>> &aActorsFolders, u64 aModelIdentifier);
 
 s64 DynOS_Misc_ParseInteger(const String& _Arg, bool* found);
 
@@ -1058,8 +1117,8 @@ void DynOS_Vtx_Write(BinFile* aFile, GfxData* aGfxData, DataNode<Vtx> *aNode);
 void DynOS_Vtx_Load(BinFile *aFile, GfxData *aGfxData);
 
 void DynOS_Pointer_Lua_Write(BinFile* aFile, u32 index, GfxData* aGfxData);
-void DynOS_Pointer_Write(BinFile* aFile, const void* aPtr, GfxData* aGfxData);
-void *DynOS_Pointer_Load(BinFile *aFile, GfxData *aGfxData, u32 aValue, u8* outFlags);
+void DynOS_Pointer_Write(BinFile* aFile, const void* aPtr, GfxData* aGfxData, u8 aFuncType);
+void *DynOS_Pointer_Load(BinFile *aFile, GfxData *aGfxData, u32 aValue, u8 aFuncType, u8* outFlags);
 
 void DynOS_GfxDynCmd_Load(BinFile *aFile, GfxData *aGfxData);
 

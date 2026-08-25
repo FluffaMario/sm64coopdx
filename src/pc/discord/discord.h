@@ -1,11 +1,10 @@
 #pragma once
 
-#include "PR/ultratypes.h"
+#include <PR/ultratypes.h>
 #include "discord_game_sdk.h"
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(OSX_BUILD)
 #define DISCORD_ID_FORMAT "%lld"
-#include <Windows.h>
 #else
 #define DISCORD_ID_FORMAT "%ld"
 #endif

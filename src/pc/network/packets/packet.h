@@ -1,9 +1,9 @@
 #ifndef PACKET_H
 #define PACKET_H
 
-#include "PR/ultratypes.h"
+#include <PR/ultratypes.h>
 #include <time.h>
-#include <types.h>
+#include "types.h"
 #include <assert.h>
 #include <stdbool.h>
 
@@ -53,6 +53,7 @@ enum PacketType {
     PACKET_LEVEL_MACRO,
     PACKET_LEVEL_AREA_INFORM,
     PACKET_LEVEL_RESPAWN_INFO,
+    PACKET_CHANGE_WATER_LEVEL,
 
     PACKET_PLAYER_SETTINGS,
 
@@ -72,7 +73,8 @@ enum PacketType {
     PACKET_REQUEST_FAILED,
 
     PACKET_LUA_CUSTOM,
-    
+    PACKET_LUA_CUSTOM_BYTESTRING,
+
     PACKET_COMMAND,
     PACKET_MODERATOR,
 
@@ -107,7 +109,7 @@ struct Packet {
     u16 orderedSeqId;
     u8 courseNum;
     u8 actNum;
-    u8 levelNum;
+    s16 levelNum;
     u8 areaIndex;
     u8 buffer[PACKET_LENGTH];
 };
@@ -313,7 +315,7 @@ void network_send_area(struct NetworkPlayer* toNp);
 void network_receive_area(struct Packet* p);
 
 // packet_sync_valid.c
-void network_send_sync_valid(struct NetworkPlayer* toNp, s16 courseNum, s16 actNum, s16 levelNum, s16 areaIndex);
+void network_send_sync_valid(struct NetworkPlayer* toNp, s16 courseNum, s16 actNum, s16 levelNum, s16 areaIndex, bool informServer);
 void network_receive_sync_valid(struct Packet* p);
 
 // packet_level_spawn_info.c
@@ -331,6 +333,10 @@ void network_receive_level_area_inform(struct Packet* p);
 // packet_level_respawn_info.c
 void network_send_level_respawn_info(struct Object* o, u8 respawnInfoBits);
 void network_receive_level_respawn_info(struct Packet* p);
+
+// packet_change_water_level.c
+void network_send_change_water_level(u8 index, s16 height);
+void network_receive_change_water_level(struct Packet* p);
 
 // packet_debug_sync.c
 void network_send_debug_sync(void);
@@ -375,5 +381,7 @@ void network_receive_request_failed(struct Packet* p);
 // packet_lua_custom.c
 void network_send_lua_custom(bool broadcast);
 void network_receive_lua_custom(struct Packet* p);
+void network_send_lua_custom_bytestring(bool broadcast);
+void network_receive_lua_custom_bytestring(struct Packet* p);
 
 #endif

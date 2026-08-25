@@ -3,13 +3,13 @@
 -------------
 
 --- @type MarioState[]
---- Array of MarioStates, from 0 to MAX_PLAYERS - 1
+--- Array of `MarioState`s, from 0 to `MAX_PLAYERS` - 1
 --- - Uses the local index, which is different between every player
 --- - Index 0 always refers to the local player
 gMarioStates = {}
 
 --- @type NetworkPlayer[]
---- Array of NetworkPlayers, from 0 to MAX_PLAYERS - 1
+--- Array of `NetworkPlayer`s, from 0 to `MAX_PLAYERS` - 1
 --- - Uses the local index, which is different between every player
 --- - Index 0 always refers to the local player
 gNetworkPlayers = {}
@@ -21,45 +21,66 @@ gNetworkPlayers = {}
 gActiveMods = {}
 
 --- @type Character[]
+--- Array of every character, from 0 to `CT_MAX` - 1
+--- - The contents or order of the characters can never change
 gCharacters = {}
 
 --- @type Controller[]
+--- Array of every controller, from 0 to `MAX_PLAYERS` - 1
+--- - Uses the local index, which is different between every player
+--- - Index 0 always refers to the local player
 gControllers = {}
 
+--- @type Pointer_Mat4[]
+--- Matrix stack used during geo process
+--- - Only has an effect when used in a geo process hook
+gMatStack = {}
+
+--- @type Pointer_Mat4[]
+--- Matrix stack used during geo process
+--- - Only has an effect when used in a geo process hook
+gMatStackPrev = {}
+
 --- @type GlobalTextures
+--- Struct containing HUD glyph textures
 gTextures = {}
 
 --- @type GlobalObjectAnimations
+--- Struct containing every object animation
 gObjectAnimations = {}
 
 --- @type GlobalObjectCollisionData
+--- Struct containing all object collision data
 gGlobalObjectCollisionData = {}
 
 --- @type PaintingValues
+--- Struct containing all paintings and their fields
 gPaintingValues = {}
 
 --- @alias SyncTable table
 
 --- @type SyncTable
 --- Any keys added and modified to this table will be synced among everyone.
---- - This shouldn't be used to sync player-specific values; Use gPlayerSyncTable for that
+--- - This shouldn't be used to sync player-specific values; Use `gPlayerSyncTable` for that
 --- - Note: Does not support tables as keys
 gGlobalSyncTable = {}
 
 --- @type SyncTable[]
---- An array of sync tables. Any change to any sync tables will be synced to everyone else.
+--- Array of sync tables. Any change to any sync tables will be synced to everyone else.
 --- - This array takes in a local index, however it automatically translates to the global index
 --- - Note: Does not support tables as keys
 gPlayerSyncTable = {}
 
 --- @type LevelValues
+--- Struct containing fields that modify specific gameplay or level properties
 gLevelValues = {}
 
 --- @type BehaviorValues
+--- Struct containing fields that modify specific object behavior properties
 gBehaviorValues = {}
 
 --- @type FirstPersonCamera
---- The struct that contains the values for the first person camera
+--- Struct that contains the fields for the first person camera
 gFirstPersonCamera = {}
 
 --- @type LakituState
@@ -68,10 +89,17 @@ gFirstPersonCamera = {}
 gLakituState = {}
 
 --- @type ServerSettings
+--- Struct containing the settings for the server
+--- - enablePlayersInLevelDisplay and enablePlayerList are not synced
 gServerSettings = {}
 
 --- @type NametagsSettings
+--- Struct containing the settings for Nametags
 gNametagsSettings = {}
+
+--- @type HudDisplay
+--- Struct containing the flags for the hud display
+gHudDisplay = {}
 
 -----------
 -- hooks --
@@ -79,10 +107,10 @@ gNametagsSettings = {}
 
 --- @param behaviorId BehaviorId | integer?  The behavior id of the object to modify. Pass in as `nil` to create a custom object
 --- @param objectList ObjectList | integer Object list
---- @param replaceBehavior boolean Whether or not to completely replace the behavior
+--- @param replaceBehavior boolean Whether or not to completely replace the behavior (ignored for non-vanilla behaviors, which are always replaced)
 --- @param initFunction? fun(obj:Object) Run on object creation
 --- @param loopFunction? fun(obj:Object) Run every frame
---- @param behaviorName? string Optional
+--- @param behaviorName? string Optional, name to give to the behavior to be able to retrieve it with `get_id_from_behavior_name`
 --- @return BehaviorId BehaviorId Use if creating a custom object, otherwise can be ignored
 --- Modify an object's behavior or create a new custom object
 function hook_behavior(behaviorId, objectList, replaceBehavior, initFunction, loopFunction, behaviorName)
@@ -92,7 +120,6 @@ end
 --- @param command string The command to run. Should be easy to type
 --- @param description string Should describe what the command does and how to use it
 --- @param func fun(msg:string): boolean Run upon activating the command. Return `true` to confirm the command has succeeded
---- @return nil
 function hook_chat_command(command, description, func)
     -- ...
 end
@@ -104,15 +131,15 @@ function update_chat_command_description(command, description)
 end
 
 --- @param hookEventType LuaHookedEventType When a function should run
---- @param func fun(...: any): any The function to run
+--- @param func fun(...: any): any?, any? The function to run
 --- Different hooks can pass in different parameters and have different return values. Be sure to read the hooks guide for more information.
 function hook_event(hookEventType, func)
     -- ...
 end
 
 --- @class ActionTable
-    --- @field every_frame fun(m:MarioState):integer?
-    --- @field gravity fun(m:MarioState):integer?
+--- @field every_frame fun(m:MarioState):integer?
+--- @field gravity fun(m:MarioState):integer?
 
 --- @param actionId integer The action to replace
 --- @param funcOrFuncTable fun(m:MarioState):integer? | ActionTable The new behavior of the action
@@ -132,40 +159,96 @@ function hook_on_sync_table_change(syncTable, field, tag, func)
     -- ...
 end
 
+--- @param message string The message for the text to show
+--- @return integer
+--- Hooks DJUI text into the mod menu
+function hook_mod_menu_text(message)
+    -- ...
+end
+
+--- @param name string The text to show on the button
+--- @param func fun(index:integer) The function that is called when the button is pressed
+--- @return integer
+--- Hooks a DJUI button into the mod menu
+function hook_mod_menu_button(name, func)
+    -- ...
+end
+
+--- @param name string The text to show on the left
+--- @param defaultValue boolean The default state of the checkbox
+--- @param func fun(index:integer, value:boolean) The function that is called when the checkbox is changed
+--- @return integer
+--- Hooks a DJUI checkbox into the mod menu
+function hook_mod_menu_checkbox(name, defaultValue, func)
+    -- ...
+end
+
+--- @param name string The text to show on the left
+--- @param defaultValue integer The default value of the slider
+--- @param min integer The lowest the slider can go
+--- @param max integer The highest the slider can go
+--- @param func fun(index:integer, value:integer) The function that is called when the value of the slider changes
+--- @return integer
+--- Hooks a DJUI slider into the mod menu
+function hook_mod_menu_slider(name, defaultValue, min, max, func)
+    -- ...
+end
+
+--- @param name string The text to show on the left
+--- @param defaultValue string The default text in the inputbox
+--- @param stringLength integer The max length of the inputbox
+--- @param func fun(index:integer, value:string) The function that is called when the value of the inputbox changes
+--- @return integer
+--- Hooks a DJUI inputbox into the mod menu
+function hook_mod_menu_inputbox(name, defaultValue, stringLength, func)
+    -- ...
+end
+
+--- @param index integer The index of the element in the order in which they were hooked
+--- @param name string The name to change to
+--- Updates a mod menu element's text
+--- - NOTE: `index` is zero-indexed
+function update_mod_menu_element_name(index, name)
+    -- ...
+end
+
+--- @param index integer The index of the element in the order in which they were hooked
+--- @param value boolean The boolean value to change to
+--- Updates a mod menu checkbox element's boolean value
+--- - NOTE: `index` is zero-indexed
+function update_mod_menu_element_checkbox(index, value)
+    -- ...
+end
+
+--- @param index integer The index of the element in the order in which they were hooked
+--- @param value number The number value to change to
+--- Updates a mod menu slider element's numerical value
+--- - NOTE: `index` is zero-indexed
+function update_mod_menu_element_slider(index, value)
+    -- ...
+end
+
+--- @param index integer The index of the element in the order in which they were hooked
+--- @param value string The text to change to
+--- Updates a mod menu inputbox element's string value
+--- - NOTE: `index` is zero-indexed
+function update_mod_menu_element_inputbox(index, value)
+    -- ...
+end
+
 ---------------
 -- functions --
 ---------------
 
---- @param t number Angle
---- @return number
-function sins(t)
-    -- ...
-end
-
---- @param t number Angle
---- @return number
-function coss(t)
-    -- ...
-end
-
---- @param y number
---- @param x number
---- @return integer
-function atan2s(y, x)
-    -- ...
-end
-
 --- @param objFieldTable table<any, "u32"|"s32"|"f32">
---- @return nil
 --- Keys must start with `o` and values must be `"u32"`, `"s32"`, or `"f32"`
 function define_custom_obj_fields(objFieldTable)
     -- ...
 end
 
 --- @param object Object Object to sync
---- @param standardSync boolean Automatically syncs common fields and syncs with distance. If `false`, all syncing must be done with `network_send_object`.
+--- @param standardSync boolean Automatically syncs common fields and syncs with distance. If `false`, all syncing must be done with `network_send_object`
 --- @param fieldTable table<string> The fields to sync
---- @return nil
 --- All synced fields must start with `o` and there should not be any keys, just values
 function network_init_object(object, standardSync, fieldTable)
     -- ...
@@ -173,16 +256,14 @@ end
 
 --- @param object Object Object to sync
 --- @param reliable boolean Whether or not the game should try to resend the packet in case it gets lost, good for important packets
---- @return nil
 --- Sends a sync packet to sync up the object with everyone else
 function network_send_object(object, reliable)
     -- ...
 end
 
 --- @param reliable boolean Whether or not the game should try to resend the packet in case its lost, good for important packets
---- @param dataTable table Table of values to be included in the packet
---- @return nil
---- `dataTable` can only contain strings, integers, numbers, booleans, and nil
+--- @param dataTable table<string, number|boolean|string|nil> Table of values to be included in the packet
+--- Sends a global Lua packet with the values of `dataTable`. Received with the `HOOK_ON_PACKET_RECEIVE` hook.
 function network_send(reliable, dataTable)
     -- ...
 end
@@ -190,13 +271,27 @@ end
 --- @param toLocalIndex integer The local index to send the packet to
 --- @param reliable boolean Whether or not the game should try to resend the packet in case its lost, good for important packets
 --- @param dataTable table Table of values to be included in the packet
---- @return nil
---- `dataTable` can only contain strings, integers, numbers, booleans, and nil
+--- Sends a Lua packet with the values of `dataTable` to a specific client through local indices. Received with the `HOOK_ON_PACKET_RECEIVE` hook.
 function network_send_to(toLocalIndex, reliable, dataTable)
     -- ...
 end
 
---- @param textureName string
+--- @param reliable boolean Whether or not the game should try to resend the packet in case its lost, good for important packets
+--- @param bytestring string The bytestring to be included in the packet
+--- Sends a global Lua packet with the bytestring of `bytestring`. Received with the `HOOK_ON_PACKET_BYTESTRING_RECEIVE` hook.
+function network_send_bytestring(reliable, bytestring)
+    -- ...
+end
+
+--- @param toLocalIndex integer The local index to send the packet to
+--- @param reliable boolean Whether or not the game should try to resend the packet in case its lost, good for important packets
+--- @param bytestring string The bytestring to be included in the packet
+--- Sends a Lua packet with the bytestring of `bytestring` to a specific client through local indices. Received with the `HOOK_ON_PACKET_BYTESTRING_RECEIVE` hook.
+function network_send_bytestring_to(toLocalIndex, reliable, bytestring)
+    -- ...
+end
+
+--- @param textureName string The texture name
 --- @return TextureInfo
 --- Gets the `TextureInfo` of a texture by name
 --- - Note: This also works with vanilla textures
@@ -204,107 +299,43 @@ function get_texture_info(textureName)
     -- ...
 end
 
---- @param texInfo TextureInfo
---- @param x number
---- @param y number
---- @param scaleW number
---- @param scaleH number
---- @return nil
---- Renders a texture to the screen
-function djui_hud_render_texture(texInfo, x, y, scaleW, scaleH)
-    -- ...
-end
-
---- @param texInfo TextureInfo
---- @param x number
---- @param y number
---- @param scaleW number
---- @param scaleH number
---- @param tileX number
---- @param tileY number
---- @param tileW number
---- @param tileH number
---- @return nil
---- Renders a tile of a texture to the screen
-function djui_hud_render_texture_tile(texInfo, x, y, scaleW, scaleH, tileX, tileY, tileW, tileH)
-    -- ...
-end
-
---- @param texInfo TextureInfo
---- @param prevX number
---- @param prevY number
---- @param prevScaleW number
---- @param prevScaleH number
---- @param x number
---- @param y number
---- @param scaleW number
---- @param scaleH number
---- @return nil
---- Renders an interpolated texture to the screen
-function djui_hud_render_texture_interpolated(texInfo, prevX, prevY, prevScaleW, prevScaleH, x, y, scaleW, scaleH)
-    -- ...
-end
-
---- @param texInfo TextureInfo
---- @param prevX number
---- @param prevY number
---- @param prevScaleW number
---- @param prevScaleH number
---- @param x number
---- @param y number
---- @param scaleW number
---- @param scaleH number
---- @param tileX number
---- @param tileY number
---- @param tileW number
---- @param tileH number
---- @return nil
---- Renders an interpolated tile of a texture to the screen
-function djui_hud_render_texture_tile_interpolated(texInfo, prevX, prevY, prevScaleW, prevScaleH, x, y, scaleW, scaleH, tileX, tileY, tileW, tileH)
-    -- ...
-end
-
---- @param textureName string
---- @param overrideTexInfo TextureInfo
---- @return nil
+--- @param textureName string The name of the texture
+--- @param overrideTexInfo TextureInfo The texture to override with
 --- Overrides a texture with a custom `TextureInfo`
---- * textureName must be the codename of a vanilla texture, you can find these in files such as `texture.inc.c`s
---- * overrideTexInfo can be any TextureInfo
+--- - `textureName` must be the codename of a vanilla texture, you can find these in files such as `texture.inc.c`s
+--- - `overrideTexInfo` can be any TextureInfo
 function texture_override_set(textureName, overrideTexInfo)
     -- ...
 end
 
---- @param textureName string
---- @return nil
+--- @param textureName string The name of the texture
 --- Resets an overridden texture
 function texture_override_reset(textureName)
     -- ...
 end
 
---- @class bhvData
+--- @class BehaviorData
 --- @field behavior BehaviorId
 --- @field behaviorArg integer
 
 --- @param levelNum LevelNum | integer
---- @param func fun(areaIndex:number, bhvData:bhvData, macroBhvIds:BehaviorId[], macroBhvArgs:integer[])
---- @return nil
+--- @param func fun(areaIndex:number, bhvData:BehaviorData, macroBhvIds:BehaviorId[], macroBhvArgs:integer[])
 --- When `func` is called, arguments are filled depending on the level command:
---- - `AREA` command: only `areaIndex` is filled. It's a number.
---- - `OBJECT` command: only `bhvData` is filled. `bhvData` is a table with two fields: `behavior` and `behaviorArg`.
---- - `MACRO` command: only `macroBhvIds` and `macroBhvArgs` are filled. `macrobhvIds` is a list of behavior ids. `macroBhvArgs` is a list of behavior params. Both lists have the same size and start at index 0.
+--- - `AREA` command: only `areaIndex` is filled. It's a number
+--- - `OBJECT` command: only `bhvData` is filled. `bhvData` is a table with nine fields: 'behavior', 'behaviorArg', 'model', 'posX', 'posY', 'posZ', 'pitch', 'yaw' and 'roll'
+--- - `MACRO` command: only `macroBhvIds`, `macroBhvArgs` and 'macroBhvModels' are filled. `macroBhvIds` is a list of behavior ids. `macroBhvArgs` is a list of behavior params. 'macroBhvModels' is a list of model ids. All lists have the same size and start at index 0
 function level_script_parse(levelNum, func)
     -- ...
 end
 
---- @param name string
---- @param flags integer
---- @param animYTransDivisor integer
---- @param startFrame integer
---- @param loopStart integer
---- @param loopEnd integer
---- @param values table
---- @param index table
---- @return nil
+--- @param name string The name of the animation
+--- @param flags integer The flags of the animation (`ANIM_FLAG_*`)
+--- @param animYTransDivisor integer The vertical animation translation divisor
+--- @param startFrame integer What frame the animation starts on
+--- @param loopStart integer When the loop starts
+--- @param loopEnd integer When the loop ends
+--- @param values table The table containing animation values
+--- @param index table The table containing animation indices
 --- Registers an animation that can be used in objects if `smlua_anim_util_set_animation` is called
 function smlua_anim_util_register_animation(name, flags, animYTransDivisor, startFrame, loopStart, loopEnd, values, index)
     -- ...
@@ -312,8 +343,129 @@ end
 
 --- @param message string The message to log
 --- @param level? ConsoleMessageLevel Optional; Determines whether the message should appear as info, a warning or an error.
---- @return nil
 --- Logs a message to the in-game console
 function log_to_console(message, level)
+    -- ...
+end
+
+--- @param index integer The index of the scroll target, should match up with the behavior param of `RM_Scroll_Texture` or `editor_Scroll_Texture`
+--- @param name string The name of the vertex buffer that should be used while scrolling the texture
+--- Registers a vertex buffer to be used for a scrolling texture. Should be used with `RM_Scroll_Texture` or `editor_Scroll_Texture`
+function add_scroll_target(index, name)
+    -- ...
+end
+
+--- @param startX number Start position X
+--- @param startY number Start position Y
+--- @param startZ number Start position Z
+--- @param dirX number Direction X
+--- @param dirY number Direction Y
+--- @param dirZ number Direction Z
+--- @param precision? number Optional; How precise the raycast should be. The default value is 3.0, the higher the number, the more precise.
+--- @return RayIntersectionInfo
+--- Shoots a raycast from `startX`, `startY`, and `startZ` in the direction of `dirX`, `dirY`, and `dirZ`
+function collision_find_surface_on_ray(startX, startY, startZ, dirX, dirY, dirZ, precision)
+    -- ...
+end
+
+--- @param contents ExclamationBoxContent[]
+--- Sets the contents that the exclamation box spawns.
+--- A single content has 5 keys: `id`, `unused`, `firstByte`, `model`, and `behavior`
+--- * `id`: Required; what value the box's oBehParams2ndByte needs to be to spawn this object
+--- * `unused`: Optional; unused by vanilla
+--- * `firstByte`: Optional; Overrides the 1st byte given to the spawned object
+--- * `model`: Required; The model that the object will spawn with. Uses `ModelExtendedId`
+--- * `behavior`: Required; The behavior ID that the object will spawn with. Uses `BehaviorId`
+function set_exclamation_box_contents(contents)
+    -- ...
+end
+
+--- @return ExclamationBoxContent[]
+--- Gets the contents that the exclamation box spawns
+--- A single content has 5 keys: `id`, `unused`, `firstByte`, `model`, and `behavior`
+--- * `id`: Required; what value the box's oBehParams2ndByte needs to be to spawn this object
+--- * `unused`: Optional; unused by vanilla
+--- * `firstByte`: Optional; Overrides the 1st byte given to the spawned object
+--- * `model`: Required; The model that the object will spawn with. Uses `ModelExtendedId`
+--- * `behavior`: Required; The behavior ID that the object will spawn with. Uses `BehaviorId`
+function get_exclamation_box_contents()
+    -- ...
+end
+
+--- @param node GraphNode | FnGraphNode
+--- @return GraphNode | GraphNodeAnimatedPart | GraphNodeBackground | GraphNodeBillboard | GraphNodeCamera | GraphNodeCullingRadius | GraphNodeDisplayList | GraphNodeGenerated | GraphNodeHeldObject | GraphNodeLevelOfDetail | GraphNodeMasterList | GraphNodeObject | GraphNodeObjectParent | GraphNodeOrthoProjection | GraphNodePerspective | GraphNodeRotation | GraphNodeScale | GraphNodeShadow | GraphNodeStart | GraphNodeSwitchCase | GraphNodeTranslation | GraphNodeTranslationRotation | GraphNodeBone
+--- Returns the specific GraphNode(...) the node is part of.
+--- Basically the reverse of `.node` or `.fnNode`
+function cast_graph_node(node)
+    -- ...
+end
+
+--- @param str string
+--- @return string
+--- Removes color codes from a string
+function get_uncolored_string(str)
+    -- ...
+end
+
+--- @param gfx Gfx
+--- @param command string
+--- @vararg integer | string | Gfx | Texture | Vtx Parameters for the command
+--- Sets a display list command on the display list given.
+---
+--- If `command` includes parameter specifiers (subsequences beginning with `%`), the additional arguments
+--- following `command` are converted and inserted in `command` replacing their respective specifiers.
+---
+--- The number of provided parameters must be equal to the number of specifiers in `command`,
+--- and the order of parameters must be the same as the specifiers.
+---
+--- The following specifiers are allowed:
+--- - `%i` for an `integer` parameter
+--- - `%s` for a `string` parameter
+--- - `%v` for a `Vtx` parameter
+--- - `%t` for a `Texture` parameter
+--- - `%g` for a `Gfx` parameter
+function gfx_set_command(gfx, command, ...)
+    -- ...
+end
+
+--- @param name string
+--- @return Pointer_Gfx
+--- @return integer
+--- Gets a display list of the current mod from its name.
+--- Returns a pointer to the display list and its length
+function gfx_get_from_name(name)
+    -- ...
+end
+
+--- @param name string
+--- @return Pointer_Vtx
+--- @return integer
+--- Gets a vertex buffer of the current mod from its name.
+--- Returns a pointer to the vertex buffering and its vertex count
+function vtx_get_from_name(name)
+    -- ...
+end
+
+--- @param message string
+--- @param x number
+--- @param y number
+--- @param scaleX number
+--- @param scaleY number?
+--- Prints DJUI HUD text onto the screen
+function djui_hud_print_text(message, x, y, scaleX, scaleY)
+    -- ...
+end
+
+--- @param message string
+--- @param prevX number
+--- @param prevY number
+--- @param prevScaleX number
+--- @param prevScaleY number
+--- @param x number
+--- @param y number
+--- @param scaleX number?
+--- @param scaleY number?
+--- Prints interpolated DJUI HUD text onto the screen
+function djui_hud_print_text_interpolated(message, prevX, prevY, prevScaleX, prevScaleY, x, y, scaleX, scaleY)
     -- ...
 end

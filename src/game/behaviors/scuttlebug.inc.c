@@ -1,18 +1,18 @@
 // scuttlebug.c.inc
 
 struct ObjectHitbox sScuttlebugHitbox = {
-    /* interactType: */ INTERACT_BOUNCE_TOP,
-    /* downOffset: */ 0,
-    /* damageOrCoinValue: */ 1,
-    /* health: */ 1,
-    /* numLootCoins: */ 3,
-    /* radius: */ 130,
-    /* height: */ 70,
-    /* hurtboxRadius: */ 90,
-    /* hurtboxHeight: */ 60,
+    .interactType = INTERACT_BOUNCE_TOP,
+    .downOffset = 0,
+    .damageOrCoinValue = 1,
+    .health = 1,
+    .numLootCoins = 3,
+    .radius = 130,
+    .height = 70,
+    .hurtboxRadius = 90,
+    .hurtboxHeight = 60,
 };
 
-s32 update_angle_from_move_flags(s32 *angle) {
+s32 update_angle_from_move_flags(INOUT s32 *angle) {
     if (!angle) { return 0; }
     if (o->oMoveFlags & OBJ_MOVE_HIT_WALL) {
         *angle = o->oWallAngle;
@@ -28,18 +28,17 @@ void bhv_scuttlebug_loop(void) {
     if (!sync_object_is_initialized(o->oSyncID)) {
         struct SyncObject *so = sync_object_init(o, 4000.0f);
         if (so) {
-            sync_object_init_field(o, &o->oFlags);
-            sync_object_init_field(o, &o->oForwardVel);
-            sync_object_init_field(o, &o->oHomeX);
-            sync_object_init_field(o, &o->oHomeY);
-            sync_object_init_field(o, &o->oHomeZ);
-            sync_object_init_field(o, &o->oInteractStatus);
-            sync_object_init_field(o, &o->oScuttlebugUnkF4);
+            sync_object_init_field(o, o->oFlags);
+            sync_object_init_field(o, o->oForwardVel);
+            sync_object_init_field(o, o->oHomeX);
+            sync_object_init_field(o, o->oHomeY);
+            sync_object_init_field(o, o->oHomeZ);
+            sync_object_init_field(o, o->oInteractStatus);
+            sync_object_init_field(o, o->oScuttlebugUnkF4);
         }
     }
 
     struct Object *player = nearest_player_to_object(o);
-    s32 angleToPlayer = player ? obj_angle_to_object(o, player) : 0;
 
     cur_obj_update_floor_and_walls();
     if (o->oSubAction != 0
@@ -62,14 +61,14 @@ void bhv_scuttlebug_loop(void) {
         case 1:
             o->oForwardVel = 5.0f;
             if (player && cur_obj_lateral_dist_from_obj_to_home(player) > 1000.0f) {
-                angleToPlayer = cur_obj_angle_to_home();
+                o->oAngleToMario = cur_obj_angle_to_home();
             } else {
                 if (o->oScuttlebugUnkF8 == 0) {
                     o->oScuttlebugUnkFC = 0;
                     if (player) {
-                        angleToPlayer = obj_angle_to_object(o, player);
+                        o->oAngleToMario = obj_angle_to_object(o, player);
                     }
-                    if (abs_angle_diff(angleToPlayer, o->oMoveAngleYaw) < 0x800) {
+                    if (abs_angle_diff(o->oAngleToMario, o->oMoveAngleYaw) < 0x800) {
                         o->oScuttlebugUnkF8 = 1;
                         o->oVelY = 20.0f;
                         cur_obj_play_sound_2(SOUND_OBJ2_SCUTTLEBUG_ALERT);
@@ -81,17 +80,17 @@ void bhv_scuttlebug_loop(void) {
                         o->oScuttlebugUnkF8 = 0;
                 }
             }
-            if (update_angle_from_move_flags(&angleToPlayer))
+            if (update_angle_from_move_flags(&o->oAngleToMario))
                 o->oSubAction = 2;
-            cur_obj_rotate_yaw_toward(angleToPlayer, 0x200);
+            cur_obj_rotate_yaw_toward(o->oAngleToMario, 0x200);
             break;
         case 2:
             o->oForwardVel = 5.0f;
-            if ((s16) o->oMoveAngleYaw == (s16)angleToPlayer)
+            if ((s16) o->oMoveAngleYaw == (s16)o->oAngleToMario)
                 o->oSubAction = 1;
             if (o->oPosY - o->oHomeY < -200.0f)
                 obj_mark_for_deletion(o);
-            cur_obj_rotate_yaw_toward(angleToPlayer, 0x400);
+            cur_obj_rotate_yaw_toward(o->oAngleToMario, 0x400);
             break;
         case 3:
             o->oFlags &= ~8;
@@ -142,10 +141,10 @@ void bhv_scuttlebug_spawn_loop(void) {
     if (!sync_object_is_initialized(o->oSyncID)) {
         struct SyncObject *so = sync_object_init(o, SYNC_DISTANCE_ONLY_EVENTS);
         if (so) {
-            sync_object_init_field(o, &o->oAction);
-            sync_object_init_field(o, &o->oTimer);
-            sync_object_init_field(o, &o->oScuttlebugSpawnerUnkF4);
-            sync_object_init_field(o, &o->oScuttlebugSpawnerUnk88);
+            sync_object_init_field(o, o->oAction);
+            sync_object_init_field(o, o->oTimer);
+            sync_object_init_field(o, o->oScuttlebugSpawnerUnkF4);
+            sync_object_init_field(o, o->oScuttlebugSpawnerUnk88);
         }
     }
 

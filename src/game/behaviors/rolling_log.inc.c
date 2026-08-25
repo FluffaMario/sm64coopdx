@@ -10,13 +10,13 @@ static void bhv_rolling_log_network_init(void) {
     if (!sync_object_is_initialized(o->oSyncID)) {
         struct SyncObject *so = sync_object_init(o, 4000.0f);
         if (so) {
-            sync_object_init_field(o, &o->oAngleVelPitch);
-            sync_object_init_field(o, &o->oFaceAnglePitch);
-            sync_object_init_field(o, &o->oMoveAnglePitch);
-            sync_object_init_field(o, &o->oPitouneUnkF4);
-            sync_object_init_field(o, &o->oPitouneUnkF8);
-            sync_object_init_field(o, &o->oPitouneUnkFC);
-            sync_object_init_field(o, &o->oForwardVel);
+            sync_object_init_field(o, o->oAngleVelPitch);
+            sync_object_init_field(o, o->oFaceAnglePitch);
+            sync_object_init_field(o, o->oMoveAnglePitch);
+            sync_object_init_field(o, o->oPitouneUnkF4);
+            sync_object_init_field(o, o->oPitouneUnkF8);
+            sync_object_init_field(o, o->oPitouneUnkFC);
+            sync_object_init_field(o, o->oForwardVel);
         }
     }
 }
@@ -38,7 +38,7 @@ void rolling_log_roll_log(void) {
     f32 sp24;
 
     f32 x = 0;
-    f32 y = 0;
+    UNUSED f32 y = 0;
     f32 z = 0;
 
     u8 playersTouched = 0;
@@ -149,9 +149,9 @@ void bhv_volcano_trap_loop(void) {
     if (!sync_object_is_initialized(o->oSyncID)) {
         struct SyncObject *so = sync_object_init(o, 2000.0f);
         if (so) {
-            sync_object_init_field(o, &o->oRollingLogUnkF4);
-            sync_object_init_field(o, &o->oAngleVelPitch);
-            sync_object_init_field(o, &o->oFaceAnglePitch);
+            sync_object_init_field(o, o->oRollingLogUnkF4);
+            sync_object_init_field(o, o->oAngleVelPitch);
+            sync_object_init_field(o, o->oFaceAnglePitch);
         }
     }
 

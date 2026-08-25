@@ -1,6 +1,6 @@
 -- name: Personal Star Counter
+-- incompatible: gamemode
 -- description: See how many stars you've collected!\n\nCredits:\n\\#097419\\Mr.Needlemouse\\#FFFFFF\\ - Concept\nSunk\\#dcdcdc\\ - Creator\n\\#269A91\\Demnyx\\#dcdcdc\\ - Assistance\n\\#f296af\\PeachyPeach\\#dcdcdc\\ - Global functions
--- incompatible: gamemode arena
 
 ------------------------------
 ----- Localize functions -----
@@ -300,7 +300,7 @@ hook_event(HOOK_ON_INTERACT, star_counter_on_interact)
 hook_event(HOOK_ON_HUD_RENDER, hud_render_psc)
 hook_event(HOOK_ON_HUD_RENDER_BEHIND, behind_hud_render_psc)
 hook_event(HOOK_UPDATE, psc_update)
-hook_chat_command('psc', "On|Off - Displays stars you've collected. Default is On.", toggle_psc)
+hook_chat_command('psc', "[On|Off] - Displays stars you've collected. Default is On.", toggle_psc)
 
 -- Globalize functions for other mods to use
 -- Created by PeachyPeach

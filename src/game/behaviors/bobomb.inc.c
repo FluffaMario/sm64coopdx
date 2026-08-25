@@ -1,15 +1,15 @@
 // bobomb.c.inc
 
 static struct ObjectHitbox sBobombHitbox = {
-    /* interactType:      */ INTERACT_GRABBABLE,
-    /* downOffset:        */ 0,
-    /* damageOrCoinValue: */ 0,
-    /* health:            */ 0,
-    /* numLootCoins:      */ 0,
-    /* radius:            */ 65,
-    /* height:            */ 113,
-    /* hurtboxRadius:     */ 0,
-    /* hurtboxHeight:     */ 0,
+    .interactType = INTERACT_GRABBABLE,
+    .downOffset = 0,
+    .damageOrCoinValue = 0,
+    .health = 0,
+    .numLootCoins = 0,
+    .radius = 65,
+    .height = 113,
+    .hurtboxRadius = 0,
+    .hurtboxHeight = 0,
 };
 
 static u32 forceCannonOpen = FALSE;
@@ -31,19 +31,19 @@ void bobomb_spawn_coin(void) {
 }
 
 void bobomb_act_explode(void) {
-    struct Object *explosion;
-    if (o->oTimer < 5)
+    if (o->oTimer < 5) {
         cur_obj_scale(1.0 + (f32) o->oTimer / 5.0);
-    else {
-        explosion = spawn_object(o, MODEL_EXPLOSION, bhvExplosion);
-        if (explosion != NULL) {
-            explosion->oGraphYOffset += 100.0f;
-        }
-
-        bobomb_spawn_coin();
-        create_respawner(MODEL_BLACK_BOBOMB, bhvBobomb, 3000);
-        o->activeFlags = ACTIVE_FLAG_DEACTIVATED;
+        return;
     }
+
+    struct Object *explosion = spawn_object(o, MODEL_EXPLOSION, bhvExplosion);
+    if (explosion != NULL) {
+        explosion->oGraphYOffset += 100.0f;
+    }
+
+    bobomb_spawn_coin();
+    create_respawner(MODEL_BLACK_BOBOMB, bhvBobomb, 3000);
+    o->activeFlags = ACTIVE_FLAG_DEACTIVATED;
 }
 
 
@@ -300,9 +300,9 @@ void bhv_bobomb_buddy_init(void) {
 
     if (o->oBobombBuddyRole == BOBOMB_BUDDY_ROLE_CANNON) {
         sync_object_init(o, SYNC_DISTANCE_ONLY_EVENTS);
-        sync_object_init_field(o, &o->oBobombBuddyHasTalkedToMario);
-        sync_object_init_field(o, &o->oBobombBuddyCannonStatus);
-        sync_object_init_field(o, &forceCannonOpen);
+        sync_object_init_field(o, o->oBobombBuddyHasTalkedToMario);
+        sync_object_init_field(o, o->oBobombBuddyCannonStatus);
+        sync_object_init_field(o, forceCannonOpen);
     }
 }
 
@@ -337,7 +337,7 @@ void bobomb_buddy_act_idle(void) {
  * dialogSecondText is called after Bob-omb Buddy has the cannon(s) ready and
  * then tells Mario that is "Ready for blastoff".
  */
-void bobomb_buddy_cannon_dialog(s16 dialogFirstText, s16 dialogSecondText) {
+void bobomb_buddy_cannon_dialog(s32 dialogFirstText, s32 dialogSecondText) {
     struct Object *cannonClosed;
     s16 buddyText, cutscene;
 

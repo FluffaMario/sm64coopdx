@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stddef.h>
 #include "../network.h"
 #include "object_fields.h"
 #include "object_constants.h"
@@ -15,10 +16,11 @@
 #include "pc/djui/djui.h"
 #include "pc/djui/djui_language.h"
 #include "pc/debuglog.h"
+#include "src/game/hardcoded.h"
 
 #pragma pack(1)
 struct PacketPlayerData {
-    u32 rawData[80];
+    u32 rawData[OBJECT_NUM_REGULAR_FIELDS];
 
     s16 cRawStickX;
     s16 cRawStickY;
@@ -27,6 +29,7 @@ struct PacketPlayerData {
     f32 cStickMag;
     u16 cButtonDown;
     u16 cButtonPressed;
+    u16 cButtonReleased;
     s16 cExtStickX;
     s16 cExtStickY;
 
@@ -47,6 +50,7 @@ struct PacketPlayerData {
     u8  framesSinceB;
     u8  wallKickTimer;
     u8  doubleJumpTimer;
+    u8  specialTripleJump;
     Vec3s faceAngle;
     Vec3s angleVel;
     s16 slideYaw;
@@ -73,6 +77,8 @@ struct PacketPlayerData {
     u8 levelSyncValid;
     u8 areaSyncValid;
     u8 knockbackTimer;
+
+    s32 dialogId;
 };
 #pragma pack()
 
@@ -86,18 +92,19 @@ static void read_packet_data(struct PacketPlayerData* data, struct MarioState* m
 
     u8 customFlags     = SET_BIT((m->freeze > 0), 0);
 
-    memcpy(data->rawData, m->marioObj->rawData.asU32, sizeof(u32) * 80);
+    memcpy(data->rawData, m->marioObj->rawData.asU32, sizeof(u32) * OBJECT_NUM_REGULAR_FIELDS);
     data->nodeFlags    = m->marioObj->header.gfx.node.flags;
 
-    data->cRawStickX     = m->controller->rawStickX;
-    data->cRawStickY     = m->controller->rawStickY;
-    data->cStickX        = m->controller->stickX;
-    data->cStickY        = m->controller->stickY;
-    data->cStickMag      = m->controller->stickMag;
-    data->cButtonDown    = m->controller->buttonDown;
-    data->cButtonPressed = m->controller->buttonPressed;
-    data->cExtStickX     = m->controller->extStickX;
-    data->cExtStickY     = m->controller->extStickY;
+    data->cRawStickX      = m->controller->rawStickX;
+    data->cRawStickY      = m->controller->rawStickY;
+    data->cStickX         = m->controller->stickX;
+    data->cStickY         = m->controller->stickY;
+    data->cStickMag       = m->controller->stickMag;
+    data->cButtonDown     = m->controller->buttonDown;
+    data->cButtonPressed  = m->controller->buttonPressed;
+    data->cButtonReleased = m->controller->buttonReleased;
+    data->cExtStickX      = m->controller->extStickX;
+    data->cExtStickY      = m->controller->extStickY;
 
     data->input           = m->input;
     data->flags           = m->flags;
@@ -114,6 +121,7 @@ static void read_packet_data(struct PacketPlayerData* data, struct MarioState* m
     data->framesSinceB    = m->framesSinceB;
     data->wallKickTimer   = m->wallKickTimer;
     data->doubleJumpTimer = m->doubleJumpTimer;
+    data->specialTripleJump = m->specialTripleJump;
     memcpy(data->faceAngle, m->faceAngle, sizeof(s16) * 3);
     memcpy(data->angleVel,  m->angleVel,  sizeof(s16) * 3);
     data->slideYaw        = m->slideYaw;
@@ -142,24 +150,27 @@ static void read_packet_data(struct PacketPlayerData* data, struct MarioState* m
     data->levelSyncValid = np->currLevelSyncValid;
 
     data->knockbackTimer = m->knockbackTimer;
+
+    data->dialogId = get_dialog_id();
 }
 
 static void write_packet_data(struct PacketPlayerData* data, struct MarioState* m,
                               u8* customFlags, u32* heldSyncID, u32* heldBySyncID,
                               u32* riddenSyncID, u32* interactSyncID, u32* usedSyncID,
                               u32* platformSyncID) {
-    memcpy(m->marioObj->rawData.asU32, data->rawData, sizeof(u32) * 80);
+    memcpy(m->marioObj->rawData.asU32, data->rawData, sizeof(u32) * OBJECT_NUM_REGULAR_FIELDS);
     m->marioObj->header.gfx.node.flags = data->nodeFlags;
 
-    m->controller->rawStickX     = data->cRawStickX;
-    m->controller->rawStickY     = data->cRawStickY;
-    m->controller->stickX        = data->cStickX;
-    m->controller->stickY        = data->cStickY;
-    m->controller->stickMag      = data->cStickMag;
-    m->controller->buttonDown    = data->cButtonDown;
-    m->controller->buttonPressed = data->cButtonPressed;
-    m->controller->extStickX     = data->cExtStickX;
-    m->controller->extStickY     = data->cExtStickY;
+    m->controller->rawStickX      = data->cRawStickX;
+    m->controller->rawStickY      = data->cRawStickY;
+    m->controller->stickX         = data->cStickX;
+    m->controller->stickY         = data->cStickY;
+    m->controller->stickMag       = data->cStickMag;
+    m->controller->buttonDown     = data->cButtonDown;
+    m->controller->buttonPressed  = data->cButtonPressed;
+    m->controller->buttonReleased = data->cButtonReleased;
+    m->controller->extStickX      = data->cExtStickX;
+    m->controller->extStickY      = data->cExtStickY;
 
     m->input           = data->input;
     m->flags           = data->flags;
@@ -176,6 +187,7 @@ static void write_packet_data(struct PacketPlayerData* data, struct MarioState* 
     m->framesSinceB    = data->framesSinceB;
     m->wallKickTimer   = data->wallKickTimer;
     m->doubleJumpTimer = data->doubleJumpTimer;
+    m->specialTripleJump = data->specialTripleJump;
     memcpy(m->faceAngle, data->faceAngle, sizeof(s16) * 3);
     memcpy(m->angleVel,  data->angleVel,  sizeof(s16) * 3);
     m->slideYaw        = data->slideYaw;
@@ -206,6 +218,8 @@ static void write_packet_data(struct PacketPlayerData* data, struct MarioState* 
     }
 
     m->knockbackTimer = data->knockbackTimer;
+
+    m->dialogId = data->dialogId;
 }
 
 void network_send_player(u8 localIndex) {
@@ -234,6 +248,18 @@ void network_receive_player(struct Packet* p) {
 
     struct MarioState* m = &gMarioStates[np->localIndex];
     if (m == NULL || m->marioObj == NULL) { return; }
+
+    if (gNetworkType == NT_SERVER && *((u32*)(p->buffer + p->cursor + offsetof(struct PacketPlayerData, action))) == ACT_DEBUG_FREE_MOVE) {
+#ifdef DEVELOPMENT
+        if (m->action != ACT_DEBUG_FREE_MOVE) {
+            construct_player_popup(np, DLANG(NOTIF, DEBUG_FLY), NULL);
+        }
+#else
+        network_send_kick(np->localIndex, EKT_KICKED);
+        network_player_disconnected(np->localIndex);
+        return;
+#endif
+    }
 
     // prevent receiving player from other area
     bool levelAreaMismatch = ((gNetworkPlayerLocal == NULL)
@@ -329,23 +355,28 @@ void network_receive_player(struct Packet* p) {
     // place on top of platform
     struct SyncObject* platformSo = sync_object_get(platformSyncID);
     if (platformSo && platformSo->o) {
-        struct Surface* floor = NULL;
+
         // search up to 500 units for the platform
         f32 maxDifference = 500;
-        m->pos[1] += maxDifference;
 
-        // find the platform
+        // look for a platform above and below, and a ceiling above the player
         gCheckingSurfaceCollisionsForObject = platformSo->o;
-        f32 height = find_floor(m->pos[0], m->pos[1], m->pos[2], &floor);
+        f32 currFloorHeight = find_floor_height(m->pos[0], m->pos[1], m->pos[2]);
+        f32 floorHeight = find_floor_height(m->pos[0], m->pos[1] + maxDifference, m->pos[2]);
+        f32 ceilHeight = find_ceil_height(m->pos[0], m->pos[1], m->pos[2]);
         gCheckingSurfaceCollisionsForObject = NULL;
 
-        f32 difference = ABS((m->pos[1] - maxDifference) - height);
-        if (floor != NULL && difference <= maxDifference) {
+        // always prefer the closest floor
+        // use the floor below if there's a ceiling between the player and the floor above
+        // only accept floors 500 units away
+        f32 diffAbove = ABS(m->pos[1] - floorHeight);
+        f32 diffBelow = ABS(m->pos[1] - currFloorHeight);
+        if (floorHeight != gLevelValues.floorLowerLimit &&
+            (currFloorHeight == gLevelValues.floorLowerLimit || diffBelow > diffAbove) &&
+            (ceilHeight == gLevelValues.cellHeightLimit || floorHeight < ceilHeight) &&
+            diffAbove <= maxDifference) {
             // place on top of platform
-            m->pos[1] = height;
-        } else {
-            // search failed, reset position
-            m->pos[1] -= maxDifference;
+            m->pos[1] = floorHeight;
         }
     }
 
@@ -386,24 +417,10 @@ void network_receive_player(struct Packet* p) {
     // Player's position is valid since it's updated and in the same area as the local player
     np->currPositionValid = true;
 
-#ifndef DEVELOPMENT
-    if (gNetworkType == NT_SERVER) {
-        if (m->action == ACT_DEBUG_FREE_MOVE) {
-            network_send_kick(np->localIndex, EKT_CLOSE_CONNECTION);
-            network_player_disconnected(np->localIndex);
-        }
-    }
-#else
-    if (m->action == ACT_DEBUG_FREE_MOVE && oldData.action != ACT_DEBUG_FREE_MOVE) {
-        construct_player_popup(np, DLANG(NOTIF, DEBUG_FLY), NULL);
-    }
-#endif
-
     if (np->currLevelNum == LEVEL_BOWSER_3 && m->action == ACT_JUMBO_STAR_CUTSCENE && gMarioStates[0].action != ACT_JUMBO_STAR_CUTSCENE) {
-        set_mario_action((struct MarioState*) &gMarioStates[0], ACT_JUMBO_STAR_CUTSCENE, 0);
+        set_mario_action(&gMarioStates[0], ACT_JUMBO_STAR_CUTSCENE, 0);
     }
-    m->marioObj->rawData.asU32[0x16] = oldData.rawData[0x16];
-
+    m->marioObj->oActiveParticleFlags = oldData.rawData[0x16];
 }
 
 void network_update_player(void) {
@@ -421,12 +438,14 @@ void network_update_player(void) {
     static f32 sLastStickY = 0;
     static u32 sLastButtonDown = 0;
     static u32 sLastButtonPressed = 0;
+    static u32 sLastButtonReleased = 0;
 
     f32 stickDist = sqrtf(powf(sLastStickX - m->controller->stickX, 2) + powf(sLastStickY - m->controller->stickY, 2));
     bool shouldSend = (sTicksSinceSend > 2)
         || (sLastPlayerAction    != m->action)
         || (sLastButtonDown      != m->controller->buttonDown)
         || (sLastButtonPressed   != m->controller->buttonPressed)
+        || (sLastButtonReleased  != m->controller->buttonReleased)
         || (sLastPlayerParticles != m->particleFlags)
         || (stickDist          > 5.0f);
 
@@ -439,5 +458,6 @@ void network_update_player(void) {
     sLastStickY          = m->controller->stickY;
     sLastButtonDown      = m->controller->buttonDown;
     sLastButtonPressed   = m->controller->buttonPressed;
+    sLastButtonReleased  = m->controller->buttonReleased;
     sLastPlayerParticles = m->particleFlags;
 }

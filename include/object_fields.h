@@ -7,12 +7,16 @@
  */
 
 #ifdef OBJECT_FIELDS_INDEX_DIRECTLY
+#define OBJECT_FIELD_U16(index, subIndex) index // Warning: UB! Do not use these in behavior scripts
+#define OBJECT_FIELD_S16(index, subIndex) index // Warning: UB! Do not use these in behavior scripts
 #define OBJECT_FIELD_U32(index)           index
 #define OBJECT_FIELD_S32(index)           index
-#define OBJECT_FIELD_S16(index, subIndex) index
 #define OBJECT_FIELD_F32(index)           index
+#define OBJECT_FIELD_U16P(index)          index
 #define OBJECT_FIELD_S16P(index)          index
+#define OBJECT_FIELD_U32P(index)          index
 #define OBJECT_FIELD_S32P(index)          index
+#define OBJECT_FIELD_F32P(index)          index
 #define OBJECT_FIELD_ANIMS(index)         index
 #define OBJECT_FIELD_WAYPOINT(index)      index
 #define OBJECT_FIELD_CHAIN_SEGMENT(index) index
@@ -21,19 +25,23 @@
 #define OBJECT_FIELD_VPTR(index)          index
 #define OBJECT_FIELD_CVPTR(index)         index
 #else
-#define OBJECT_FIELD_U32(index)           rawData.asU32[index]
-#define OBJECT_FIELD_S32(index)           rawData.asS32[index]
-#define OBJECT_FIELD_S16(index, subIndex) rawData.asS16[index][subIndex]
-#define OBJECT_FIELD_F32(index)           rawData.asF32[index]
-#define OBJECT_FIELD_S16P(index)          ptrData.asS16P[index]
-#define OBJECT_FIELD_S32P(index)          ptrData.asS32P[index]
-#define OBJECT_FIELD_ANIMS(index)         ptrData.asAnims[index]
-#define OBJECT_FIELD_WAYPOINT(index)      ptrData.asWaypoint[index]
-#define OBJECT_FIELD_CHAIN_SEGMENT(index) ptrData.asChainSegment[index]
-#define OBJECT_FIELD_OBJ(index)           ptrData.asObject[index]
-#define OBJECT_FIELD_SURFACE(index)       ptrData.asSurface[index]
-#define OBJECT_FIELD_VPTR(index)          ptrData.asVoidPtr[index]
-#define OBJECT_FIELD_CVPTR(index)         ptrData.asConstVoidPtr[index]
+#define OBJECT_FIELD_U16(index, subIndex)     rawData.asU16[index][subIndex]
+#define OBJECT_FIELD_S16(index, subIndex)     rawData.asS16[index][subIndex]
+#define OBJECT_FIELD_U32(index)               rawData.asU32[index]
+#define OBJECT_FIELD_S32(index)               rawData.asS32[index]
+#define OBJECT_FIELD_F32(index)               rawData.asF32[index]
+#define OBJECT_FIELD_U16P(index)              ptrData.asU16P[index]
+#define OBJECT_FIELD_S16P(index)              ptrData.asS16P[index]
+#define OBJECT_FIELD_U32P(index)              ptrData.asU32P[index]
+#define OBJECT_FIELD_S32P(index)              ptrData.asS32P[index]
+#define OBJECT_FIELD_F32P(index)              ptrData.asF32P[index]
+#define OBJECT_FIELD_ANIMS(index)             ptrData.asAnims[index]
+#define OBJECT_FIELD_WAYPOINT(index)          ptrData.asWaypoint[index]
+#define OBJECT_FIELD_CHAIN_SEGMENT(index)     ptrData.asChainSegment[index]
+#define OBJECT_FIELD_OBJ(index)               ptrData.asObject[index]
+#define OBJECT_FIELD_SURFACE(index)           ptrData.asSurface[index]
+#define OBJECT_FIELD_VPTR(index)              ptrData.asVoidPtr[index]
+#define OBJECT_FIELD_CVPTR(index)             ptrData.asConstVoidPtr[index]
 #endif
 
 // 0x088 (0x00), the first field, is object-specific and defined below the common fields.
@@ -136,22 +144,23 @@
 #define /*0x110*/ oMacroUnk110 OBJECT_FIELD_F32(0x22)
 
 /* Mario */
-#define /*0x0F4*/ oMarioParticleFlags    OBJECT_FIELD_S32(0x1B)
-#define /*0x108*/ oMarioPoleUnk108       OBJECT_FIELD_S32(0x20)
-#define /*0x108*/ oMarioReadingSignDYaw  OBJECT_FIELD_S32(0x20)
-#define /*0x10C*/ oMarioPoleYawVel       OBJECT_FIELD_S32(0x21)
-#define /*0x10C*/ oMarioCannonObjectYaw  OBJECT_FIELD_S32(0x21)
-#define /*0x10C*/ oMarioTornadoYawVel    OBJECT_FIELD_S32(0x21)
-#define /*0x10C*/ oMarioReadingSignDPosX OBJECT_FIELD_F32(0x21)
-#define /*0x110*/ oMarioPolePos          OBJECT_FIELD_F32(0x22)
-#define /*0x110*/ oMarioCannonInputYaw   OBJECT_FIELD_S32(0x22)
-#define /*0x110*/ oMarioTornadoPosY      OBJECT_FIELD_F32(0x22)
-#define /*0x110*/ oMarioReadingSignDPosZ OBJECT_FIELD_F32(0x22)
-#define /*0x110*/ oMarioWhirlpoolPosY    OBJECT_FIELD_F32(0x22)
-#define /*0x110*/ oMarioBurnTimer        OBJECT_FIELD_S32(0x22)
-#define /*0x110*/ oMarioLongJumpIsSlow   OBJECT_FIELD_S32(0x22)
-#define /*0x110*/ oMarioSteepJumpYaw     OBJECT_FIELD_S32(0x22)
-#define /*0x110*/ oMarioWalkingPitch     OBJECT_FIELD_S32(0x22)
+#define /*0x0F4*/ oMarioParticleFlags         OBJECT_FIELD_S32(0x1B)
+#define /*0x108*/ oMarioPoleUnk108            OBJECT_FIELD_S32(0x20)
+#define /*0x108*/ oMarioReadingSignDYaw       OBJECT_FIELD_S32(0x20)
+#define /*0x10C*/ oMarioPoleYawVel            OBJECT_FIELD_S32(0x21)
+#define /*0x10C*/ oMarioCannonObjectYaw       OBJECT_FIELD_S32(0x21)
+#define /*0x10C*/ oMarioTornadoYawVel         OBJECT_FIELD_S32(0x21)
+#define /*0x10C*/ oMarioReadingSignDPosX      OBJECT_FIELD_F32(0x21)
+#define /*0x110*/ oMarioPolePos               OBJECT_FIELD_F32(0x22)
+#define /*0x110*/ oMarioCannonInputYaw        OBJECT_FIELD_S32(0x22)
+#define /*0x110*/ oMarioTornadoPosY           OBJECT_FIELD_F32(0x22)
+#define /*0x110*/ oMarioReadingSignDPosZ      OBJECT_FIELD_F32(0x22)
+#define /*0x110*/ oMarioWhirlpoolPosY         OBJECT_FIELD_F32(0x22)
+#define /*0x110*/ oMarioJumboStarCutscenePosZ OBJECT_FIELD_F32(0x22)
+#define /*0x110*/ oMarioBurnTimer             OBJECT_FIELD_S32(0x22)
+#define /*0x110*/ oMarioLongJumpIsSlow        OBJECT_FIELD_S32(0x22)
+#define /*0x110*/ oMarioSteepJumpYaw          OBJECT_FIELD_S32(0x22)
+#define /*0x110*/ oMarioWalkingPitch          OBJECT_FIELD_S32(0x22)
 
 /* 1-Up Hidden */
 #define /*0x0F4*/ o1UpHiddenUnkF4 OBJECT_FIELD_S32(0x1B)
@@ -634,7 +643,7 @@
 #define /*0x0FC*/ oCameraLakituCircleRadius   OBJECT_FIELD_F32(0x1D)
 #define /*0x100*/ oCameraLakituFinishedDialog OBJECT_FIELD_S32(0x1E)
 #ifndef VERSION_JP
-#define /*0x104*/ oCameraLakituUnk104         OBJECT_FIELD_S32(0x1F)
+#define /*0x104*/ oCameraLakituMusicPlayed         OBJECT_FIELD_S32(0x1F)
 #endif
 #define /*0x1AC*/ oCameraLakituPitchVel       OBJECT_FIELD_S16(0x49, 0)
 #define /*0x1AE*/ oCameraLakituYawVel         OBJECT_FIELD_S16(0x49, + 1)
@@ -961,7 +970,7 @@
 #define /*0x10C*/ oTiltingPyramidMarioOnPlatform OBJECT_FIELD_S32(0x21)
 
 /* Toad Message */
-#define /*0x108*/ oToadMessageDialogId       OBJECT_FIELD_U32(0x20)
+#define /*0x108*/ oToadMessageDialogId       OBJECT_FIELD_S32(0x20)
 #define /*0x10C*/ oToadMessageRecentlyTalked OBJECT_FIELD_S32(0x21)
 #define /*0x110*/ oToadMessageState          OBJECT_FIELD_S32(0x22)
 
@@ -1165,5 +1174,8 @@
 
 /* Breakable Wall */
 #define /*0x104*/ oBreakableWallForce OBJECT_FIELD_S32(0x1F)
+
+/* Point Light */
+#define /*0x0F4*/ oLightID        OBJECT_FIELD_S32(0x1B)
 
 #endif // OBJECT_FIELDS_H

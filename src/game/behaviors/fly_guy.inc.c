@@ -7,15 +7,15 @@
  * Hitbox for fly guy.
  */
 static struct ObjectHitbox sFlyGuyHitbox = {
-    /* interactType:      */ INTERACT_BOUNCE_TOP,
-    /* downOffset:        */ 0,
-    /* damageOrCoinValue: */ 2,
-    /* health:            */ 0,
-    /* numLootCoins:      */ 2,
-    /* radius:            */ 70,
-    /* height:            */ 60,
-    /* hurtboxRadius:     */ 40,
-    /* hurtboxHeight:     */ 50,
+    .interactType = INTERACT_BOUNCE_TOP,
+    .downOffset = 0,
+    .damageOrCoinValue = 2,
+    .health = 0,
+    .numLootCoins = 2,
+    .radius = 70,
+    .height = 60,
+    .hurtboxRadius = 40,
+    .hurtboxHeight = 50,
 };
 
 /**
@@ -207,11 +207,11 @@ void bhv_fly_guy_update(void) {
 
     if (!sync_object_is_initialized(o->oSyncID)) {
         sync_object_init(o, 4000.0f);
-        sync_object_init_field(o, &o->oFlyGuyOscTimer);
-        sync_object_init_field(o, &o->oFlyGuyLungeYDecel);
-        sync_object_init_field(o, &o->oFlyGuyLungeTargetPitch);
-        sync_object_init_field(o, &o->oFlyGuyTargetRoll);
-        sync_object_init_field(o, &o->oFlyGuyLungeTargetPitch);
+        sync_object_init_field(o, o->oFlyGuyOscTimer);
+        sync_object_init_field(o, o->oFlyGuyLungeYDecel);
+        sync_object_init_field(o, o->oFlyGuyLungeTargetPitch);
+        sync_object_init_field(o, o->oFlyGuyTargetRoll);
+        sync_object_init_field(o, o->oFlyGuyLungeTargetPitch);
     }
 
     if (!(o->activeFlags & ACTIVE_FLAG_IN_DIFFERENT_ROOM)) {

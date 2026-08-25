@@ -8,7 +8,7 @@
 #define SPRITE_INDEX_START_CHAR '!'
 
 struct SmCodeGlyph {
-    char unicode[3];
+    char unicode[4];
     char base;
     f32 width;
     u32 spriteIndex;
@@ -82,60 +82,60 @@ struct SmCodeGlyph sSmCodeGlyphs[] = {
     { "ß", 'S', 0, 0 },
 
     { "¡", '!', 0, 0 },
-    { "¿", '?', 12, 0 },
+    { "¿", '?', 0, 0 },
 
-    { "Б", 'B', 0, 0 },
-    { "Г", 'L', 0, 0 },
-    { "Д", 'A', 0, 0 },
-    { "Ж", 'X', 0, 0 },
-    { "З", '3', 0, 0 },
-    { "И", 'N', 0, 0 },
-    { "Й", 'N', 0, 0 },
-    { "Л", 'U', 0, 0 },
-    { "П", 'U', 0, 0 },
-    { "У", 'y', 0, 0 },
-    { "Ф", 'o', 0, 0 },
-    { "Ц", 'U', 0, 0 },
-    { "Ч", '4', 0, 0 },
-    { "Ш", 'W', 0, 0 },
-    { "Щ", 'W', 0, 0 },
-    { "Ъ", 'b', 0, 0 },
-    { "Ы", 'O', 0, 0 },
-    { "Ь", 'b', 0, 0 },
-    { "Ѣ", 'b', 0, 0 },
-    { "Э", '3', 0, 0 },
-    { "Ю", 'O', 0, 0 },
-    { "Я", 'R', 0, 0 },
-    { "Є", 'E', 0, 0 },
+    { "Б", 15, 0, 0 },
+    { "Г", 14, 0, 0 },
+    { "Д", 17, 0, 0 },
+    { "Ж", 17, 0, 0 },
+    { "З", 13, 0, 0 },
+    { "И", 15, 0, 0 },
+    { "Й", 15, 0, 0 },
+    { "Л", 13, 0, 0 },
+    { "П", 14, 0, 0 },
+    { "У", 12, 0, 0 },
+    { "Ф", 17, 0, 0 },
+    { "Ц", 14, 0, 0 },
+    { "Ч", 11, 0, 0 },
+    { "Ш", 17, 0, 0 },
+    { "Щ", 17, 0, 0 },
+    { "Ъ", 13, 0, 0 },
+    { "Ы", 17, 0, 0 },
+    { "Ь", 12, 0, 0 },
+    { "Ѣ", 14, 0, 0 },
+    { "Э", 13, 0, 0 },
+    { "Ю", 17, 0, 0 },
+    { "Я", 13, 0, 0 },
+    { "Є", 12, 0, 0 },
 
-    { "а", 'a', 0, 0 },
-    { "б", '6', 0, 0 },
-    { "в", 'B', 0, 0 },
-    { "г", 'r', 0, 0 },
-    { "д", 'A', 0, 0 },
-    { "ж", 'x', 0, 0 },
-    { "з", '3', 0, 0 },
-    { "и", 'n', 0, 0 },
-    { "й", 'n', 0, 0 },
-    { "к", 'k', 0, 0 },
-    { "л", 'n', 0, 0 },
-    { "м", 'm', 0, 0 },
-    { "н", 'h', 0, 0 },
-    { "п", 'n', 0, 0 },
-    { "т", 't', 0, 0 },
-    { "ф", 'o', 0, 0 },
-    { "ц", 'u', 0, 0 },
-    { "ч", '4', 0, 0 },
-    { "ш", 'w', 0, 0 },
-    { "щ", 'w', 0, 0 },
-    { "ъ", 'b', 0, 0 },
-    { "ы", 'O', 0, 0 },
-    { "ь", 'b', 0, 0 },
-    { "ѣ", 'b', 0, 0 },
-    { "э", '3', 0, 0 },
-    { "ю", 'O', 0, 0 },
-    { "я", 'r', 0, 0 },
-    { "є", 'e', 0, 0 },
+    { "а", 13, 0, 0 },
+    { "б", 11, 0, 0 },
+    { "в", 11, 0, 0 },
+    { "г", 10, 0, 0 },
+    { "д", 12, 0, 0 },
+    { "ж", 15, 0, 0 },
+    { "з", 13, 0, 0 },
+    { "и", 12, 0, 0 },
+    { "й", 12, 0, 0 },
+    { "к",  9, 0, 0 },
+    { "л", 10, 0, 0 },
+    { "м", 11, 0, 0 },
+    { "н", 11, 0, 0 },
+    { "п", 11, 0, 0 },
+    { "т", 11, 0, 0 },
+    { "ф", 14, 0, 0 },
+    { "ц", 11, 0, 0 },
+    { "ч",  9, 0, 0 },
+    { "ш", 17, 0, 0 },
+    { "щ", 17, 0, 0 },
+    { "ъ", 14, 0, 0 },
+    { "ы", 17, 0, 0 },
+    { "ь", 12, 0, 0 },
+    { "ѣ", 13, 0, 0 },
+    { "э", 12, 0, 0 },
+    { "ю", 16, 0, 0 },
+    { "я", 12, 0, 0 },
+    { "є", 12, 0, 0 },
 
     { "Č", 'C', 0, 0 },
     { "č", 'c', 0, 0 },
@@ -154,7 +154,7 @@ struct SmCodeGlyph sSmCodeGlyphs[] = {
     { "Ň", 'N', 0, 0 },
     { "ň", 'n', 0, 0 },
     { "Ť", 'T', 0, 0 },
-    { "ť", 't', 0, 0 },
+    { "ť", 13, 0, 0 },
 
     { "ę", 'e', 0, 0 },
     { "ń", 'n', 0, 0 },
@@ -162,20 +162,24 @@ struct SmCodeGlyph sSmCodeGlyphs[] = {
     { "ć", 'c', 0, 0 },
     { "ź", 'z', 0, 0 },
     { "ż", 'z', 0, 0 },
-    { "ł", 'r', 0, 0 },
+    { "ł", 'l', 0, 0 },
     { "Ę", 'E', 0, 0 },
     { "Ń", 'N', 0, 0 },
     { "Ś", 'S', 0, 0 },
     { "Ć", 'C', 0, 0 },
     { "Ź", 'Z', 0, 0 },
     { "Ż", 'Z', 0, 0 },
-    { "Ł", 'R', 0, 0 },
+    { "Ł", 'L', 0, 0 },
     { "Ą", 'A', 0, 0 },
     { "ą", 'a', 0, 0 },
     { "Ї", 'l', 0, 0 },
     { "ї", 'l', 0, 0 },
     { "Ґ", 'R', 0, 0 },
     { "ґ", 'R', 0, 0 },
+};
+
+struct SmCodeGlyph sSmCodeGlyphs_JP[] = {
+#include "jp_glyphs.h"
 };
 
 struct SmCodeGlyph sSmCodeDuplicateGlyphs[] = {
@@ -199,9 +203,8 @@ struct SmCodeGlyph sSmCodeDuplicateGlyphs[] = {
 };
 
 static void* sCharMap = NULL;
-static void* sCharIter = NULL;
 
-static s32 count_bytes_for_char(char* text) {
+static s32 count_bytes_for_char(const char* text) {
     s32 bytes = 0;
     u8 mask = (1 << 7);
     while (*text & mask) {
@@ -211,7 +214,7 @@ static s32 count_bytes_for_char(char* text) {
     return bytes ? bytes : 1;
 }
 
-static u64 convert_unicode_char_to_u64(char* text) {
+static u64 convert_unicode_char_to_u64(const char* text) {
     s32 bytes = count_bytes_for_char(text);
     u64 value = (u8)*text;
 
@@ -223,20 +226,30 @@ static u64 convert_unicode_char_to_u64(char* text) {
         value <<= 8;
         value |= (u8)*(++text);
         bytes--;
-        text++;
     }
     return value;
 }
 
 void djui_unicode_init(void) {
-    sCharMap = hmap_create();
-    sCharIter = hmap_iter(sCharMap);
+    sCharMap = hmap_create(true);
 
     size_t glyphCount = sizeof(sSmCodeGlyphs) / sizeof(sSmCodeGlyphs[0]);
     for (size_t i = 0; i < glyphCount; i++) {
         struct SmCodeGlyph* glyph = &sSmCodeGlyphs[i];
         glyph->spriteIndex = (128 + i) - SPRITE_INDEX_START_CHAR;
 
+        u64 key = convert_unicode_char_to_u64(glyph->unicode);
+        s32 bytes = count_bytes_for_char(glyph->unicode);
+        assert(bytes >= 2 && bytes <= 4);
+        assert(key > 127);
+        hmap_put(sCharMap, key, glyph);
+    }
+
+    //add japanese glyphs
+    size_t jpCount = sizeof(sSmCodeGlyphs_JP) / sizeof(sSmCodeGlyphs_JP[0]);
+    for (size_t i = 0; i < jpCount; i++) {
+        struct SmCodeGlyph* glyph = &sSmCodeGlyphs_JP[i];
+        glyph->spriteIndex = 0x010000 + i;
         u64 key = convert_unicode_char_to_u64(glyph->unicode);
         s32 bytes = count_bytes_for_char(glyph->unicode);
         assert(bytes >= 2 && bytes <= 4);
@@ -260,7 +273,7 @@ void djui_unicode_init(void) {
     }
 }
 
-u32 djui_unicode_get_sprite_index(char* text) {
+u32 djui_unicode_get_sprite_index(const char* text) {
     // check for ASCI
     if ((u8)*text < 128) {
         // make sure it's in the valid range
@@ -285,10 +298,10 @@ u32 djui_unicode_get_sprite_index(char* text) {
     return (u8)'?' - SPRITE_INDEX_START_CHAR;
 }
 
-f32 djui_unicode_get_sprite_width(char* text, const f32 font_widths[]) {
+f32 djui_unicode_get_sprite_width(const char* text, const f32 font_widths[], f32 unicodeScale) {
     if (!text) { return 0; }
 
-    // check for ASCI
+    // check for ASCII
     if ((u8)*text < 128) {
         // make sure it's in the valid range
         if ((u8)*text < SPRITE_INDEX_START_CHAR) {
@@ -307,10 +320,10 @@ f32 djui_unicode_get_sprite_width(char* text, const f32 font_widths[]) {
     if (glyph) {
         if (glyph->width) {
             // use the custom width
-            return glyph->width;
+            return glyph->width / unicodeScale;
         }
         if ((u8)glyph->base < (u8)'!') {
-            return glyph->base;
+            return glyph->base / unicodeScale;
         }
         // use the base width
         return font_widths[(u8)glyph->base - SPRITE_INDEX_START_CHAR];
@@ -345,7 +358,7 @@ size_t djui_unicode_len(char* text) {
     return len;
 }
 
-bool djui_unicode_valid_char(char* text) {
+bool djui_unicode_valid_char(const char* text) {
     if ((u8)*text < 128) {
         return ((u8)*text >= ' ');
     }
@@ -384,16 +397,16 @@ void djui_unicode_cleanup_end(char* text) {
     }
 }
 
-char djui_unicode_get_base_char(char* text) {
+char djui_unicode_get_base_char(const char* text) {
     if ((u8)*text < ' ') { return '?'; }
     if ((u8)*text < 128) { return *text; }
     if (!sCharMap) { return '?'; }
     u64 key = convert_unicode_char_to_u64(text);
     struct SmCodeGlyph* glyph = hmap_get(sCharMap, key);
-    return (glyph != NULL || ((u8)glyph->base < (u8)'!')) ? glyph->base : '?';
+    return (glyph == NULL) ? '?' : glyph->base;
 }
 
-void djui_unicode_get_char(char* text, char* output) {
+void djui_unicode_get_char(const char* text, char* output) {
     s32 bytes = count_bytes_for_char(text);
     while (bytes-- > 0) {
         *output = *text;

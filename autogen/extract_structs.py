@@ -1,6 +1,7 @@
 import os
 import re
 import sys
+from common import cobject_function_identifier, cobject_property_identifier
 
 def extract_structs(filename):
     with open(filename) as file:
@@ -36,6 +37,12 @@ def extract_structs(filename):
     while ('  ' in txt):
         txt = txt.replace('  ', ' ')
 
+    # handle function members (NOT function pointers)
+    txt = re.sub(f'{cobject_function_identifier}\\((.*),(.*)\\)', f'{cobject_function_identifier} \\1\\2', txt)
+
+    # handle property members
+    txt = re.sub(f'{cobject_property_identifier}\\((.*),(.*),(.*)\\)', f'{cobject_property_identifier} \\1\\2\\3', txt)
+
     # strip macros
     txt = re.sub(r'[^a-zA-Z0-9_][A-Z0-9_]+\(.*\)', '', txt)
 
@@ -67,7 +74,7 @@ def extract_structs(filename):
             continue
         if ';' not in line:
             continue
-        if not line.startswith('struct '):
+        if not line.startswith('struct ') and not line.startswith('typedef struct '):
             continue
         txt += line + '\n'
 

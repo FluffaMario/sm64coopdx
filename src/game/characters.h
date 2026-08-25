@@ -1,74 +1,10 @@
 #ifndef CHARACTERS_H
 #define CHARACTERS_H
-#include "PR/ultratypes.h"
-#include "types.h"
+
+#include <PR/ultratypes.h>
 #include "pc/configfile.h"
 #include "mario_animation_ids.h"
 // NOTE: do not include any additional headers
-
-enum PalettePreset {
-    PALETTE_MARIO,
-    PALETTE_LUIGI,
-    PALETTE_TOAD,
-    PALETTE_WARIO,
-    PALETTE_WALUIGI,
-    PALETTE_YOSHI,
-    PALETTE_TOADETTE,
-    PALETTE_BUCKEN_BERRY,
-    PALETTE_ALA_GOLD,
-    PALETTE_FIRE_MARIO,
-    PALETTE_FIRE_LUIGI,
-    PALETTE_ICE_MARIO,
-    PALETTE_ICE_LUIGI,
-    PALETTE_TOADSWORTH,
-    PALETTE_PEACH,
-    PALETTE_DAISY,
-    PALETTE_WARIO_WOODS,
-    PALETTE_GB,
-    PALETTE_N64,
-    PALETTE_SNES,
-    PALETTE_SWITCH,
-    PALETTE_CLOVER,
-    PALETTE_COBALT,
-    PALETTE_RUBY,
-    PALETTE_FURY,
-    PALETTE_HOT_PINK,
-    PALETTE_NICE_PINK,
-    PALETTE_SEAFOAM,
-    PALETTE_LILAC,
-    PALETTE_COPPER,
-    PALETTE_AZURE,
-    PALETTE_BURGUNDY,
-    PALETTE_MINT,
-    PALETTE_ORANGE,
-    PALETTE_ARCTIC,
-    PALETTE_BLACK,
-    PALETTE_BUBBLEGUM,
-    PALETTE_BUSY_BEE,
-    PALETTE_FORTRESS,
-    PALETTE_BLUEBERRY_PIE,
-    PALETTE_RASPBERRY,
-    PALETTE_COFFEE,
-    PALETTE_MARGIN,
-    PALETTE_PUMPKIN,
-    PALETTE_SOIL,
-    PALETTE_CREVASE,
-    PALETTE_PRESET_MAX
-};
-
-enum PlayerPart {
-    PANTS, SHIRT, GLOVES, SHOES, HAIR, SKIN, CAP, PLAYER_PART_MAX, METAL = CAP
-};
-
-#pragma pack(1)
-struct PlayerPalette {
-    //rgb
-    u8 parts[PLAYER_PART_MAX][3];
-};
-#pragma pack()
-
-extern const struct PlayerPalette DEFAULT_MARIO_PALETTE;
-extern const struct PlayerPalette gPalettePresets[PALETTE_PRESET_MAX];
 
 enum CharacterType {
     CT_MARIO,
@@ -421,14 +357,42 @@ struct Character {
 
 struct MarioState;
 extern struct Character gCharacters[];
+/* |description|Gets a Character struct from `m`|descriptionEnd| */
 struct Character* get_character(struct MarioState* m);
 
+/* |description|
+Plays a character-specific sound based on the given `characterSound` value. The sound is tied to Mario's current state (`m`).
+Useful for triggering sound effects for actions like jumping or interacting with the environment
+|descriptionEnd| */
 void play_character_sound(struct MarioState* m, enum CharacterSound characterSound);
+
+/* |description|
+Plays a character-specific sound with an additional `offset`, allowing variations or delays in the sound effect. Uses Mario's current state (`m`).
+Useful for adding dynamic sound effects or syncing sounds to specific animations or events
+|descriptionEnd| */
 void play_character_sound_offset(struct MarioState* m, enum CharacterSound characterSound, u32 offset);
+
+/* |description|
+Plays a character-specific sound only if certain flags are not set. This ensures that sounds are not repeated unnecessarily. The sound is based on `characterSound`, and the flags are checked using `flags`.
+Useful for avoiding duplicate sound effects in rapid succession or conditional actions
+|descriptionEnd| */
 void play_character_sound_if_no_flag(struct MarioState* m, enum CharacterSound characterSound, u32 flags);
 
+/* |description|
+Calculates the animation offset for Mario's current animation. The offset is determined by the type of animation being played (e.g., hand, feet, or torso movement).
+Useful for smoothly syncing Mario's model height or positional adjustments during animations
+|descriptionEnd| */
 f32 get_character_anim_offset(struct MarioState* m);
-s32 get_character_anim(struct MarioState* m, enum CharacterAnimID characterAnim);
-void update_character_anim_offset(struct MarioState* m);
 
+/* |description|
+Gets the animation ID to use for a specific character and animation combination. The ID is based on `characterAnim` and the character currently controlled by Mario (`m`).
+Useful for determining which animation to play for actions like walking, jumping, or idle states
+|descriptionEnd| */
+s32 get_character_anim(struct MarioState* m, enum CharacterAnimID characterAnim);
+
+/* |description|
+Updates Mario's current animation offset. This adjusts Mario's position based on the calculated offset to ensure animations appear smooth and natural.
+Useful for keeping Mario's animations visually aligned, particularly when transitioning between animations
+|descriptionEnd| */
+void update_character_anim_offset(struct MarioState* m);
 #endif // CHARACTERS_H

@@ -28,6 +28,7 @@
 #include "djui_progress_bar.h"
 #include "djui_checkbox.h"
 #include "djui_flow_layout.h"
+#include "djui_searchbox.h"
 #include "djui_selectionbox.h"
 #include "djui_bind.h"
 #include "djui_popup.h"
@@ -37,14 +38,19 @@
 #include "djui_paginated.h"
 
 extern struct DjuiRoot* gDjuiRoot;
+extern struct DjuiText* gDjuiPauseOptions;
+extern struct DjuiText* gDjuiModReload;
 extern bool gDjuiInMainMenu;
+extern bool gDjuiInPlayerMenu;
 extern bool gDjuiDisabled;
 
 void djui_init(void);
 void djui_init_late(void);
 void djui_connect_menu_open(void);
-void djui_lua_error(char* text);
+void djui_open_update_panel(void);
+void djui_lua_error(char* text, struct DjuiColor color);
+void djui_lua_error_clear(void);
 void djui_render(void);
 void djui_reset_hud_params(void);
 
-void reset_djui(void);
+void djui_shutdown(void);

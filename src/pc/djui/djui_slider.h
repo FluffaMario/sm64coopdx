@@ -6,9 +6,12 @@ struct DjuiSlider {
     struct DjuiRect* rect;
     struct DjuiRect* rectValue;
     struct DjuiText* text;
+    struct DjuiText* textValueForeground;
+    struct DjuiText* textValueBackground;
     unsigned int* value;
     unsigned int min;
     unsigned int max;
+    bool updateRectValueColor;
 };
 
 struct DjuiSlider* djui_slider_create(struct DjuiBase* parent, const char* message, unsigned int* value, unsigned int min, unsigned int max, void (*on_value_change)(struct DjuiBase*));

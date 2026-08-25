@@ -1,6 +1,6 @@
 #include <PR/ultratypes.h>
 
-#include "src/pc/network/network.h"
+#include "pc/network/network.h"
 #include "types.h"
 #include "actors/common1.h"
 #include "actors/group12.h"
@@ -45,9 +45,10 @@
 #include "spawn_sound.h"
 #include "game/rng_position.h"
 #include "rumble_init.h"
-#include "hardcoded.h"
 #include "pc/lua/utils/smlua_model_utils.h"
 #include "pc/lua/smlua_hooks.h"
+#include "hardcoded.h"
+#include "engine/lighting_engine.h"
 
 #define o gCurrentObject
 
@@ -72,14 +73,6 @@ struct Struct8032F698 {
     s16 unk2;
     s16 unk3;
     s16 unk4;
-};
-
-struct Struct802C0DF0 {
-    u8 unk0;
-    u8 unk1;
-    u8 unk2;
-    u8 model;
-    const BehaviorScript *behavior;
 };
 
 struct Struct8032F754 {
@@ -175,7 +168,7 @@ Gfx *geo_move_mario_part_from_parent(s32 run, UNUSED struct GraphNode *node, Mat
 
     if (run == TRUE) {
         sp1C = (struct Object *) gCurGraphNodeObject;
-        if (sp1C->behavior == smlua_override_behavior(bhvMario) && sp1C->prevObj != NULL) {
+        if (sp1C->behavior == bhvMario && sp1C->prevObj != NULL) {
             create_transformation_from_matrices(sp20, mtx, *gCurGraphNodeCamera->matrixPtr);
             obj_update_pos_from_parent_transformation(sp20, sp1C->prevObj);
             obj_set_gfx_pos_from_pos(sp1C->prevObj);
@@ -211,15 +204,6 @@ void spawn_sparkle_particles(s32 n, s32 a1, s32 a2, s32 r) {
 #include "behaviors/bullet_bill.inc.c"
 #include "behaviors/bowser.inc.c"
 #include "behaviors/blue_fish.inc.c"
-
-// Not in behavior file, duplicate of vec3f_copy except without bad return.
-// Used in a few behavior files.
-void vec3f_copy_2(Vec3f dest, Vec3f src) {
-    dest[0] = src[0];
-    dest[1] = src[1];
-    dest[2] = src[2];
-}
-
 #include "behaviors/checkerboard_platform.inc.c"
 #include "behaviors/ddd_warp.inc.c"
 #include "behaviors/water_pillar.inc.c"
@@ -285,3 +269,4 @@ s32 set_obj_anim_with_accel_and_sound(s16 a0, s16 a1, s32 a2) {
 #include "behaviors/sl_snowman_wind.inc.c"
 #include "behaviors/sl_walking_penguin.inc.c"
 #include "behaviors/texscroll.inc.c"
+#include "behaviors/light.inc.c"

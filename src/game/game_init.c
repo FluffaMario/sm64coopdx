@@ -20,12 +20,13 @@
 #include "segment2.h"
 #include "segment_symbols.h"
 #include "rng_position.h"
-#include "src/pc/djui/djui.h"
-#include "src/pc/djui/djui_panel_pause.h"
+#include "pc/djui/djui.h"
+#include "pc/djui/djui_panel_pause.h"
 #include "rumble_init.h"
 #include <prevent_bss_reordering.h>
 #include "bettercamera.h"
 #include "hud.h"
+#include "pc/controller/controller_mouse.h"
 
 // FIXME: I'm not sure all of these variables belong in this file, but I don't
 // know of a good way to split them
@@ -46,7 +47,6 @@ OSMesg D_80339CD4 = NULL;
 struct VblankHandler gGameVblankHandler = { 0 };
 uintptr_t gPhysicalFrameBuffers[3] = { 0 };
 uintptr_t gPhysicalZBuffer = 0;
-void *D_80339CF0[MAX_PLAYERS] = { 0 };
 void *gDemoTargetAnim = NULL;
 struct MarioAnimation D_80339D10[MAX_PLAYERS] = { 0 };
 struct MarioAnimation gDemo = { 0 };
@@ -169,10 +169,8 @@ void clear_viewport(Vp *viewport, s32 color) {
     s16 vpLrx = (viewport->vp.vtrans[0] + viewport->vp.vscale[0]) / 4 - 2;
     s16 vpLry = (viewport->vp.vtrans[1] + viewport->vp.vscale[1]) / 4 - 2;
 
-    if (!use_forced_4by3()) {
-        vpUlx = GFX_DIMENSIONS_RECT_FROM_LEFT_EDGE(vpUlx);
-        vpLrx = GFX_DIMENSIONS_RECT_FROM_RIGHT_EDGE(SCREEN_WIDTH - vpLrx);
-    }
+    vpUlx = GFX_DIMENSIONS_RECT_FROM_LEFT_EDGE(vpUlx);
+    vpLrx = GFX_DIMENSIONS_RECT_FROM_RIGHT_EDGE(SCREEN_WIDTH - vpLrx);
 
     gDPPipeSync(gDisplayListHead++);
 
@@ -321,7 +319,7 @@ void display_and_vsync(void) {
 
 // this function records distinct inputs over a 255-frame interval to RAM locations and was likely
 // used to record the demo sequences seen in the final game. This function is unused.
-static void record_demo(void) {
+UNUSED static void record_demo(void) {
     // record the player's button mask and current rawStickX and rawStickY.
     u8 buttonMask =
         ((gPlayer1Controller->buttonDown & (A_BUTTON | B_BUTTON | Z_TRIG | START_BUTTON)) >> 8)
@@ -479,8 +477,8 @@ void read_controller_inputs(void) {
             controller->rawStickY = controller->controllerData->stick_y;
             controller->extStickX = controller->controllerData->ext_stick_x;
             controller->extStickY = controller->controllerData->ext_stick_y;
-            controller->buttonPressed = controller->controllerData->button
-                                        & (controller->controllerData->button ^ controller->buttonDown);
+            controller->buttonPressed = (~controller->buttonDown & controller->controllerData->button);
+            controller->buttonReleased = (~controller->controllerData->button & controller->buttonDown);
             // 0.5x A presses are a good meme
             controller->buttonDown = controller->controllerData->button;
             adjust_analog_stick(controller);
@@ -491,6 +489,7 @@ void read_controller_inputs(void) {
             controller->extStickX = 0;
             controller->extStickY = 0;
             controller->buttonPressed = 0;
+            controller->buttonReleased = 0;
             controller->buttonDown = 0;
             controller->stickX = 0;
             controller->stickY = 0;
@@ -508,7 +507,19 @@ void read_controller_inputs(void) {
     gPlayer3Controller->stickY = gPlayer1Controller->stickY;
     gPlayer3Controller->stickMag = gPlayer1Controller->stickMag;
     gPlayer3Controller->buttonPressed = gPlayer1Controller->buttonPressed;
+    gPlayer3Controller->buttonReleased = gPlayer1Controller->buttonReleased;
     gPlayer3Controller->buttonDown = gPlayer1Controller->buttonDown;*/
+
+    // Mouse Input
+    u32 prev_mouse_window_buttons = mouse_window_buttons;
+    controller_mouse_read_window();
+    mouse_window_buttons_pressed = ~prev_mouse_window_buttons & mouse_window_buttons;
+    mouse_window_buttons_released = ~mouse_window_buttons & prev_mouse_window_buttons;
+
+    if (gGlobalTimer > mouse_scroll_timestamp) {
+        mouse_scroll_x = 0;
+        mouse_scroll_y = 0;
+    }
 }
 
 // initialize the controller structs to point at the OSCont information.
@@ -555,11 +566,6 @@ void setup_game_memory(void) {
     gPhysicalFrameBuffers[0] = VIRTUAL_TO_PHYSICAL(gFrameBuffer0);
     gPhysicalFrameBuffers[1] = VIRTUAL_TO_PHYSICAL(gFrameBuffer1);
     gPhysicalFrameBuffers[2] = VIRTUAL_TO_PHYSICAL(gFrameBuffer2);
-    for (s32 i = 0; i < MAX_PLAYERS; i++) {
-        D_80339CF0[i] = calloc(1, 0x4000);
-        set_segment_base_addr(17, (void *)D_80339CF0[i]);
-        alloc_anim_dma_table(&D_80339D10[i], gMarioAnims, D_80339CF0[i]);
-    }
     gDemoTargetAnim = calloc(1, 2048);
     set_segment_base_addr(24, (void *) gDemoTargetAnim);
     alloc_anim_dma_table(&gDemo, gDemoInputs, gDemoTargetAnim);
@@ -601,6 +607,7 @@ void game_loop_one_iteration(void) {
         osContStartReadData(&gSIEventMesgQueue);
     }
 
+    thread6_rumble_loop(NULL);
     audio_game_loop_tick();
     config_gfx_pool();
     read_controller_inputs();

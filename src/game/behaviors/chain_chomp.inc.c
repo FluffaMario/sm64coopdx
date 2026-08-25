@@ -13,15 +13,15 @@
  * Hitbox for chain chomp.
  */
 static struct ObjectHitbox sChainChompHitbox = {
-    /* interactType: */ INTERACT_MR_BLIZZARD,
-    /* downOffset: */ 0,
-    /* damageOrCoinValue: */ 3,
-    /* health: */ 1,
-    /* numLootCoins: */ 0,
-    /* radius: */ 80,
-    /* height: */ 160,
-    /* hurtboxRadius: */ 80,
-    /* hurtboxHeight: */ 160,
+    .interactType = INTERACT_MR_BLIZZARD,
+    .downOffset = 0,
+    .damageOrCoinValue = 3,
+    .health = 1,
+    .numLootCoins = 0,
+    .radius = 80,
+    .height = 160,
+    .hurtboxRadius = 80,
+    .hurtboxHeight = 160,
 };
 
 /**
@@ -251,6 +251,10 @@ static void chain_chomp_sub_act_lunge(void) {
     }
 }
 
+static u8 chain_chomp_released_trigger_cutscene_continue_dialog(void) {
+    return o->oChainChompReleaseStatus != CHAIN_CHOMP_RELEASED_END_CUTSCENE;
+}
+
 /**
  * Fall to the ground and interrupt mario into a cutscene action.
  */
@@ -260,9 +264,20 @@ static void chain_chomp_released_trigger_cutscene(void) {
 
     //! Can delay this if we get into a cutscene-unfriendly action after the
     //  last post ground pound and before this
-    if (o->oMoveFlags & OBJ_MOVE_MASK_ON_GROUND) {
-        o->oChainChompReleaseStatus = CHAIN_CHOMP_RELEASED_LUNGE_AROUND;
-        o->oTimer = 0;
+    // hack: get the nearest wooden post, this will work properly 99% of the time
+    struct Object* woodenPost = cur_obj_nearest_object_with_behavior(bhvWoodenPost);
+    struct MarioState* marioState = nearest_mario_state_to_object(woodenPost);
+    if (&gMarioStates[0] == marioState && dynos_level_is_vanilla_level(gCurrLevelNum)) {
+        if (set_mario_npc_dialog(&gMarioStates[0], 2, chain_chomp_released_trigger_cutscene_continue_dialog) == 2
+            && (o->oMoveFlags & OBJ_MOVE_MASK_ON_GROUND) && cutscene_object(CUTSCENE_STAR_SPAWN, o) == 1) {
+            o->oChainChompReleaseStatus = CHAIN_CHOMP_RELEASED_LUNGE_AROUND;
+            o->oTimer = 0;
+        }
+    } else {
+        if (o->oMoveFlags & OBJ_MOVE_MASK_ON_GROUND) {
+            o->oChainChompReleaseStatus = CHAIN_CHOMP_RELEASED_LUNGE_AROUND;
+            o->oTimer = 0;
+        }
     }
 }
 
@@ -467,8 +482,8 @@ void bhv_chain_chomp_update(void) {
         struct SyncObject* so = sync_object_init(o, 1000.0f);
         if (so) {
             so->syncDeathEvent = FALSE;
-            sync_object_init_field(o, &o->oChainChompUnk104);
-            sync_object_init_field_with_size(o, &o->header.gfx.animInfo.animFrame, 16);
+            sync_object_init_field(o, o->oChainChompUnk104);
+            sync_object_init_field(o, o->header.gfx.animInfo.animFrame);
         }
     }
 
@@ -491,11 +506,12 @@ void bhv_chain_chomp_update(void) {
 void bhv_wooden_post_update(void) {
     if (!sync_object_is_initialized(o->oSyncID)) {
         sync_object_init(o, SYNC_DISTANCE_ONLY_EVENTS);
-        sync_object_init_field(o, &o->oWoodenPostMarioPounding);
-        sync_object_init_field(o, &o->oWoodenPostOffsetY);
-        sync_object_init_field(o, &o->oWoodenPostSpeedY);
-        sync_object_init_field(o, &o->oWoodenPostTotalMarioAngle);
-        sync_object_init_field(o, &o->oTimer);
+        sync_object_init_field(o, o->oBehParams);
+        sync_object_init_field(o, o->oWoodenPostMarioPounding);
+        sync_object_init_field(o, o->oWoodenPostOffsetY);
+        sync_object_init_field(o, o->oWoodenPostSpeedY);
+        sync_object_init_field(o, o->oWoodenPostTotalMarioAngle);
+        sync_object_init_field(o, o->oTimer);
     }
 
     // When ground pounded by mario, drop by -45 + -20
@@ -543,6 +559,7 @@ void bhv_wooden_post_update(void) {
             if (absi(o->oWoodenPostTotalMarioAngle) > 0x30000 && o->oTimer < 200) {
                 obj_spawn_loot_yellow_coins(o, 5, 20.0f);
                 set_object_respawn_info_bits(o, 1);
+                o->oBehParams = WOODEN_POST_BP_NO_COINS_MASK;
                 network_send_object(o);
             }
         }

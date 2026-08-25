@@ -6,8 +6,6 @@
 #include "game/level_update.h"
 #include "object_constants.h"
 #include "behavior_table.h"
-#include "src/game/hardcoded.h"
-#include "src/game/scroll_targets.h"
 #include "pc/configfile.h"
 #include "pc/djui/djui.h"
 #include "pc/djui/djui_panel.h"
@@ -17,11 +15,17 @@
 #include "pc/lua/smlua.h"
 #include "pc/lua/utils/smlua_model_utils.h"
 #include "pc/lua/utils/smlua_misc_utils.h"
+#include "pc/lua/utils/smlua_camera_utils.h"
+#include "pc/lua/utils/smlua_gfx_utils.h"
 #include "pc/mods/mods.h"
 #include "pc/crash_handler.h"
 #include "pc/debuglog.h"
-#include "game/camera.h"
+#include "pc/pc_main.h"
 #include "pc/gfx/gfx_pc.h"
+#include "pc/fs/fmem.h"
+#include "game/hardcoded.h"
+#include "game/scroll_targets.h"
+#include "game/camera.h"
 #include "game/skybox.h"
 #include "game/object_list_processor.h"
 #include "game/object_helpers.h"
@@ -29,6 +33,11 @@
 #include "menu/intro_geo.h"
 #include "game/ingame_menu.h"
 #include "game/first_person_cam.h"
+#include "game/envfx_snow.h"
+#include "game/mario.h"
+#include "engine/math_util.h"
+#include "engine/lighting_engine.h"
+#include "audio/load.h"
 
 #ifdef DISCORD_SDK
 #include "pc/discord/discord.h"
@@ -37,7 +46,7 @@
 // fix warnings when including rendering_graph_node
 #undef near
 #undef far
-#include "src/game/rendering_graph_node.h"
+#include "game/rendering_graph_node.h"
 
 // Mario 64 specific externs
 extern s16 sCurrPlayMode;
@@ -72,13 +81,14 @@ struct ServerSettings gServerSettings = {
     .bouncyLevelBounds = BOUNCY_LEVEL_BOUNDS_OFF,
     .playerKnockbackStrength = 25,
     .skipIntro = FALSE,
-    .enableCheats = FALSE,
     .bubbleDeath = TRUE,
     .enablePlayersInLevelDisplay = TRUE,
     .enablePlayerList = TRUE,
     .headlessServer = FALSE,
     .nametags = TRUE,
     .maxPlayers = MAX_PLAYERS,
+    .pauseAnywhere = FALSE,
+    .pvpType = PLAYER_PVP_CLASSIC,
 };
 
 struct NametagsSettings gNametagsSettings = {
@@ -102,6 +112,7 @@ bool network_init(enum NetworkType inNetworkType, bool reconnecting) {
     // reset override hide hud
     extern u8 gOverrideHideHud;
     gOverrideHideHud = 0;
+    act_select_hud_show(ACT_SELECT_HUD_ALL);
     gNetworkStartupTimer = 5 * 30;
 
     // sanity check network system
@@ -118,27 +129,27 @@ bool network_init(enum NetworkType inNetworkType, bool reconnecting) {
     gServerSettings.bouncyLevelBounds = configBouncyLevelBounds;
     gServerSettings.playerKnockbackStrength = configPlayerKnockbackStrength;
     gServerSettings.stayInLevelAfterStar = configStayInLevelAfterStar;
-    gServerSettings.skipIntro = configSkipIntro;
-    gServerSettings.enableCheats = 0;
+    gServerSettings.skipIntro = gCLIOpts.skipIntro ? TRUE : configSkipIntro;
     gServerSettings.bubbleDeath = configBubbleDeath;
     gServerSettings.enablePlayersInLevelDisplay = TRUE;
     gServerSettings.enablePlayerList = TRUE;
     gServerSettings.nametags = configNametags;
-    gServerSettings.maxPlayers = configAmountofPlayers;
-#if defined(RAPI_DUMMY) || defined(WAPI_DUMMY)
-    gServerSettings.headlessServer = (inNetworkType == NT_SERVER);
-#else
-    gServerSettings.headlessServer = 0;
-#endif
+    gServerSettings.maxPlayers = configAmountOfPlayers;
+    gServerSettings.pauseAnywhere = configPauseAnywhere;
+    gServerSettings.pvpType = configPvpType;
+    gServerSettings.headlessServer = gCLIOpts.headless && (inNetworkType == NT_SERVER);
 
     gNametagsSettings.showHealth = false;
     gNametagsSettings.showSelfTag = false;
 
+    gPauseMenuHidden = false;
+
     // initialize the network system
     gNetworkSentJoin = false;
     int rc = gNetworkSystem->initialize(inNetworkType, reconnecting);
-    if (!rc) {
+    if (!rc && inNetworkType != NT_NONE) {
         LOG_ERROR("failed to initialize network system");
+        djui_popup_create(DLANG(NOTIF, DISCONNECT_CLOSED), 2);
         return false;
     }
     if (gNetworkServerAddr != NULL) {
@@ -158,7 +169,7 @@ bool network_init(enum NetworkType inNetworkType, bool reconnecting) {
 
         dynos_behavior_hook_all_custom_behaviors();
 
-        network_player_connected(NPT_LOCAL, 0, configPlayerModel, &configPlayerPalette, configPlayerName);
+        network_player_connected(NPT_LOCAL, 0, configPlayerModel, &configPlayerPalette, configPlayerName, get_local_discord_id());
         extern u8* gOverrideEeprom;
         gOverrideEeprom = NULL;
 
@@ -173,8 +184,12 @@ bool network_init(enum NetworkType inNetworkType, bool reconnecting) {
     configfile_save(configfile_name());
 
 #ifdef DISCORD_SDK
-    discord_activity_update();
+    if (gDiscordInitialized) {
+        discord_activity_update();
+    }
 #endif
+
+    djui_base_set_visible(&gDjuiModReload->base, network_allow_mod_dev_mode());
 
     LOG_INFO("initialized");
 
@@ -493,12 +508,12 @@ void network_rehost_begin(void) {
     sNetworkRehostTimer = 2;
 }
 
+extern void djui_panel_do_host(bool reconnecting, bool playSound);
 static void network_rehost_update(void) {
-    extern void djui_panel_do_host(bool reconnecting);
     if (sNetworkRehostTimer <= 0) { return; }
     if (--sNetworkRehostTimer != 0) { return; }
 
-    djui_panel_do_host(true);
+    djui_panel_do_host(true, true);
 }
 
 static void network_update_area_timer(void) {
@@ -521,6 +536,9 @@ static void network_update_area_timer(void) {
     //brokenClock = (skipClockCount > 0);
 #endif
     if (!brokenClock) {
+        if (network_check_singleplayer_pause()) {
+            gNetworkAreaTimerClock++;
+        }
         // update network area timer
         u32 desiredNAT = gNetworkAreaTimer + 1;
         gNetworkAreaTimer = (clock_elapsed_ticks() - gNetworkAreaTimerClock);
@@ -600,7 +618,7 @@ void network_update(void) {
             bool inCredits = (np->currActNum == 99);
             if (gNetworkType == NT_SERVER && (npAny == NULL || inCredits)) {
                 // no NetworkPlayer in the level
-                network_send_sync_valid(np, np->currCourseNum, np->currActNum, np->currLevelNum, np->currAreaIndex);
+                network_send_sync_valid(np, np->currCourseNum, np->currActNum, np->currLevelNum, np->currAreaIndex, false);
                 return;
             }
 
@@ -613,9 +631,49 @@ void network_update(void) {
         }
     }*/
 
+    // Kick the player back to the Main Menu if network init failed
+    if ((gNetworkType == NT_NONE) && !gDjuiInMainMenu) {
+        network_reset_reconnect_and_rehost();
+        network_shutdown(true, false, false, false);
+    }
 }
 
+static inline void color_set(Color color, u8 r, u8 g, u8 b) {
+    color[0] = r;
+    color[1] = g;
+    color[2] = b;
+}
+
+bool network_allow_mod_dev_mode(void) {
+    return (configModDevMode && gNetworkSystem == &gNetworkSystemSocket && gNetworkType == NT_SERVER);
+}
+
+void network_mod_dev_mode_reload(void) {
+    network_rehost_begin();
+
+    for (int i = 0; i < gLocalMods.entryCount; i++) {
+        struct Mod* mod = gLocalMods.entries[i];
+        if (mod->enabled) {
+            mod_refresh_files(mod);
+        }
+    }
+
+    djui_lua_error_clear();
+
+    LOG_CONSOLE(" ");
+    LOG_CONSOLE("===================================================");
+    LOG_CONSOLE("===================================================");
+    LOG_CONSOLE("===================================================");
+    LOG_CONSOLE("===================== REFRESH =====================");
+    LOG_CONSOLE("===================================================");
+    LOG_CONSOLE("===================================================");
+    LOG_CONSOLE("===================================================");
+}
+
+
 void network_shutdown(bool sendLeaving, bool exiting, bool popup, bool reconnecting) {
+    smlua_call_event_hooks(HOOK_ON_EXIT);
+
     if (gDjuiChatBox != NULL) {
         djui_base_destroy(&gDjuiChatBox->base);
         gDjuiChatBox = NULL;
@@ -624,13 +682,13 @@ void network_shutdown(bool sendLeaving, bool exiting, bool popup, bool reconnect
     gNetworkSentJoin = false;
 
     network_forget_all_reliable();
-    if (gNetworkType == NT_NONE) { return; }
-    if (gNetworkSystem == NULL) { LOG_ERROR("no network system attached"); return; }
-
-    if (gNetworkPlayerLocal != NULL && sendLeaving) { network_send_leaving(gNetworkPlayerLocal->globalIndex); }
-    network_player_shutdown(popup);
-    gNetworkSystem->shutdown(reconnecting);
-
+    if (gNetworkSystem == NULL) {
+        LOG_ERROR("no network system attached");
+    } else {
+        if (gNetworkPlayerLocal != NULL && sendLeaving) { network_send_leaving(gNetworkPlayerLocal->globalIndex); }
+        network_player_shutdown(popup);
+        gNetworkSystem->shutdown(reconnecting);
+    }
     if (gNetworkServerAddr != NULL) {
         free(gNetworkServerAddr);
         gNetworkServerAddr = NULL;
@@ -641,9 +699,9 @@ void network_shutdown(bool sendLeaving, bool exiting, bool popup, bool reconnect
         gNetworkType = NT_NONE;
     }
 
-    dynos_model_clear_pool(MODEL_POOL_SESSION);
-
     if (exiting) { return; }
+
+    dynos_model_clear_pool(MODEL_POOL_SESSION);
 
     // reset other stuff
     extern u8* gOverrideEeprom;
@@ -654,49 +712,49 @@ void network_shutdown(bool sendLeaving, bool exiting, bool popup, bool reconnect
     gOverrideNear = 0;
     gOverrideFar = 0;
     gOverrideFOV = 0;
+    gRoomOverride = -1;
+    gOverrideBank = -1;
     gCurrActStarNum = 0;
     gCurrActNum = 0;
     gCurrCreditsEntry = NULL;
-    gLightingDir[0] = 0;
-    gLightingDir[1] = 0;
-    gLightingDir[2] = 0;
-    gLightingColor[0] = 255;
-    gLightingColor[1] = 255;
-    gLightingColor[2] = 255;
-    gVertexColor[0] = 255;
-    gVertexColor[1] = 255;
-    gVertexColor[2] = 255;
-    gFogColor[0] = 255;
-    gFogColor[1] = 255;
-    gFogColor[2] = 255;
-    gFogIntensity = 1;
+    vec3f_set(gLightingDir, 0, 0, 0);
+    color_set(gLightingColor[0], 0xFF, 0xFF, 0xFF);
+    color_set(gLightingColor[1], 0xFF, 0xFF, 0xFF);
+    color_set(gVertexColor, 0xFF, 0xFF, 0xFF);
+    color_set(gSkyboxColor, 0xFF, 0xFF, 0xFF);
+    color_set(gFogColor, 0xFF, 0xFF, 0xFF);
+    gFogIntensity = 1.0f;
+    gFullbright = false;
+    clear_all_shader_flags();
     gOverrideBackground = -1;
-    gOverrideEnvFx = -1;
-    gRomhackCameraAllowCentering = TRUE;
+    gOverrideEnvFx = ENVFX_MODE_NO_OVERRIDE;
+    gRomhackCameraSettings.switchable = FALSE;
     gOverrideAllowToxicGasCamera = FALSE;
-    gRomhackCameraAllowDpad = FALSE;
+    gRomhackCameraSettings.dpad = FALSE;
     camera_reset_overrides();
+    romhack_camera_reset_settings();
+    free_vtx_scroll_targets();
     dynos_mod_shutdown();
     mods_clear(&gActiveMods);
     mods_clear(&gRemoteMods);
     smlua_shutdown();
     extern s16 gChangeLevel;
     gChangeLevel = LEVEL_CASTLE_GROUNDS;
-    if (gSkipInterpolationTitleScreen || find_object_with_behavior(bhvActSelector) != NULL) {
-        dynos_warp_to_level(LEVEL_CASTLE_GROUNDS, 1, 0);
-    }
     network_player_init();
-    camera_set_use_course_specific_settings(true);
-    free_vtx_scroll_targets();
     gMarioStates[0].cap = 0;
+    gMarioStates[0].input = 0;
     extern s16 gTTCSpeedSetting;
     gTTCSpeedSetting = 0;
     gOverrideDialogPos = 0;
     gOverrideDialogColor = 0;
     gDialogMinWidth = 0;
     gOverrideAllowToxicGasCamera = FALSE;
+    gLuaVolumeMaster = 127;
+    gLuaVolumeLevel = 127;
+    gLuaVolumeSfx = 127;
+    gLuaVolumeEnv = 127;
 
-    struct Controller* cnt = gMarioStates[0].controller;
+    struct Controller* cnt = gPlayer1Controller;
     cnt->rawStickX = 0;
     cnt->rawStickY = 0;
     cnt->stickX = 0;
@@ -704,20 +762,33 @@ void network_shutdown(bool sendLeaving, bool exiting, bool popup, bool reconnect
     cnt->stickMag = 0;
     cnt->buttonDown = 0;
     cnt->buttonPressed = 0;
+    cnt->buttonReleased = 0;
     cnt->extStickX = 0;
     cnt->extStickY = 0;
 
     gFirstPersonCamera.enabled = false;
+    gFirstPersonCamera.forcePitch = false;
+    gFirstPersonCamera.forceYaw = false;
+    gFirstPersonCamera.forceRoll = true;
+    gFirstPersonCamera.centerL = true;
     gFirstPersonCamera.fov = FIRST_PERSON_DEFAULT_FOV;
+    vec3f_set(gFirstPersonCamera.offset, 0, 0, 0);
     first_person_reset();
+
+    le_shutdown();
 
     extern void save_file_load_all(UNUSED u8 reload);
     save_file_load_all(TRUE);
     extern void save_file_set_using_backup_slot(bool usingBackupSlot);
     save_file_set_using_backup_slot(false);
+    f_shutdown();
 
     extern s16 gMenuMode;
     gMenuMode = -1;
+
+    reset_window_title();
+
+    init_mario_from_save_file();
 
     djui_panel_shutdown();
     extern bool gDjuiInMainMenu;
@@ -725,9 +796,12 @@ void network_shutdown(bool sendLeaving, bool exiting, bool popup, bool reconnect
         gDjuiInMainMenu = true;
         djui_panel_main_create(NULL);
     }
+    djui_lua_error_clear();
 
 #ifdef DISCORD_SDK
-    discord_activity_update();
+    if (gDiscordInitialized) {
+        discord_activity_update();
+    }
 #endif
     packet_ordered_clear_all();
 

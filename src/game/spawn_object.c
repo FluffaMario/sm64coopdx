@@ -85,7 +85,7 @@ struct Object *try_allocate_object(struct ObjectNode *destList, struct ObjectNod
     struct ObjectNode *nextObj = NULL;
 
     if (destList == NULL || freeList == NULL) {
-        fprintf(stderr, "FATAL ERROR: Failed to try and allocate a object because either the destList %p or freeList %p was NULL!\n", destList, freeList);
+        LOG_ERROR("Failed to try and allocate a object because either the destList %p or freeList %p was NULL!", destList, freeList);
         return NULL;
     }
 
@@ -99,7 +99,7 @@ struct Object *try_allocate_object(struct ObjectNode *destList, struct ObjectNod
         if (destList->prev != NULL) {
             destList->prev->next = nextObj;
         } else {
-            fprintf(stderr, "ERROR: The previous object in the destination list %p was NULL! Unexpected errors may occur.\n", destList);
+            LOG_ERROR("The previous object in the destination list %p was NULL! Unexpected errors may occur.", destList);
         }
         destList->prev = nextObj;
     } else {
@@ -183,7 +183,7 @@ void clear_object_lists(struct ObjectNode *objLists) {
 /**
  * Delete the leaf graph nodes under obj and obj's siblings.
  */
-static void unused_delete_leaf_nodes(struct Object *obj) {
+UNUSED static void unused_delete_leaf_nodes(struct Object *obj) {
     if (!obj) { return; }
     struct Object *children;
     struct Object *sibling;
@@ -219,6 +219,15 @@ void unload_object(struct Object *obj) {
     obj->header.gfx.node.flags &= ~GRAPH_RENDER_CYLBOARD;
     obj->header.gfx.node.flags &= ~GRAPH_RENDER_ACTIVE;
 
+    // Clear Mario object pointers
+    if (obj->behavior == bhvMario) {
+        u8 playerIndex = obj->oBehParams - 1;
+        if (playerIndex < MAX_PLAYERS) {
+            gMarioObjects[playerIndex] = NULL;
+            gMarioStates[playerIndex].marioObj = NULL;
+        }
+    }
+
     struct SyncObject* so = sync_object_get(obj->oSyncID);
     if (so && gNetworkType != NT_NONE) {
         if (so->syncDeathEvent) {
@@ -230,10 +239,13 @@ void unload_object(struct Object *obj) {
             sync_object_forget(so->id);
         }
 
-        smlua_call_event_hooks_object_param(HOOK_ON_SYNC_OBJECT_UNLOAD, obj);
+        smlua_call_event_hooks(HOOK_ON_SYNC_OBJECT_UNLOAD, obj);
     }
 
-    smlua_call_event_hooks_object_param(HOOK_ON_OBJECT_UNLOAD, obj);
+    obj->firstSurface = 0;
+    obj->numSurfaces = 0;
+
+    smlua_call_event_hooks(HOOK_ON_OBJECT_UNLOAD, obj);
 
     deallocate_object(&gFreeObjectList, &obj->header);
 }
@@ -279,10 +291,8 @@ struct Object *allocate_object(struct ObjectNode *objList) {
     obj->collidedObjInteractTypes = 0;
     obj->numCollidedObjs = 0;
 
-    for (s32 i = 0; i < 0x50; i++) {
-        obj->rawData.asS32[i] = 0;
-        obj->ptrData.asVoidPtr[i] = NULL;
-    }
+    memset(&obj->rawData, 0, sizeof(obj->rawData));
+    memset(&obj->ptrData, 0, sizeof(obj->ptrData));
 
     obj->unused1 = 0;
     obj->bhvStackIndex = 0;
@@ -317,13 +327,13 @@ struct Object *allocate_object(struct ObjectNode *objList) {
     obj->oRoom = -1;
 
     obj->header.gfx.node.flags &= ~GRAPH_RENDER_INVISIBLE;
-    obj->header.gfx.pos[0] = -10000.0f;
-    obj->header.gfx.pos[1] = -10000.0f;
-    obj->header.gfx.pos[2] = -10000.0f;
+    vec3f_set(obj->header.gfx.pos, -10000.0f, -10000.0f, -10000.0f);
+    vec3s_zero(obj->header.gfx.angle);
     obj->header.gfx.throwMatrix = NULL;
-    obj->header.gfx.angle[0] = 0;
-    obj->header.gfx.angle[1] = 0;
-    obj->header.gfx.angle[2] = 0;
+    obj->header.gfx.inited = false;
+    obj->header.gfx.disableAutomaticShadowPos = false;
+    obj->header.gfx.shadowInvisible = false;
+    obj->header.gfx.skipInViewCheck = false;
 
     obj->coopFlags = 0;
     obj->hookRender = 0;
@@ -336,6 +346,9 @@ struct Object *allocate_object(struct ObjectNode *objList) {
     obj->allowRemoteInteractions = FALSE;
 
     obj->usingObj = NULL;
+
+    obj->firstSurface = 0;
+    obj->numSurfaces = 0;
 
     return obj;
 }
@@ -361,7 +374,6 @@ static void snap_object_to_floor(struct Object *obj) {
 struct Object *create_object(const BehaviorScript *bhvScript) {
     if (!bhvScript) { return NULL; }
     s32 objListIndex = OBJ_LIST_DEFAULT;
-    bool luaBehavior = smlua_is_behavior_hooked(bhvScript);
     const BehaviorScript *behavior = smlua_override_behavior(bhvScript);
 
     // If the first behavior script command is "begin <object list>", then
@@ -371,7 +383,7 @@ struct Object *create_object(const BehaviorScript *bhvScript) {
     }
 
     if (objListIndex >= NUM_OBJ_LISTS) {
-        fprintf(stderr, "Failed to create object with non-existent object list index %i with behavior script %p.\n", objListIndex, bhvScript);
+        LOG_ERROR("Failed to create object with non-existent object list index %i with behavior script %p.", objListIndex, bhvScript);
         return NULL;
     }
 
@@ -379,7 +391,8 @@ struct Object *create_object(const BehaviorScript *bhvScript) {
     struct Object *obj = allocate_object(objList);
     if (obj == NULL) { return NULL; }
 
-    obj->curBhvCommand = luaBehavior ? bhvScript : behavior;
+    obj->initBhvCommand = smlua_get_behavior_command(bhvScript);
+    obj->curBhvCommand = obj->initBhvCommand;
     obj->behavior = behavior;
 
     if (objListIndex == OBJ_LIST_UNIMPORTANT) {
@@ -401,7 +414,7 @@ struct Object *create_object(const BehaviorScript *bhvScript) {
             break;
     }
 
-    smlua_call_event_hooks_object_param(HOOK_ON_OBJECT_LOAD, obj);
+    smlua_call_event_hooks(HOOK_ON_OBJECT_LOAD, obj);
 
     return obj;
 }

@@ -11,15 +11,15 @@
  * Hitbox for a single pokey body part.
  */
 static struct ObjectHitbox sPokeyBodyPartHitbox = {
-    /* interactType:      */ INTERACT_BOUNCE_TOP,
-    /* downOffset:        */ 10,
-    /* damageOrCoinValue: */ 2,
-    /* health:            */ 0,
-    /* numLootCoins:      */ 0,
-    /* radius:            */ 40,
-    /* height:            */ 20,
-    /* hurtboxRadius:     */ 20,
-    /* hurtboxHeight:     */ 20,
+    .interactType = INTERACT_BOUNCE_TOP,
+    .downOffset = 10,
+    .damageOrCoinValue = 2,
+    .health = 0,
+    .numLootCoins = 0,
+    .radius = 40,
+    .height = 20,
+    .hurtboxRadius = 20,
+    .hurtboxHeight = 20,
 };
 
 /**
@@ -46,7 +46,11 @@ void bhv_pokey_body_part_update(void) {
     f32 baseHeight;
 
     if (o->parentObj == NULL || o->parentObj->behavior != smlua_override_behavior(bhvPokey) || o->parentObj->activeFlags == ACTIVE_FLAG_DEACTIVATED) {
-        obj_mark_for_deletion(o);
+        if (o->oBehParams2ndByte == 0) {
+            obj_die_if_health_non_positive();
+        } else {
+            obj_mark_for_deletion(o);
+        }
         return;
     }
 
@@ -193,12 +197,12 @@ static void pokey_act_uninitialized(void) {
     if (!sync_object_is_initialized(o->oSyncID)) {
         struct SyncObject* so = sync_object_init(o, 4000.0f);
         if (so) {
-            sync_object_init_field(o, &o->oPokeyAliveBodyPartFlags);
-            sync_object_init_field(o, &o->oPokeyNumAliveBodyParts);
-            sync_object_init_field(o, &o->oPokeyHeadWasKilled);
-            sync_object_init_field(o, &o->oPokeyTargetYaw);
-            sync_object_init_field(o, &o->oPokeyChangeTargetTimer);
-            sync_object_init_field(o, &o->oPokeyTurningAwayFromWall);
+            sync_object_init_field(o, o->oPokeyAliveBodyPartFlags);
+            sync_object_init_field(o, o->oPokeyNumAliveBodyParts);
+            sync_object_init_field(o, o->oPokeyHeadWasKilled);
+            sync_object_init_field(o, o->oPokeyTargetYaw);
+            sync_object_init_field(o, o->oPokeyChangeTargetTimer);
+            sync_object_init_field(o, o->oPokeyTurningAwayFromWall);
             so->on_received_pre = pokey_on_received_pre;
             so->on_received_post = pokey_on_received_post;
         }

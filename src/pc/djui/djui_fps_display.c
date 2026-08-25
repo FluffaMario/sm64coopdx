@@ -1,5 +1,5 @@
 #include "djui.h"
-#include "../pc_main.h"
+#include "pc/pc_main.h"
 
 struct DjuiFpsDisplay {
     struct DjuiText *text;
@@ -8,28 +8,33 @@ struct DjuiFpsDisplay {
 
 struct DjuiFpsDisplay *sFpsDisplay = NULL;
 
-void djui_fps_display_update(s16 fps) {
-    if (configShowFPS) {
+void djui_fps_display_update(u32 fps) {
+    if (configShowFPS && sFpsDisplay != NULL) {
         char fpsText[30] = "";
+        fps = fps > 99999 ? 99999 : fps; // Prevent overflowing the FPS display (cap at 99999)
         snprintf(fpsText, 30, "\\#dcdcdc\\FPS: \\#ffffff\\%d", fps);
         djui_text_set_text(sFpsDisplay->text, fpsText);
     }
 }
 
 void djui_fps_display_render(void) {
-    if (configShowFPS) {
+    if (configShowFPS && sFpsDisplay != NULL) {
         djui_rect_render(&sFpsDisplay->base);
         djui_base_render(&sFpsDisplay->base);
     }
 }
 
+void djui_fps_display_on_destroy(UNUSED struct DjuiBase* base) {
+    free(sFpsDisplay);
+}
+
 void djui_fps_display_create(void) {
-    struct DjuiFpsDisplay *fpsDisplay = malloc(sizeof(struct DjuiFpsDisplay));
+    struct DjuiFpsDisplay *fpsDisplay = calloc(1, sizeof(struct DjuiFpsDisplay));
     struct DjuiBase* base = &fpsDisplay->base;
-    djui_base_init(NULL, base, NULL, NULL);
-    djui_base_set_size(base, 150, 50);
-    djui_base_set_color(base, 0, 0, 0, 240);
-    djui_base_set_border_color(base, 0, 0, 0, 200);
+    djui_base_init(NULL, base, NULL, djui_fps_display_on_destroy);
+    djui_base_set_size(base, 165, 50);
+    djui_base_set_color(base, 0, 0, 0, 200);
+    djui_base_set_border_color(base, 0, 0, 0, 160);
     djui_base_set_border_width(base, 4);
     djui_base_set_padding(base, 16, 16, 16, 16);
 
@@ -45,4 +50,10 @@ void djui_fps_display_create(void) {
     }
 
     sFpsDisplay = fpsDisplay;
+}
+
+void djui_fps_display_destroy(void) {
+    if (sFpsDisplay) {
+        djui_base_destroy(&sFpsDisplay->base);
+    }
 }

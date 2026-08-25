@@ -2,7 +2,7 @@
 
 extern "C" {
 #include "include/level_misc_macros.h"
-#include "src/game/moving_texture.h"
+#include "game/moving_texture.h"
 }
 
 #pragma GCC diagnostic push
@@ -20,10 +20,9 @@ static Movtex* ParseMovtexQCSymbolArg(GfxData* aGfxData, DataNode<MovtexQC>* aNo
     movtexqc_constant(NULL);
 
     // Movtexs
-    for (auto& _Node : aGfxData->mMovtexs) {
-        if (_Arg == _Node->mName) {
-            return DynOS_Movtex_Parse(aGfxData, _Node, false)->mData;
-        }
+    auto _Node = aGfxData->mMovtexs.Find(_Arg, aGfxData->mDataIdentifier);
+    if (_Node) {
+        return DynOS_Movtex_Parse(aGfxData, _Node, false)->mData;
     }
 
     // Unknown
@@ -64,7 +63,7 @@ void DynOS_MovtexQC_Write(BinFile* aFile, GfxData* aGfxData, DataNode<MovtexQC> 
     aFile->Write<u32>(aNode->mSize);
     for (u32 i = 0; i != aNode->mSize; ++i) {
         aFile->Write<s16>(aNode->mData[i].id);
-        DynOS_Pointer_Write(aFile, (const void *) (aNode->mData[i].quadArraySegmented), aGfxData);
+        DynOS_Pointer_Write(aFile, (const void *) (aNode->mData[i].quadArraySegmented), aGfxData, 0);
     }
 }
 
@@ -84,7 +83,7 @@ DataNode<MovtexQC>* DynOS_MovtexQC_Load(BinFile *aFile, GfxData *aGfxData) {
     for (u32 i = 0; i != _Node->mSize; ++i) {
         _Node->mData[i].id = aFile->Read<s16>();
         u32 _Value = aFile->Read<u32>();
-        void *_Ptr = DynOS_Pointer_Load(aFile, aGfxData, _Value, &_Node->mFlags);
+        void *_Ptr = DynOS_Pointer_Load(aFile, aGfxData, _Value, 0, &_Node->mFlags);
         _Node->mData[i].quadArraySegmented = (Movtex*)_Ptr;
     }
 

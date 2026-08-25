@@ -5,11 +5,11 @@
 #include "object_constants.h"
 #include "behavior_data.h"
 #include "behavior_table.h"
-#include "src/game/memory.h"
-#include "src/game/object_helpers.h"
-#include "src/game/obj_behaviors.h"
-#include "src/game/object_list_processor.h"
-#include "src/game/area.h"
+#include "game/memory.h"
+#include "game/object_helpers.h"
+#include "game/obj_behaviors.h"
+#include "game/object_list_processor.h"
+#include "game/area.h"
 #include "pc/lua/smlua_hooks.h"
 #include "pc/debuglog.h"
 #include "pc/utils/misc.h"
@@ -68,10 +68,14 @@ static bool allowable_behavior_change(struct SyncObject* so, BehaviorScript* beh
     struct Object* o = so->o;
 
     // bhvPenguinBaby can be set to bhvSmallPenguin
-    bool oBehaviorPenguin = (o->behavior == segmented_to_virtual(smlua_override_behavior(bhvPenguinBaby)) || o->behavior == segmented_to_virtual(smlua_override_behavior(bhvSmallPenguin)));
-    bool inBehaviorPenguin = (behavior == segmented_to_virtual(smlua_override_behavior(bhvPenguinBaby)) || behavior == segmented_to_virtual(smlua_override_behavior(bhvSmallPenguin)));
-    bool allow = (oBehaviorPenguin && inBehaviorPenguin);
+    bool oBehaviorPenguin = (o->behavior == smlua_override_behavior(bhvPenguinBaby) || o->behavior == smlua_override_behavior(bhvSmallPenguin));
+    bool inBehaviorPenguin = (behavior == smlua_override_behavior(bhvPenguinBaby) || behavior == smlua_override_behavior(bhvSmallPenguin));
 
+    // bhvCoinFormationSpawn can be set to bhvYellowCoin
+    bool oBehaviorCoin = (o->behavior == smlua_override_behavior(bhvCoinFormationSpawn) || o->behavior == smlua_override_behavior(bhvYellowCoin));
+    bool inBehaviorCoin = (behavior == smlua_override_behavior(bhvCoinFormationSpawn) || behavior == smlua_override_behavior(bhvYellowCoin));
+
+    bool allow = (oBehaviorPenguin && inBehaviorPenguin) || (oBehaviorCoin && inBehaviorCoin);
     if (!allow) { return false; }
 
     so->behavior = behavior;
@@ -135,8 +139,15 @@ static struct SyncObject* packet_read_object_header(struct Packet* p, u8* fromLo
     if (behavior == NULL) {
         LOG_ERROR("unable to find behavior %04X for id %d", behaviorId, syncId);
         return NULL;
-    } if (o->behavior != behavior && o->behavior != lBehavior && !allowable_behavior_change(so, behavior)) {
-        LOG_ERROR("behavior mismatch for %d: %04X vs %04X", syncId, get_id_from_behavior(o->behavior), get_id_from_behavior(behavior));
+    }
+    if (o->behavior != behavior && o->behavior != lBehavior && !allowable_behavior_change(so, behavior)) {
+        enum BehaviorId objBehaviorId = get_id_from_behavior(o->behavior);
+        enum BehaviorId inBehaviorId = get_id_from_behavior(behavior);
+        LOG_ERROR(
+            "during read behavior mismatch for %d: %04X (%s) vs %04X (%s)", syncId,
+            objBehaviorId, get_behavior_name_from_id(objBehaviorId),
+            inBehaviorId,  get_behavior_name_from_id(inBehaviorId)
+        );
         return NULL;
     }
 
@@ -150,7 +161,7 @@ static void packet_write_object_full_sync(struct Packet* p, struct Object* o) {
     if (!so || !so->fullObjectSync) { return; }
 
     // write all of raw data
-    packet_write(p, o->rawData.asU32, sizeof(u32) * 80);
+    packet_write(p, o->rawData.asU32, sizeof(u32) * OBJECT_NUM_FIELDS);
 }
 
 static void packet_read_object_full_sync(struct Packet* p, struct Object* o) {
@@ -158,7 +169,7 @@ static void packet_read_object_full_sync(struct Packet* p, struct Object* o) {
     if (!so || !so->fullObjectSync) { return; }
 
     // read all of raw data
-    packet_read(p, o->rawData.asU32, sizeof(u32) * 80);
+    packet_read(p, o->rawData.asU32, sizeof(u32) * OBJECT_NUM_FIELDS);
 }
 
 // ----- standard fields ----- //
@@ -220,7 +231,7 @@ static void packet_write_object_extra_fields(struct Packet* p, struct Object* o)
     // write the extra field
     for (u8 i = 0; i < so->extraFieldCount; i++) {
         SOFT_ASSERT(so->extraFields[i] != NULL);
-        packet_write(p, so->extraFields[i], so->extraFieldsSize[i] / 8);
+        packet_write(p, so->extraFields[i], so->extraFieldsSizeBytes[i]);
     }
 }
 
@@ -240,7 +251,7 @@ static void packet_read_object_extra_fields(struct Packet* p, struct Object* o) 
     // read the extra fields
     for (u8 i = 0; i < extraFieldsCount; i++) {
         SOFT_ASSERT(so->extraFields[i] != NULL);
-        packet_read(p, so->extraFields[i], so->extraFieldsSize[i] / 8);
+        packet_read(p, so->extraFields[i], so->extraFieldsSizeBytes[i]);
     }
 }
 
@@ -288,7 +299,13 @@ void network_send_object(struct Object* o) {
         return;
     }
     if (o->behavior != so->behavior && !allowable_behavior_change(so, so->behavior)) {
-        LOG_ERROR("behavior mismatch for %d: %04X vs %04X", o->oSyncID, get_id_from_behavior(o->behavior), get_id_from_behavior(so->behavior));
+        enum BehaviorId objBehaviorId = get_id_from_behavior(o->behavior);
+        enum BehaviorId soBehaviorId = get_id_from_behavior(so->behavior);
+        LOG_ERROR(
+            "during send behavior mismatch for %d: %04X (%s) vs %04X (%s)", o->oSyncID,
+            objBehaviorId, get_behavior_name_from_id(objBehaviorId),
+            soBehaviorId,  get_behavior_name_from_id(soBehaviorId)
+        );
         sync_object_forget(so->id);
         return;
     }
@@ -298,8 +315,8 @@ void network_send_object(struct Object* o) {
 }
 
 void network_send_object_reliability(struct Object* o, bool reliable) {
+    // don't send sync objects while area sync is invalid
     if (gNetworkPlayerLocal == NULL || !gNetworkPlayerLocal->currAreaSyncValid) {
-        LOG_INFO("tried to send sync obj when area sync invalid");
         return;
     }
     // prevent sending objects during credits sequence
@@ -322,7 +339,13 @@ void network_send_object_reliability(struct Object* o, bool reliable) {
         return;
     }
     if (o->behavior != so->behavior && !allowable_behavior_change(so, so->behavior)) {
-        LOG_ERROR("behavior mismatch for %d: %04X vs %04X", syncId, get_id_from_behavior(o->behavior), get_id_from_behavior(so->behavior));
+        enum BehaviorId objBehaviorId = get_id_from_behavior(o->behavior);
+        enum BehaviorId soBehaviorId = get_id_from_behavior(so->behavior);
+        LOG_ERROR(
+            "during send reliability behavior mismatch for %d: %04X (%s) vs %04X (%s)", syncId,
+            objBehaviorId, get_behavior_name_from_id(objBehaviorId),
+            soBehaviorId,  get_behavior_name_from_id(soBehaviorId)
+        );
         sync_object_forget(so->id);
         return;
     }
@@ -436,7 +459,7 @@ void network_receive_object(struct Packet* p) {
     }
 
     // apply platform displacement
-    if (o != NULL) {
+    if (o != NULL && o->collisionData) {
         Vec3f deltaPos = { 0 };
         deltaPos[0] = o->oPosX - oldPos[0];
         deltaPos[2] = o->oPosY - oldPos[1];
@@ -468,9 +491,14 @@ void network_update_objects(void) {
 
         // check for stale sync object
         if (so->o->oSyncID != so->id) {
-            enum BehaviorId bhvId = get_id_from_behavior(so->o->behavior);
-            const char* bhvName = get_behavior_name_from_id(bhvId);
-            LOG_ERROR("sync id mismatch: %d vs %d (behavior %s, %d)", so->o->oSyncID, so->id, bhvName != NULL ? bhvName : "NULL", bhvId);
+            // check if object was deleted
+            if (so->o->activeFlags != ACTIVE_FLAG_DEACTIVATED &&
+                so->o->behavior == so->behavior // a new object may be in this slot
+            ) {
+                enum BehaviorId bhvId = get_id_from_behavior(so->o->behavior);
+                const char* bhvName = get_behavior_name_from_id(bhvId);
+                LOG_ERROR("sync id mismatch: %d vs %d (behavior %s, %d)", so->o->oSyncID, so->id, bhvName != NULL ? bhvName : "NULL", bhvId);
+            }
             sync_object_forget(so->id);
             continue;
         }

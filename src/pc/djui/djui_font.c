@@ -1,36 +1,49 @@
 #include "djui.h"
 #include "djui_unicode.h"
+#include "djui_hud_utils.h"
 #include "game/segment2.h"
 
   ///////////////////////////////////
  // font 0 (built-in normal font) //
 ///////////////////////////////////
 
-static void djui_font_normal_render_char(char* c) {
+static void djui_font_normal_render_char(const char* c) {
     // replace undisplayable characters
     if (*c == ' ') { return; }
 
     u32 index = djui_unicode_get_sprite_index(c);
-    u32 tx = index % 32;
-    u32 ty = index / 32;
 
-    extern ALIGNED8 const u8 texture_font_normal[];
-    djui_gfx_render_texture_tile(texture_font_normal, 256, 128, 32, tx * 8, ty * 16, 8, 16, false);
+    if (index & 0x010000) {
+        index &= ~0x010000;
+        u32 tx = index % 64;
+        u32 ty = index / 64;
+        extern ALIGNED8 const Texture texture_font_jp[];
+        djui_gfx_render_texture_tile_font(texture_font_jp, 512, 1024, G_IM_FMT_RGBA, G_IM_SIZ_32b, tx * 8, ty * 16, 8, 16);
+    } else {
+        u32 tx = index % 32;
+        u32 ty = index / 32;
+        extern ALIGNED8 const Texture texture_font_normal[];
+        djui_gfx_render_texture_tile_font(texture_font_normal, 256, 128, G_IM_FMT_RGBA, G_IM_SIZ_32b, tx * 8, ty * 16, 8, 16);
+    }
 }
 
-static f32 djui_font_normal_char_width(char* c) {
-    if (*c == ' ') { return 0.30f; }
+static f32 djui_font_normal_char_width(const char* c) {
+    if (*c == ' ') { return configExCoopTheme ? 6 / 32.0f : 0.30f; }
     extern const f32 font_normal_widths[];
-    return djui_unicode_get_sprite_width(c, font_normal_widths);
+    return djui_unicode_get_sprite_width(c, font_normal_widths, 32.0f);
 }
 
 static const struct DjuiFont sDjuiFontNormal = {
     .charWidth            = 0.5f,
     .charHeight           = 1.0f,
     .lineHeight           = 0.8125f,
+    .xOffset              = 0.0f,
+    .yOffset              = 0.0f,
     .defaultFontScale     = 32.0f,
     .textBeginDisplayList = NULL,
+    .render_begin         = djui_gfx_render_texture_tile_font_begin,
     .render_char          = djui_font_normal_render_char,
+    .render_end           = djui_gfx_render_texture_tile_font_end,
     .char_width           = djui_font_normal_char_width,
 };
 
@@ -38,7 +51,7 @@ static const struct DjuiFont sDjuiFontNormal = {
  // font 1 (custom title font) //
 ////////////////////////////////
 
-static void djui_font_title_render_char(char* c) {
+static void djui_font_title_render_char(const char* c) {
     // replace undisplayable characters
     if (*c == ' ') { return; }
 
@@ -52,25 +65,29 @@ static void djui_font_title_render_char(char* c) {
     u32 tx = index % 16;
     u32 ty = index / 16;
 
-    extern ALIGNED8 const u8 texture_font_title[];
-    djui_gfx_render_texture_tile(texture_font_title, 1024, 512, 32, tx * 64, ty * 64, 64, 64, false);
+    extern ALIGNED8 const Texture texture_font_title[];
+    djui_gfx_render_texture_tile_font(texture_font_title, 1024, 512, G_IM_FMT_RGBA, G_IM_SIZ_32b, tx * 64, ty * 64, 64, 64);
 }
 
-static f32 djui_font_title_char_width(char* text) {
+static f32 djui_font_title_char_width(const char* text) {
     char c = *text;
     if (c == ' ') { return 0.30f; }
     c = djui_unicode_get_base_char(text);
     extern const f32 font_title_widths[];
-    return font_title_widths[(u8)c - '!'];
+    return font_title_widths[(u8)c - '!'] * (configExCoopTheme ? 1.0f : 1.1f);
 }
 
 static const struct DjuiFont sDjuiFontTitle = {
     .charWidth            = 1.0f,
-    .charHeight           = 0.9f,
+    .charHeight           = 0.95f,
     .lineHeight           = 0.7f,
+    .xOffset              = 0.0f,
+    .yOffset              = 0.0f,
     .defaultFontScale     = 64.0f,
     .textBeginDisplayList = NULL,
+    .render_begin         = djui_gfx_render_texture_tile_font_begin,
     .render_char          = djui_font_title_render_char,
+    .render_end           = djui_gfx_render_texture_tile_font_end,
     .char_width           = djui_font_title_char_width,
 };
 
@@ -111,25 +128,29 @@ static u8 djui_font_hud_index(char c) {
     return c;
 }
 
-static void djui_font_hud_render_char(char* text) {
+static void djui_font_hud_render_char(const char* text) {
     char c = *text;
     if (c == ' ') { return; }
     c = djui_unicode_get_base_char(text);
     u8 index = djui_font_hud_index(c);
-    djui_gfx_render_texture(main_hud_lut[index], 16, 16, 16, false);
+    djui_gfx_render_texture_font(main_hud_lut[index], 16, 16, G_IM_FMT_RGBA, G_IM_SIZ_16b);
 }
 
-static f32 djui_font_hud_char_width(UNUSED char* text) {
+static f32 djui_font_hud_char_width(UNUSED const char* text) {
     return 0.75f;
 }
 
 static const struct DjuiFont sDjuiFontHud = {
     .charWidth            = 1.0f,
-    .charHeight           = 0.9f,
-    .lineHeight           = 0.7f,
+    .charHeight           = 1.0f,
+    .lineHeight           = 1.25f,
+    .xOffset              = 0.0f,
+    .yOffset              = 0.0f,
     .defaultFontScale     = 16.0f,
     .textBeginDisplayList = NULL,
+    .render_begin         = djui_gfx_render_texture_font_begin,
     .render_char          = djui_font_hud_render_char,
+    .render_end           = djui_gfx_render_texture_font_end,
     .char_width           = djui_font_hud_char_width,
 };
 
@@ -137,31 +158,43 @@ static const struct DjuiFont sDjuiFontHud = {
  // font 3 (DJ's aliased font) //
 ////////////////////////////////
 
-static void djui_font_aliased_render_char(char* c) {
+static void djui_font_aliased_render_char(const char* c) {
     // replace undisplayable characters
     if (*c == ' ') { return; }
 
     u32 index = djui_unicode_get_sprite_index(c);
-    u32 tx = index % 32;
-    u32 ty = index / 32;
 
-    extern ALIGNED8 const u8 texture_font_aliased[];
-    djui_gfx_render_texture_tile(texture_font_aliased, 512, 256, 32, tx * 16, ty * 32, 16, 32, false);
+    if (index & 0x010000) {
+        index &= ~0x010000;
+        u32 tx = index % 64;
+        u32 ty = index / 64;
+        extern ALIGNED8 const Texture texture_font_jp_aliased[];
+        djui_gfx_render_texture_tile_font(texture_font_jp_aliased, 1024, 2048, G_IM_FMT_RGBA, G_IM_SIZ_32b, tx * 16, ty * 32, 16, 32);
+    } else {
+        u32 tx = index % 32;
+        u32 ty = index / 32;
+        extern ALIGNED8 const Texture texture_font_aliased[];
+        djui_gfx_render_texture_tile_font(texture_font_aliased, 512, 256, G_IM_FMT_RGBA, G_IM_SIZ_32b, tx * 16, ty * 32, 16, 32);
+    }
 }
 
-static f32 djui_font_aliased_char_width(char* c) {
+static f32 djui_font_aliased_char_width(const char* c) {
     if (*c == ' ') { return 6 / 32.0f; }
     extern const f32 font_aliased_widths[];
-    return djui_unicode_get_sprite_width(c, font_aliased_widths) / 32.0f;
+    return djui_unicode_get_sprite_width(c, font_aliased_widths, 1.0f) / 32.0f;
 }
 
 static const struct DjuiFont sDjuiFontAliased = {
     .charWidth            = 0.5f,
     .charHeight           = 1.0f,
+    .xOffset              = 0.0f,
+    .yOffset              = 0.0f,
     .lineHeight           = 0.8125f,
     .defaultFontScale     = 32.0f,
     .textBeginDisplayList = NULL,
+    .render_begin         = djui_gfx_render_texture_tile_font_begin,
     .render_char          = djui_font_aliased_render_char,
+    .render_end           = djui_gfx_render_texture_tile_font_end,
     .char_width           = djui_font_aliased_char_width,
 };
 
@@ -169,58 +202,122 @@ static const struct DjuiFont sDjuiFontAliased = {
  // font 4/5 (custom hud font/recolor) //
 ////////////////////////////////////////
 
-static void djui_font_custom_hud_render_char(char* c) {
+static void djui_font_custom_hud_render_char(const char* c) {
     // replace undisplayable characters
     if (*c == ' ') { return; }
 
     u32 index = djui_unicode_get_sprite_index(c);
 
-    u32 tx = index % 16;
-    u32 ty = index / 16;
-
-    extern ALIGNED8 const u8 texture_font_hud[];
-    djui_gfx_render_texture_tile(texture_font_hud, 512, 512, 32, tx * 32, ty * 32, 32, 32, false);
+    if (index & 0x010000) {
+        index &= ~0x010000;
+        u32 tx = index % 64;
+        u32 ty = index / 64;
+        extern ALIGNED8 const Texture texture_font_jp[];
+        djui_gfx_render_texture_tile_font(texture_font_jp, 512, 1024, G_IM_FMT_RGBA, G_IM_SIZ_32b, tx * 8, ty * 16, 8, 16);
+    } else {
+        u32 tx = index % 16;
+        u32 ty = index / 16;
+        extern ALIGNED8 const Texture texture_font_hud[];
+        djui_gfx_render_texture_tile_font(texture_font_hud, 512, 512, G_IM_FMT_RGBA, G_IM_SIZ_32b, tx * 32, ty * 32, 32, 32);
+    }
 }
 
-static void djui_font_custom_hud_recolor_render_char(char* c) {
+static void djui_font_custom_hud_recolor_render_char(const char* c) {
     // replace undisplayable characters
     if (*c == ' ') { return; }
 
     u32 index = djui_unicode_get_sprite_index(c);
 
-    u32 tx = index % 16;
-    u32 ty = index / 16;
-
-    extern ALIGNED8 const u8 texture_font_hud_recolor[];
-    djui_gfx_render_texture_tile(texture_font_hud_recolor, 512, 512, 32, tx * 32, ty * 32, 32, 32, false);
+    if (index & 0x010000) {
+        index &= ~0x010000;
+        u32 tx = index % 64;
+        u32 ty = index / 64;
+        extern ALIGNED8 const Texture texture_font_jp[];
+        djui_gfx_render_texture_tile_font(texture_font_jp, 512, 1024, G_IM_FMT_RGBA, G_IM_SIZ_32b, tx * 8, ty * 16, 8, 16);
+    } else {
+        u32 tx = index % 16;
+        u32 ty = index / 16;
+        extern ALIGNED8 const Texture texture_font_hud_recolor[];
+        djui_gfx_render_texture_tile_font(texture_font_hud_recolor, 512, 512, G_IM_FMT_RGBA, G_IM_SIZ_32b, tx * 32, ty * 32, 32, 32);
+    }
 }
 
-static f32 djui_font_custom_hud_char_width(char* text) {
-    char c = *text;
-    if (c == ' ') { return 0.3750f; }
-    c = djui_unicode_get_base_char(text);
+static f32 djui_font_custom_hud_char_width(const char* c) {
+    if (*c == ' ') { return 0.3750f; }
     extern const f32 font_hud_widths[];
-    return font_hud_widths[(u8)c - '!'];
+    return djui_unicode_get_sprite_width(c, font_hud_widths, 32.0f);
 }
 
 static const struct DjuiFont sDjuiFontCustomHud = {
     .charWidth            = 1.0f,
-    .charHeight           = 0.9f,
+    .charHeight           = 0.7f,
     .lineHeight           = 0.7f,
+    .xOffset              = -0.25f,
+    .yOffset              = -10.25f,
     .defaultFontScale     = 32.0f,
     .textBeginDisplayList = NULL,
+    .render_begin         = djui_gfx_render_texture_tile_font_begin,
     .render_char          = djui_font_custom_hud_render_char,
+    .render_end           = djui_gfx_render_texture_tile_font_end,
     .char_width           = djui_font_custom_hud_char_width,
 };
 
 static const struct DjuiFont sDjuiFontCustomHudRecolor = {
     .charWidth            = 1.0f,
-    .charHeight           = 0.9f,
+    .charHeight           = 0.7f,
     .lineHeight           = 0.7f,
+    .xOffset              = -0.25f,
+    .yOffset              = -10.25f,
     .defaultFontScale     = 32.0f,
     .textBeginDisplayList = NULL,
+    .render_begin         = djui_gfx_render_texture_tile_font_begin,
     .render_char          = djui_font_custom_hud_recolor_render_char,
+    .render_end           = djui_gfx_render_texture_tile_font_end,
     .char_width           = djui_font_custom_hud_char_width,
+};
+
+  ///////////////////////////
+ // font 6 (special font) //
+///////////////////////////
+
+static void djui_font_special_render_char(const char* c) {
+    // replace undisplayable characters
+    if (*c == ' ') { return; }
+
+    u32 index = djui_unicode_get_sprite_index(c);
+    if (index & 0x010000) {
+        index &= ~0x010000;
+        u32 tx = index % 64;
+        u32 ty = index / 64;
+        extern ALIGNED8 const Texture texture_font_jp[];
+        djui_gfx_render_texture_tile_font(texture_font_jp, 512, 1024, G_IM_FMT_RGBA, G_IM_SIZ_32b, tx * 8, ty * 16, 8, 16);
+    } else {
+        u32 tx = index % 32;
+        u32 ty = index / 32;
+        extern ALIGNED8 const Texture texture_font_special[];
+        djui_gfx_render_texture_tile_font(texture_font_special, 256, 128, G_IM_FMT_RGBA, G_IM_SIZ_32b, tx * 8, ty * 16, 8, 16);
+    }
+
+}
+
+static f32 djui_font_special_char_width(const char* c) {
+    if (*c == ' ') { return 0.5f; }
+    extern const f32 font_special_widths[];
+    return djui_unicode_get_sprite_width(c, font_special_widths, 32.0f);
+}
+
+static const struct DjuiFont sDjuiFontSpecial = {
+    .charWidth            = 0.5f,
+    .charHeight           = 1.0f,
+    .lineHeight           = 0.8125f,
+    .xOffset              = 0.0f,
+    .yOffset              = 0.0f,
+    .defaultFontScale     = 32.0f,
+    .textBeginDisplayList = NULL,
+    .render_begin         = djui_gfx_render_texture_tile_font_begin,
+    .render_char          = djui_font_special_render_char,
+    .render_end           = djui_gfx_render_texture_tile_font_end,
+    .char_width           = djui_font_special_char_width,
 };
 
   ///////////////
@@ -233,5 +330,6 @@ const struct DjuiFont* gDjuiFonts[] = {
     &sDjuiFontHud,
     &sDjuiFontAliased,
     &sDjuiFontCustomHud,
-    &sDjuiFontCustomHudRecolor
+    &sDjuiFontCustomHudRecolor,
+    &sDjuiFontSpecial
 };

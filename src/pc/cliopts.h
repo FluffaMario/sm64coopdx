@@ -13,23 +13,36 @@ enum NetworkType {
 #define IP_MAX_LEN 32
 #define PORT_MAX_LEN 16
 
-struct PCCLIOptions  {
-    unsigned int SkipIntro;
-    unsigned int FullScreen;
-#if defined(_WIN32) || defined(_WIN64)
-    unsigned int Console;
+struct CLIOptions {
+#if defined(_WIN32)
+    bool console;
 #endif
-    enum NetworkType Network;
-    char JoinIp[IP_MAX_LEN];
-    unsigned int NetworkPort;
-    unsigned int PoolSize;
-    char ConfigFile[SYS_MAX_PATH];
-    char SavePath[SYS_MAX_PATH];
-    char GameDir[SYS_MAX_PATH];
-    char PlayerName[MAX_PLAYER_STRING];
+    char savePath[SYS_MAX_PATH];
+    char configFile[SYS_MAX_PATH];
+    unsigned int fullscreen;
+    unsigned int width;
+    unsigned int height;
+    bool skipIntro;
+    enum NetworkType network;
+    unsigned int networkPort;
+    char joinIp[IP_MAX_LEN];
+    char playerName[MAX_CONFIG_STRING];
+    unsigned int playerCount;
+    bool hideLoadingScreen;
+    bool skipUpdateCheck;
+    bool noDiscord;
+    bool coopnet;
+    char coopnetPassword[MAX_CONFIG_STRING];
+    bool disableMods;
+    int enabledModsCount;
+    char** enableMods;
+    bool headless;
+#if defined(_WIN32)
+    int backend;
+#endif
 };
 
-extern struct PCCLIOptions gCLIOpts;
+extern struct CLIOptions gCLIOpts;
 
 bool parse_cli_opts(int argc, char* argv[]);
 

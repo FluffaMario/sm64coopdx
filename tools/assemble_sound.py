@@ -6,6 +6,7 @@ import re
 import struct
 import subprocess
 import sys
+import zlib
 
 TYPE_CTL = 1
 TYPE_TBL = 2
@@ -66,7 +67,7 @@ def validate(cond, msg, forstr=""):
 
 
 def strip_comments(string):
-    string = re.sub(re.compile("/\*.*?\*/", re.DOTALL), "", string)
+    string = re.sub(re.compile(r"/\*.*?\*/", re.DOTALL), "", string)
     return re.sub(re.compile("//.*?\n"), "", string)
 
 
@@ -501,7 +502,7 @@ def mark_sample_bank_uses(bank):
                 mark_used(inst["sound_hi"]["sample"])
 
 
-def serialize_ctl(bank, base_ser, is_shindou):
+def serialize_ctl(bank, base_ser, is_shindou, asset_offsets):
     json = bank.json
 
     drums = []
@@ -663,7 +664,7 @@ def serialize_ctl(bank, base_ser, is_shindou):
     )
 
 
-def serialize_tbl(sample_bank, ser, is_shindou):
+def serialize_tbl(sample_bank, ser, is_shindou, asset_offsets):
     ser.reset_garbage_pos()
     base_addr = ser.size
     for aifc in sample_bank.entries:
@@ -671,7 +672,16 @@ def serialize_tbl(sample_bank, ser, is_shindou):
             continue
         ser.align(16)
         aifc.offset = ser.size - base_addr
-        ser.add(aifc.data)
+
+        if 'custom' in aifc.fname:
+            ser.add(aifc.data)
+        else:
+            asset_offsets[aifc.fname] = ser.size
+            fake_data = list(aifc.fname)
+            fake_data = [ord(char) for char in fake_data]
+            padding = [0] * (len(aifc.data) - len(fake_data))
+            fake_data = fake_data + padding
+            ser.add(bytes(fake_data))
     ser.align(2)
     if is_shindou and sample_bank.index not in [4, 10]:
         ser.align(16)
@@ -693,9 +703,10 @@ def serialize_seqfile(
     entry_offsets = []
     entry_lens = []
     entry_meta = []
+    asset_offsets = {}
     for entry in entries:
         entry_offsets.append(data_ser.size)
-        ret = serialize_entry(entry, data_ser, is_shindou)
+        ret = serialize_entry(entry, data_ser, is_shindou, asset_offsets)
         entry_meta.append(ret)
         entry_lens.append(data_ser.size - entry_offsets[-1])
     data = data_ser.finish()
@@ -737,9 +748,38 @@ def serialize_seqfile(
         for index in entry_list:
             table.append(pack("P", entry_offsets[index] + data_start))
             table.append(pack("IX", entry_lens[index]))
-        with open(out_filename, "wb") as f:
-            f.write(ser.finish())
 
+        data = ser.finish()
+        compress = False
+
+        if out_filename.endswith('sound_data.tbl'):
+            out_offsets_filename = 'sound/samples_offsets.h'
+            with open(out_offsets_filename, "w") as f:
+                for fname in asset_offsets:
+                    macro_name = 'SAMPLE_' + fname.split('/samples/')[-1].replace('/', '_').replace('.', '_').replace('-', '_')
+                    f.write(f'#define {macro_name} {hex(asset_offsets[fname] + data_start)} // {fname}\n')
+            out_filename = 'sound/sound_data_compressed.tbl'
+            compress = True
+
+        if out_filename.endswith('sequences.bin'):
+            out_offsets_filename = 'sound/sequences_offsets.h'
+            with open(out_offsets_filename, "w") as f:
+                for fname in asset_offsets:
+                    macro_name = 'SEQUENCE_' + fname.split('/sequences/')[-1].replace('/', '_').replace('.', '_').replace('-', '_')
+                    f.write(f'#define {macro_name} {hex(asset_offsets[fname] + data_start)} // {fname}\n')
+            data = data[:entry_offsets[1] + data_start] # remove the fake data
+            out_filename = 'sound/sequences_compressed.bin'
+            compress = True
+
+        if out_filename.endswith('sound_data.ctl'):
+            out_filename = 'sound/sound_data_compressed.ctl'
+            compress = True
+
+        with open(out_filename, "wb") as f:
+            if compress:
+                f.write(zlib.compress(data))
+            else:
+                f.write(data)
 
 def validate_and_normalize_sequence_json(json, bank_names, defines):
     validate(isinstance(json, dict), "must have a top-level object")
@@ -841,12 +881,24 @@ def write_sequences(
     while ind_to_name and json.get(ind_to_name[-1]) is None:
         ind_to_name.pop()
 
-    def serialize_file(name, ser, is_shindou):
+    def serialize_file(name, ser, is_shindou, asset_offsets):
         if json.get(name) is None:
             return
         ser.reset_garbage_pos()
-        with open(name_to_fname[name], "rb") as f:
-            ser.add(f.read())
+        fname = name_to_fname[name]
+        if name == '00_sound_player':
+            with open(fname, "rb") as f:
+                ser.add(f.read())
+        else:
+            length = 0
+            with open(fname, "rb") as f:
+                length = len(f.read())
+            asset_offsets[fname] = ser.size
+            fake_data = list(name)
+            fake_data = [ord(char) for char in fake_data]
+            padding = [0] * (length - len(fake_data))
+            fake_data = fake_data + padding
+            ser.add(bytes(fake_data))
         if is_shindou and name.startswith("17"):
             ser.align(16)
         else:
@@ -863,6 +915,8 @@ def write_sequences(
         extra_padding=False,
     )
 
+    compress = True
+    out_bank_sets = 'sound/bank_sets_compressed'
     with open(out_bank_sets, "wb") as f:
         ser = ReserveSerializer()
         table = ser.reserve(len(ind_to_name) * 2)
@@ -873,8 +927,11 @@ def write_sequences(
             for bank in bank_set[::-1]:
                 ser.add(bytes([bank_names.index(bank)]))
         ser.align(16)
-        f.write(ser.finish())
-
+        data = ser.finish()
+        if compress:
+            f.write(zlib.compress(data))
+        else:
+            f.write(data)
 
 def main():
     global STACK_TRACES

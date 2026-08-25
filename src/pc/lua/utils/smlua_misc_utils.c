@@ -1,28 +1,44 @@
+#include <inttypes.h>
 #include "sm64.h"
 #include "types.h"
 
 #include "data/dynos.c.h"
+#include "engine/math_util.h"
 #include "game/bettercamera.h"
 #include "game/camera.h"
 #include "game/hardcoded.h"
 #include "game/hud.h"
+#include "menu/star_select.h"
 #include "pc/lua/smlua.h"
 #include "smlua_misc_utils.h"
 #include "pc/debuglog.h"
 #include "pc/mods/mod.h"
 #include "pc/mods/mods.h"
 #include "pc/mods/mods_utils.h"
-
+#include "pc/pc_main.h"
 #include "game/object_list_processor.h"
 #include "game/rendering_graph_node.h"
 #include "game/level_update.h"
 #include "pc/djui/djui_console.h"
 #include "pc/djui/djui_hud_utils.h"
+#include "pc/djui/djui_panel_playerlist.h"
+#include "pc/djui/djui_theme.h"
 #include "game/skybox.h"
 #include "pc/gfx/gfx_pc.h"
 #include "include/course_table.h"
 #include "game/level_geo.h"
 #include "game/first_person_cam.h"
+#include "game/rumble_init.h"
+#include "game/sound_init.h"
+#include "pc/lua/utils/smlua_audio_utils.h"
+
+#ifdef DISCORD_SDK
+#include "pc/discord/discord.h"
+#endif
+
+#ifdef COOPNET
+#include "pc/network/coopnet/coopnet.h"
+#endif
 
 static struct DateTime sDateTime;
 
@@ -30,6 +46,10 @@ static struct DateTime sDateTime;
 
 u32 get_network_area_timer(void) {
     return gNetworkAreaTimer;
+}
+
+u16 get_area_update_counter(void) {
+    return gAreaUpdateCounter;
 }
 
 ///
@@ -79,9 +99,37 @@ void djui_reset_popup_disabled_override(void) {
     sAllowDjuiPopupOverride.override = false;
 }
 
+bool djui_is_playerlist_open(void) {
+    return gDjuiPlayerList->base.visible;
+}
+
+bool djui_attempting_to_open_playerlist(void) {
+    return gAttemptingToOpenPlayerlist;
+}
+
+u8 djui_get_playerlist_page_index(void) {
+    extern u8 sPageIndex;
+    return sPageIndex;
+}
+
+bool djui_is_chatbox_open(void) {
+    return gDjuiChatBox->chatInput->base.visible;
+}
+
+enum DjuiFontType djui_menu_get_font(void) {
+    return configDjuiThemeFont == 0 ? FONT_NORMAL : FONT_ALIASED;
+}
+
+struct DjuiTheme* djui_menu_get_theme(void) {
+    return gDjuiThemes[configDjuiTheme];
+}
+
+bool djui_is_playerlist_ping_visible(void) {
+    return configShowPing;
+}
+
 ///
 
-extern s8 gDialogBoxState;
 s8 get_dialog_box_state(void) {
     return gDialogBoxState;
 }
@@ -89,7 +137,7 @@ s8 get_dialog_box_state(void) {
 ///
 
 extern u8 gLastCollectedStarOrKey;
-s32 get_last_star_or_key(void) {
+u8 get_last_star_or_key(void) {
     return gLastCollectedStarOrKey;
 }
 
@@ -121,7 +169,7 @@ bool get_got_file_coin_hi_score(void) {
 }
 
 void set_got_file_coin_hi_score(bool value) {
-    gGotFileCoinHiScore = value ? TRUE : FALSE;
+    gGotFileCoinHiScore = value;
 }
 
 extern s8 gSaveFileModified;
@@ -130,7 +178,7 @@ bool get_save_file_modified(void) {
 }
 
 void set_save_file_modified(bool value) {
-    gSaveFileModified = value ? TRUE : FALSE;
+    gSaveFileModified = value;
 }
 
 ///
@@ -149,52 +197,68 @@ bool hud_is_hidden(void) {
 
 s32 hud_get_value(enum HudDisplayValue type) {
     switch (type) {
-        case HUD_DISPLAY_LIVES:  return gHudDisplay.lives;
-        case HUD_DISPLAY_COINS:  return gHudDisplay.coins;
-        case HUD_DISPLAY_STARS:  return gHudDisplay.stars;
-        case HUD_DISPLAY_WEDGES: return gHudDisplay.wedges;
-        case HUD_DISPLAY_KEYS:   return gHudDisplay.keys;
-        case HUD_DISPLAY_FLAGS:  return gHudDisplay.flags;
-        case HUD_DISPLAY_TIMER:  return gHudDisplay.timer;
+        case HUD_DISPLAY_LIVES:         return gHudDisplay.lives;
+        case HUD_DISPLAY_COINS:         return gHudDisplay.coins;
+        case HUD_DISPLAY_STARS:         return gHudDisplay.stars;
+        case HUD_DISPLAY_WEDGES:        return gHudDisplay.wedges;
+        case HUD_DISPLAY_KEYS:          return gHudDisplay.keys;
+        case HUD_DISPLAY_FLAGS:         return gHudDisplay.flags;
+        case HUD_DISPLAY_TIMER:         return gHudDisplay.timer;
+        case HUD_DISPLAY_CAMERA_STATUS: return get_hud_camera_status();
     }
     return 0;
 }
 
 void hud_set_value(enum HudDisplayValue type, s32 value) {
     switch (type) {
-        case HUD_DISPLAY_LIVES:  gHudDisplay.lives  = value; break;
-        case HUD_DISPLAY_COINS:  gHudDisplay.coins  = value; break;
-        case HUD_DISPLAY_STARS:  gHudDisplay.stars  = value; break;
-        case HUD_DISPLAY_WEDGES: gHudDisplay.wedges = value; break;
-        case HUD_DISPLAY_KEYS:   gHudDisplay.keys   = value; break;
-        case HUD_DISPLAY_FLAGS:  gHudDisplay.flags  = value; break;
-        case HUD_DISPLAY_TIMER:  gHudDisplay.timer  = value; break;
+        case HUD_DISPLAY_LIVES:         gHudDisplay.lives  = value;   break;
+        case HUD_DISPLAY_COINS:         gHudDisplay.coins  = value;   break;
+        case HUD_DISPLAY_STARS:         gHudDisplay.stars  = value;   break;
+        case HUD_DISPLAY_WEDGES:        gHudDisplay.wedges = value;   break;
+        case HUD_DISPLAY_KEYS:          gHudDisplay.keys   = value;   break;
+        case HUD_DISPLAY_FLAGS:         gHudDisplay.flags  = value;   break;
+        case HUD_DISPLAY_TIMER:         gHudDisplay.timer  = value;   break;
+        case HUD_DISPLAY_CAMERA_STATUS: set_hud_camera_status(value); break;
     }
 }
 
+void act_select_hud_hide(enum ActSelectHudPart part) {
+    gOverrideHideActSelectHud |= part;
+}
+
+void act_select_hud_show(enum ActSelectHudPart part) {
+    gOverrideHideActSelectHud &= ~part;
+}
+
+bool act_select_hud_is_hidden(enum ActSelectHudPart part) {
+    return (gOverrideHideActSelectHud & part) != 0;
+}
+
+extern const u8 texture_power_meter_left_side[];
+extern const u8 texture_power_meter_right_side[];
+extern const u8 texture_power_meter_full[];
+extern const u8 texture_power_meter_seven_segments[];
+extern const u8 texture_power_meter_six_segments[];
+extern const u8 texture_power_meter_five_segments[];
+extern const u8 texture_power_meter_four_segments[];
+extern const u8 texture_power_meter_three_segments[];
+extern const u8 texture_power_meter_two_segments[];
+extern const u8 texture_power_meter_one_segments[];
+
+static struct TextureInfo sPowerMeterTexturesInfo[] = {
+    { .texture = texture_power_meter_left_side,      .name = "texture_power_meter_left_side",      .width = 32, .height = 64, .format = G_IM_FMT_RGBA, .size = G_IM_SIZ_16b },
+    { .texture = texture_power_meter_right_side,     .name = "texture_power_meter_right_side",     .width = 32, .height = 64, .format = G_IM_FMT_RGBA, .size = G_IM_SIZ_16b },
+    { .texture = texture_power_meter_one_segments,   .name = "texture_power_meter_one_segments",   .width = 32, .height = 32, .format = G_IM_FMT_RGBA, .size = G_IM_SIZ_16b },
+    { .texture = texture_power_meter_two_segments,   .name = "texture_power_meter_two_segments",   .width = 32, .height = 32, .format = G_IM_FMT_RGBA, .size = G_IM_SIZ_16b },
+    { .texture = texture_power_meter_three_segments, .name = "texture_power_meter_three_segments", .width = 32, .height = 32, .format = G_IM_FMT_RGBA, .size = G_IM_SIZ_16b },
+    { .texture = texture_power_meter_four_segments,  .name = "texture_power_meter_four_segments",  .width = 32, .height = 32, .format = G_IM_FMT_RGBA, .size = G_IM_SIZ_16b },
+    { .texture = texture_power_meter_five_segments,  .name = "texture_power_meter_five_segments",  .width = 32, .height = 32, .format = G_IM_FMT_RGBA, .size = G_IM_SIZ_16b },
+    { .texture = texture_power_meter_six_segments,   .name = "texture_power_meter_six_segments",   .width = 32, .height = 32, .format = G_IM_FMT_RGBA, .size = G_IM_SIZ_16b },
+    { .texture = texture_power_meter_seven_segments, .name = "texture_power_meter_seven_segments", .width = 32, .height = 32, .format = G_IM_FMT_RGBA, .size = G_IM_SIZ_16b },
+    { .texture = texture_power_meter_full,           .name = "texture_power_meter_full",           .width = 32, .height = 32, .format = G_IM_FMT_RGBA, .size = G_IM_SIZ_16b },
+};
+
 void hud_render_power_meter(s32 health, f32 x, f32 y, f32 width, f32 height) {
-    extern const u8 texture_power_meter_left_side[];
-    extern const u8 texture_power_meter_right_side[];
-    extern const u8 texture_power_meter_full[];
-    extern const u8 texture_power_meter_seven_segments[];
-    extern const u8 texture_power_meter_six_segments[];
-    extern const u8 texture_power_meter_five_segments[];
-    extern const u8 texture_power_meter_four_segments[];
-    extern const u8 texture_power_meter_three_segments[];
-    extern const u8 texture_power_meter_two_segments[];
-    extern const u8 texture_power_meter_one_segments[];
-    static struct TextureInfo sPowerMeterTexturesInfo[] = {
-        { (u8*)texture_power_meter_left_side,      8, 32, 64, "texture_power_meter_left_side"      },
-        { (u8*)texture_power_meter_right_side,     8, 32, 64, "texture_power_meter_right_side"     },
-        { (u8*)texture_power_meter_one_segments,   8, 32, 32, "texture_power_meter_one_segments"   },
-        { (u8*)texture_power_meter_two_segments,   8, 32, 32, "texture_power_meter_two_segments"   },
-        { (u8*)texture_power_meter_three_segments, 8, 32, 32, "texture_power_meter_three_segments" },
-        { (u8*)texture_power_meter_four_segments,  8, 32, 32, "texture_power_meter_four_segments"  },
-        { (u8*)texture_power_meter_five_segments,  8, 32, 32, "texture_power_meter_five_segments"  },
-        { (u8*)texture_power_meter_six_segments,   8, 32, 32, "texture_power_meter_six_segments"   },
-        { (u8*)texture_power_meter_seven_segments, 8, 32, 32, "texture_power_meter_seven_segments" },
-        { (u8*)texture_power_meter_full,           8, 32, 32, "texture_power_meter_full"           },
-    };
     djui_hud_render_texture(&sPowerMeterTexturesInfo[0], x, y, width / 64, height / 64);
     djui_hud_render_texture(&sPowerMeterTexturesInfo[1], x + (width - 2) / 2, y, width / 64, height / 64);
     s32 numWedges = MIN(MAX(health >> 8, 0), 8);
@@ -204,29 +268,6 @@ void hud_render_power_meter(s32 health, f32 x, f32 y, f32 width, f32 height) {
 }
 
 void hud_render_power_meter_interpolated(s32 health, f32 prevX, f32 prevY, f32 prevWidth, f32 prevHeight, f32 x, f32 y, f32 width, f32 height) {
-    extern const u8 texture_power_meter_left_side[];
-    extern const u8 texture_power_meter_right_side[];
-    extern const u8 texture_power_meter_full[];
-    extern const u8 texture_power_meter_seven_segments[];
-    extern const u8 texture_power_meter_six_segments[];
-    extern const u8 texture_power_meter_five_segments[];
-    extern const u8 texture_power_meter_four_segments[];
-    extern const u8 texture_power_meter_three_segments[];
-    extern const u8 texture_power_meter_two_segments[];
-    extern const u8 texture_power_meter_one_segments[];
-    static struct TextureInfo sPowerMeterTexturesInfo[] = {
-        { (u8*)texture_power_meter_left_side,      8, 32, 64, "texture_power_meter_left_side"      },
-        { (u8*)texture_power_meter_right_side,     8, 32, 64, "texture_power_meter_right_side"     },
-        { (u8*)texture_power_meter_one_segments,   8, 32, 32, "texture_power_meter_one_segments"   },
-        { (u8*)texture_power_meter_two_segments,   8, 32, 32, "texture_power_meter_two_segments"   },
-        { (u8*)texture_power_meter_three_segments, 8, 32, 32, "texture_power_meter_three_segments" },
-        { (u8*)texture_power_meter_four_segments,  8, 32, 32, "texture_power_meter_four_segments"  },
-        { (u8*)texture_power_meter_five_segments,  8, 32, 32, "texture_power_meter_five_segments"  },
-        { (u8*)texture_power_meter_six_segments,   8, 32, 32, "texture_power_meter_six_segments"   },
-        { (u8*)texture_power_meter_seven_segments, 8, 32, 32, "texture_power_meter_seven_segments" },
-        { (u8*)texture_power_meter_full,           8, 32, 32, "texture_power_meter_full"           },
-    };
-
     djui_hud_render_texture_interpolated(&sPowerMeterTexturesInfo[0],
         prevX, prevY, prevWidth / 64, prevHeight / 64,
         x,     y,     width     / 64, height     / 64);
@@ -243,176 +284,60 @@ void hud_render_power_meter_interpolated(s32 health, f32 prevX, f32 prevY, f32 p
     }
 }
 
-///
-
-struct CameraOverride {
-    unsigned int value;
-    bool override;
-};
-
-struct CameraOverride sOverrideCameraXSens   = { 0 };
-struct CameraOverride sOverrideCameraYSens   = { 0 };
-struct CameraOverride sOverrideCameraAggr    = { 0 };
-struct CameraOverride sOverrideCameraPan     = { 0 };
-struct CameraOverride sOverrideCameraDegrade = { 0 };
-struct CameraOverride sOverrideCameraInvertX = { 0 };
-struct CameraOverride sOverrideCameraInvertY = { 0 };
-struct CameraOverride sOverrideEnableCamera  = { 0 };
-struct CameraOverride sOverrideCameraAnalog  = { 0 };
-struct CameraOverride sOverrideCameraMouse   = { 0 };
-
-void camera_reset_overrides(void) {
-    sOverrideCameraXSens.override = false;
-    sOverrideCameraYSens.override = false;
-    sOverrideCameraAggr.override = false;
-    sOverrideCameraPan.override = false;
-    sOverrideCameraDegrade.override = false;
-    sOverrideCameraInvertX.override = false;
-    sOverrideCameraInvertY.override = false;
-    sOverrideEnableCamera.override = false;
-    sOverrideCameraAnalog.override = false;
-    sOverrideCameraMouse.override = false;
+s8 hud_get_flash(void) {
+    return gHudFlash;
 }
 
-void camera_freeze(void) {
-    gOverrideFreezeCamera = TRUE;
-}
-
-void camera_unfreeze(void) {
-    gOverrideFreezeCamera = FALSE;
-}
-
-bool camera_is_frozen(void) {
-    return gOverrideFreezeCamera;
-}
-
-void camera_set_romhack_override(enum RomhackCameraOverride rco) {
-    gOverrideRomhackCamera = rco;
-}
-
-void camera_romhack_allow_centering(u8 allow) {
-    gRomhackCameraAllowCentering = allow;
-}
-
-void camera_allow_toxic_gas_camera(u8 allow) {
-    gOverrideAllowToxicGasCamera = allow;
-}
-
-void camera_romhack_allow_dpad_usage(u8 allow) {
-    gRomhackCameraAllowDpad = allow;
-}
-
-bool camera_config_is_free_cam_enabled(void) {
-    return sOverrideEnableCamera.override ? sOverrideEnableCamera.value : configEnableCamera;
-}
-
-bool camera_config_is_analog_cam_enabled(void) {
-    return sOverrideCameraAnalog.override ? sOverrideCameraAnalog.value : configCameraAnalog;
-}
-
-bool camera_config_is_mouse_look_enabled(void) {
-    return sOverrideCameraMouse.override ? sOverrideCameraMouse.value : configCameraMouse;
-}
-
-bool camera_config_is_x_inverted(void) {
-    return sOverrideCameraInvertX.override ? sOverrideCameraInvertX.value : configCameraInvertX;
-}
-
-bool camera_config_is_y_inverted(void) {
-    return sOverrideCameraInvertY.override ? sOverrideCameraInvertY.value : configCameraInvertY;
-}
-
-u32 camera_config_get_x_sensitivity(void) {
-    return sOverrideCameraXSens.override ? sOverrideCameraXSens.value : configCameraXSens;
-}
-
-u32 camera_config_get_y_sensitivity(void) {
-    return sOverrideCameraYSens.override ? sOverrideCameraYSens.value : configCameraYSens;
-}
-
-u32 camera_config_get_aggression(void) {
-    return sOverrideCameraAggr.override ? sOverrideCameraAggr.value : configCameraAggr;
-}
-
-u32 camera_config_get_pan_level(void) {
-    return sOverrideCameraPan.override ? sOverrideCameraPan.value : configCameraPan;
-}
-
-u32 camera_config_get_deceleration(void) {
-    return sOverrideCameraDegrade.override ? sOverrideCameraDegrade.value : configCameraDegrade;
-}
-
-void camera_config_enable_free_cam(bool enable) {
-    sOverrideEnableCamera.value = enable;
-    sOverrideEnableCamera.override = true;
-    newcam_init_settings();
-}
-
-void camera_config_enable_analog_cam(bool enable) {
-    sOverrideCameraAnalog.value = enable;
-    sOverrideCameraAnalog.override = true;
-    newcam_init_settings();
-}
-
-void camera_config_enable_mouse_look(bool enable) {
-    sOverrideCameraMouse.value = enable;
-    sOverrideCameraMouse.override = true;
-    newcam_init_settings();
-}
-
-void camera_config_invert_x(bool invert) {
-    sOverrideCameraInvertX.value = invert;
-    sOverrideCameraInvertX.override = true;
-    newcam_init_settings();
-}
-
-void camera_config_invert_y(bool invert) {
-    sOverrideCameraInvertY.value = invert;
-    sOverrideCameraInvertY.override = true;
-    newcam_init_settings();
-}
-
-void camera_config_set_x_sensitivity(u32 value) {
-    sOverrideCameraXSens.value = MIN(MAX(value, 1), 100);
-    sOverrideCameraXSens.override = true;
-    newcam_init_settings();
-}
-
-void camera_config_set_y_sensitivity(u32 value) {
-    sOverrideCameraYSens.value = MIN(MAX(value, 1), 100);
-    sOverrideCameraYSens.override = true;
-    newcam_init_settings();
-}
-
-void camera_config_set_aggression(u32 value) {
-    sOverrideCameraAggr.value = MIN(MAX(value, 0), 100);
-    sOverrideCameraAggr.override = true;
-    newcam_init_settings();
-}
-
-void camera_config_set_pan_level(u32 value) {
-    sOverrideCameraPan.value = MIN(MAX(value, 0), 100);
-    sOverrideCameraPan.override = true;
-    newcam_init_settings();
-}
-
-void camera_config_set_deceleration(u32 value) {
-    sOverrideCameraDegrade.value = MIN(MAX(value, 0), 100);
-    sOverrideCameraDegrade.override = true;
-    newcam_init_settings();
+void hud_set_flash(s8 value) {
+    gHudFlash = value;
 }
 
 ///
 
-extern s16 gMenuMode;
 bool is_game_paused(void) {
     return gMenuMode != -1;
+}
+
+bool is_pause_menu_hidden(void) {
+    return gPauseMenuHidden;
+}
+
+void set_pause_menu_hidden(bool hidden) {
+    gPauseMenuHidden = hidden;
+}
+
+void game_pause(void) {
+    if (gMenuMode != -1) { return; }
+
+    lower_background_noise(1);
+    cancel_rumble();
+    gCameraMovementFlags |= CAM_MOVE_PAUSE_SCREEN;
+    set_play_mode(PLAY_MODE_PAUSED);
+}
+
+void game_unpause(void) {
+    if (gMenuMode == -1) { return; }
+
+    level_set_transition(0, NULL);
+    gMenuMode = -1;
+    gDialogBoxState = 0;
+    gPauseScreenMode = 1;
 }
 
 ///
 
 bool is_transition_playing(void) {
-    return sTransitionUpdate != NULL || gWarpTransition.isActive;
+    return gWarpTransition.isActive;
+}
+
+///
+
+s16 get_current_play_mode(void) {
+    return sCurrPlayMode;
+}
+
+s16 get_delayed_warp_op(void) {
+    return sDelayedWarpOp;
 }
 
 ///
@@ -429,22 +354,43 @@ u32 allocate_mario_action(u32 actFlags) {
 
 ///
 
+static const u32 sHandFootToAnimParts[] = {
+    [0] = MARIO_ANIM_PART_RIGHT_HAND,
+    [1] = MARIO_ANIM_PART_LEFT_HAND,
+    [2] = MARIO_ANIM_PART_RIGHT_FOOT,
+    [3] = MARIO_ANIM_PART_LEFT_FOOT,
+};
+
 f32 get_hand_foot_pos_x(struct MarioState* m, u8 index) {
     if (!m) { return 0; }
     if (index >= 4) { index = 0; }
-    return m->marioBodyState->handFootPos[index][0];
+    return m->marioBodyState->animPartsPos[sHandFootToAnimParts[index]][0];
 }
 
 f32 get_hand_foot_pos_y(struct MarioState* m, u8 index) {
     if (!m) { return 0; }
     if (index >= 4) { index = 0; }
-    return m->marioBodyState->handFootPos[index][1];
+    return m->marioBodyState->animPartsPos[sHandFootToAnimParts[index]][1];
 }
 
 f32 get_hand_foot_pos_z(struct MarioState* m, u8 index) {
     if (!m) { return 0; }
     if (index >= 4) { index = 0; }
-    return m->marioBodyState->handFootPos[index][2];
+    return m->marioBodyState->animPartsPos[sHandFootToAnimParts[index]][2];
+}
+
+bool get_mario_anim_part_pos(struct MarioState *m, u32 animPart, VEC_OUT Vec3f pos) {
+    if (!m) { return false; }
+    if (animPart >= MARIO_ANIM_PART_MAX) { return false; }
+    vec3f_copy(pos, m->marioBodyState->animPartsPos[animPart]);
+    return true;
+}
+
+bool get_mario_anim_part_rot(struct MarioState *m, u32 animPart, VEC_OUT Vec3s rot) {
+    if (!m) { return false; }
+    if (animPart >= MARIO_ANIM_PART_MAX) { return false; }
+    vec3s_copy(rot, m->marioBodyState->animPartsRot[animPart]);
+    return true;
 }
 
 ///
@@ -471,107 +417,27 @@ void movtexqc_register(const char* name, s16 level, s16 area, s16 type) {
 
 ///
 
-f32 get_environment_region(u8 index) {
-    s32 idx = 6 * index;
-    if (gEnvironmentRegions != NULL && index > 0 && index <= gEnvironmentRegions[0] && gEnvironmentRegionsLength > idx) {
-        return gEnvironmentRegions[idx];
+s16 get_water_level(u8 index) {
+    u8 id = 6 * (index + 1);
+    if (gEnvironmentRegions && index < gEnvironmentRegions[0] && gEnvironmentRegionsLength > id) {
+        return gEnvironmentRegions[id];
     }
     return gLevelValues.floorLowerLimit;
 }
 
-void set_environment_region(u8 index, s32 value) {
-    s32 idx = 6 * index;
-    if (gEnvironmentRegions != NULL && index > 0 && index <= gEnvironmentRegions[0] && gEnvironmentRegionsLength > idx) {
-        gEnvironmentRegions[idx] = value;
+void set_water_level(u8 index, s16 height, bool sync) {
+    if (sync && (!gNetworkPlayerLocal || !gNetworkPlayerLocal->currAreaSyncValid)) { return; }
+
+    u8 id = 6 * (index + 1);
+    if (gEnvironmentRegions && index < gEnvironmentRegions[0] && gEnvironmentRegionsLength > id) {
+        if (gEnvironmentRegions[id] == height) {
+            return;
+        }
+        if (sync) {
+            network_send_change_water_level(id, height);
+        }
+        gEnvironmentRegions[id] = height;
     }
-}
-
-///
-
-void set_override_fov(f32 fov) {
-    gOverrideFOV = fov;
-}
-
-///
-
-void set_override_near(f32 near) {
-    gOverrideNear = near;
-}
-
-///
-
-void set_override_far(f32 far) {
-    gOverrideFar = far;
-}
-
-///
-
-void add_scroll_target(u32 index, const char* name, u32 offset, u32 size) {
-    dynos_add_scroll_target(index, name, offset, size);
-}
-
-///
-
-f32 get_lighting_dir(u8 index) {
-    if (index > 2) { return 0; }
-    return gLightingDir[index];
-}
-
-void set_lighting_dir(u8 index, f32 value) {
-    if (index > 2) { return; }
-    gLightingDir[index] = value;
-}
-
-u8 get_lighting_color(u8 index) {
-    if (index > 2) { return 0; }
-    return gLightingColor[index];
-}
-
-void set_lighting_color(u8 index, u8 value) {
-    if (index > 2) { return; }
-    gLightingColor[index] = value;
-}
-
-///
-
-u8 get_vertex_color(u8 index) {
-    if (index > 2) { return 0; }
-    return gVertexColor[index];
-}
-
-void set_vertex_color(u8 index, u8 value) {
-    if (index > 2) { return; }
-    gVertexColor[index] = value;
-}
-
-///
-
-u8 get_fog_color(u8 index) {
-    if (index > 2) { return 0; }
-    return gFogColor[index];
-}
-
-void set_fog_color(u8 index, u8 value) {
-    if (index > 2) { return; }
-    gFogColor[index] = value;
-}
-
-f32 get_fog_intensity(void) {
-    return gFogIntensity;
-}
-
-void set_fog_intensity(f32 intensity) {
-    gFogIntensity = intensity;
-}
-
-///
-
-s8 get_skybox(void) {
-    return gReadOnlyBackground;
-}
-
-void set_override_skybox(s8 background) {
-    gOverrideBackground = background;
 }
 
 ///
@@ -622,14 +488,197 @@ void set_override_envfx(s32 envfx) {
 
 ///
 
-bool get_coop_compatibility_enabled(void) {
-    return configCoopCompatibility;
+u32 get_global_timer(void) {
+    return gGlobalTimer;
+}
+
+///
+
+s32 get_dialog_response(void) {
+    return gDialogResponse;
+}
+
+///
+
+u32 get_time_stop_flags(void) {
+    return gTimeStopState;
+}
+
+///
+
+const char* get_local_discord_id(void) {
+#ifdef DISCORD_SDK
+    if (gDiscordInitialized) {
+        static char sDiscordId[64] = "";
+        snprintf(sDiscordId, 64, "%" PRIu64 "", (uint64_t)discord_get_user_id());
+        return sDiscordId;
+    } else {
+        return "0";
+    }
+#else
+    return "0";
+#endif
+}
+
+const char* get_coopnet_id(UNUSED s8 localIndex) {
+#ifdef COOPNET
+    if (!gNetworkSystem || gNetworkSystem != &gNetworkSystemCoopNet) { return "-1"; }
+    if (localIndex < 0 || localIndex >= MAX_PLAYERS) { return "-1"; }
+    struct NetworkPlayer* np = &gNetworkPlayers[localIndex];
+    if (np == NULL || !np->connected) { return "-1"; }
+    return gNetworkSystem->get_id_str(np->localIndex);
+#else
+    return "-1";
+#endif
+}
+
+///
+
+f32 get_volume_master(void) {
+    return gLuaVolumeMaster;
+}
+
+f32 get_volume_level(void) {
+    return gLuaVolumeLevel;
+}
+
+f32 get_volume_sfx(void) {
+    return gLuaVolumeSfx;
+}
+
+f32 get_volume_env(void) {
+    return gLuaVolumeEnv;
+}
+
+void set_volume_master(f32 volume) {
+    gLuaVolumeMaster = MIN(volume, 127);
+    audio_custom_update_volume();
+}
+
+void set_volume_level(f32 volume) {
+    gLuaVolumeLevel = MIN(volume, 127);
+    audio_custom_update_volume();
+}
+
+void set_volume_sfx(f32 volume) {
+    gLuaVolumeSfx = MIN(volume, 127);
+    audio_custom_update_volume();
+}
+
+void set_volume_env(f32 volume) {
+    gLuaVolumeEnv = MIN(volume, 127);
+    audio_custom_update_volume();
+}
+
+///
+
+s16 get_environment_region(u8 index) {
+    u8 idx = 6 * index;
+    if (gEnvironmentRegions != NULL && index > 0 && index <= gEnvironmentRegions[0] && gEnvironmentRegionsLength > idx) {
+        return gEnvironmentRegions[idx];
+    }
+    return gLevelValues.floorLowerLimit;
+}
+
+void set_environment_region(u8 index, s16 value) {
+    u8 idx = 6 * index;
+    if (gEnvironmentRegions != NULL && index > 0 && index <= gEnvironmentRegions[0] && gEnvironmentRegionsLength > idx) {
+        gEnvironmentRegions[idx] = value;
+    }
+}
+
+///
+
+bool mod_file_exists(const char* filename) {
+    if (gLuaActiveMod == NULL) { return false; }
+
+    char normPath[SYS_MAX_PATH] = { 0 };
+    char normRelative[SYS_MAX_PATH] = { 0 };
+
+    if (snprintf(normPath, sizeof(normPath), "%s", filename) < 0) {
+        LOG_ERROR("Failed to copy filename for normalization: %s", filename);
+    }
+
+    normalize_path(normPath);
+
+    for (s32 i = 0; i < gLuaActiveMod->fileCount; i++) {
+        struct ModFile* file = &gLuaActiveMod->files[i];
+        strcpy(normRelative, file->relativePath);
+        normalize_path(normRelative);
+        if (!strcmp(normRelative, normPath)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+struct Mod* get_active_mod(void) {
+    return gLuaActiveMod;
+}
+
+LuaTable get_mod_files(struct Mod* mod, OPTIONAL const char* subDirectory) {
+    if (!mod) {
+        struct lua_State *L = gLuaState;
+        if (L) {
+            lua_newtable(L);
+            return smlua_to_lua_table(L, -1);
+        }
+        return 0;
+    }
+
+    char normalizedSubDir[SYS_MAX_PATH] = { 0 };
+    snprintf(normalizedSubDir, SYS_MAX_PATH, "%s", subDirectory ? subDirectory : "");
+    normalize_path(normalizedSubDir);
+
+    size_t subDirLen = strlen(normalizedSubDir);
+    if (subDirLen > 0 && subDirLen + 1 < SYS_MAX_PATH && normalizedSubDir[subDirLen - 1] != *PATH_SEPARATOR) {
+        strcat(normalizedSubDir, PATH_SEPARATOR);
+        subDirLen = strlen(normalizedSubDir);
+    }
+
+    struct lua_State *L = gLuaState;
+    if (!L) { return 0; }
+
+    LUA_STACK_CHECK_BEGIN_NUM(L, 1);
+
+    lua_newtable(L);
+
+    int luaTableIndex = 1;
+    for (int i = 0; i < mod->fileCount; i++) {
+        struct ModFile* file = &mod->files[i];
+        char normalizedPath[SYS_MAX_PATH] = { 0 };
+        if (snprintf(normalizedPath, SYS_MAX_PATH, "%s", file->relativePath) < 0) {
+            LOG_ERROR("Failed to copy relativePath for normalization: %s", file->relativePath);
+            continue;
+        }
+        normalize_path(normalizedPath);
+
+        if (strncmp(normalizedPath, normalizedSubDir, subDirLen) == 0) {
+            lua_pushstring(L, file->relativePath);
+            lua_rawseti(L, -2, luaTableIndex++);
+        }
+    }
+
+    LUA_STACK_CHECK_END(L);
+
+    return smlua_to_lua_table(L, -1);
+}
+
+///
+
+void set_window_title(const char* title) {
+    gWindowApi->set_window_title(title);
+}
+
+void reset_window_title(void) {
+    gWindowApi->reset_window_title();
 }
 
 ///
 
 const char* get_os_name(void) {
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
     return "Windows";
 #elif __APPLE__ || __MACH__
     return "Mac OSX"; // should be macOS
@@ -642,4 +691,80 @@ const char* get_os_name(void) {
 #else
     return "Unknown";
 #endif
+}
+
+///
+
+struct GraphNodeRoot* geo_get_current_root(void) {
+    return gCurGraphNodeRoot;
+}
+
+struct GraphNodeMasterList* geo_get_current_master_list(void) {
+    return gCurGraphNodeMasterList;
+}
+
+struct GraphNodePerspective* geo_get_current_perspective(void) {
+    return gCurGraphNodeCamFrustum;
+}
+
+struct GraphNodeCamera* geo_get_current_camera(void) {
+    return gCurGraphNodeCamera;
+}
+
+struct GraphNodeHeldObject* geo_get_current_held_object(void) {
+    return gCurGraphNodeHeldObject;
+}
+
+void geo_skip_interpolation(struct GraphNode *node, struct GraphNodeObject *obj) {
+    struct GraphNodeInterpData *interp = geo_get_interp_data(node, obj);
+    if (interp) { interp->timestamp = 0; }
+}
+
+///
+
+LuaTable texture_to_lua_table(const Texture *tex) {
+    lua_State *L = gLuaState;
+    if (!L) { return 0; }
+
+    if (!tex) {
+        lua_pushnil(L);
+        return 0;
+    }
+
+    struct TextureInfo texInfo;
+    if (!dynos_texture_get_from_data(tex, &texInfo)) {
+        lua_pushnil(L);
+        return 0;
+    }
+
+    u8 *rgba = dynos_texture_convert_to_rgba32(texInfo.texture, texInfo.width, texInfo.height, texInfo.format, texInfo.size);
+    if (!rgba) {
+        lua_pushnil(L);
+        return 0;
+    }
+
+    LUA_STACK_CHECK_BEGIN_NUM(L, 1);
+
+    lua_newtable(L);
+    const u8 *pixel = rgba;
+    for (u32 i = 0; i < texInfo.width * texInfo.height; ++i, pixel += 4) {
+        lua_newtable(L);
+        smlua_push_integer_field(-2, "r", pixel[0]);
+        smlua_push_integer_field(-2, "g", pixel[1]);
+        smlua_push_integer_field(-2, "b", pixel[2]);
+        smlua_push_integer_field(-2, "a", pixel[3]);
+        lua_rawseti(L, -2, i + 1);
+    }
+    free(rgba);
+
+    LUA_STACK_CHECK_END(L);
+    return smlua_to_lua_table(L, -1);
+}
+
+const char *get_texture_name(const Texture *tex) {
+    struct TextureInfo texInfo;
+    if (dynos_texture_get_from_data(tex, &texInfo)) {
+        return texInfo.name;
+    }
+    return NULL;
 }

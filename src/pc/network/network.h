@@ -1,9 +1,9 @@
 #ifndef NETWORK_H
 #define NETWORK_H
 
-#include "PR/ultratypes.h"
+#include <PR/ultratypes.h>
 #include <time.h>
-#include <types.h>
+#include "types.h"
 #include <assert.h>
 #include "network_player.h"
 #include "network_utils.h"
@@ -69,19 +69,31 @@ enum BouncyLevelBounds {
     BOUNCY_LEVEL_BOUNDS_ON_CAP,
 };
 
+enum PvpType {
+    PLAYER_PVP_CLASSIC,
+    PLAYER_PVP_REVAMPED
+};
+
+enum StarExitType {
+    STAR_LEAVE_LEVEL,
+    STAR_STAY_IN_LEVEL,
+    STAR_NON_STOP,
+};
+
 struct ServerSettings {
     enum PlayerInteractions playerInteractions;
     enum BouncyLevelBounds bouncyLevelBounds;
+    enum PvpType pvpType;
+    enum StarExitType stayInLevelAfterStar;
     u8 playerKnockbackStrength;
-    u8 stayInLevelAfterStar;
     u8 skipIntro;
-    u8 enableCheats;
     u8 bubbleDeath;
     u8 enablePlayersInLevelDisplay;
     u8 enablePlayerList;
     u8 headlessServer;
     u8 nametags;
     u8 maxPlayers;
+    u8 pauseAnywhere;
 };
 
 struct NametagsSettings {
@@ -120,6 +132,8 @@ void network_reset_reconnect_and_rehost(void);
 void network_reconnect_begin(void);
 bool network_is_reconnecting(void);
 void network_rehost_begin(void);
+bool network_allow_mod_dev_mode(void);
+void network_mod_dev_mode_reload(void);
 void network_update(void);
 void network_shutdown(bool sendLeaving, bool exiting, bool popup, bool reconnecting);
 

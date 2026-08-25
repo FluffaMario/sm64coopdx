@@ -8,11 +8,11 @@ extern "C" {
 #include "include/surface_terrains.h"
 #include "include/seq_ids.h"
 #include "level_commands.h"
-#include "src/game/level_update.h"
+#include "game/level_update.h"
 #include "include/dialog_ids.h"
 #include "levels/scripts.h"
 #include "levels/menu/header.h"
-#include "src/game/area.h"
+#include "game/area.h"
 }
 
 #define POINTER 0xD34DB33F
@@ -134,6 +134,8 @@ static void LvlCmd_Init() {
     ADD_COMMAND(OBJECT_EXT2(POINTER, 0, 0, 0, 0, 0, 0, 0, POINTER));
     ADD_COMMAND(LOAD_MODEL_FROM_GEO_EXT(0, POINTER));
     ADD_COMMAND(JUMP_AREA_EXT(0, 0, POINTER));
+    ADD_COMMAND(OBJECT_EXT_LUA_PARAMS(0, 0, 0, 0, 0, 0, 0, 0, 0, POINTER, 0));
+    ADD_COMMAND(SHOW_DIALOG_EXT(0, 0, 0))
 }
 
 void DynOS_Lvl_Validate_Begin() {

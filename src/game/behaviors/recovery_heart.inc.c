@@ -1,14 +1,14 @@
 
 struct ObjectHitbox sRecoveryHeartHitbox = {
-    /* interactType:      */ 0,
-    /* downOffset:        */ 0,
-    /* damageOrCoinValue: */ 0,
-    /* health:            */ 0,
-    /* numLootCoins:      */ 0,
-    /* radius:            */ 50,
-    /* height:            */ 50,
-    /* hurtboxRadius:     */ 50,
-    /* hurtboxHeight:     */ 50,
+    .interactType = 0,
+    .downOffset = 0,
+    .damageOrCoinValue = 0,
+    .health = 0,
+    .numLootCoins = 0,
+    .radius = 50,
+    .height = 50,
+    .hurtboxRadius = 50,
+    .hurtboxHeight = 50,
 };
 
 void bhv_recovery_heart_loop(void) {
@@ -17,7 +17,7 @@ void bhv_recovery_heart_loop(void) {
 
     for (s32 i = 0; i < MAX_PLAYERS; i++) {
         if (!is_player_active(&gMarioStates[i])) { continue; }
-        if (!gMarioStates[i].visibleToEnemies) { continue; }
+        if (!gMarioStates[i].visibleToObjects) { continue; }
         if (obj_check_if_collided_with_object(o, gMarioStates[i].marioObj)) { collided = TRUE; }
     }
 
@@ -44,9 +44,9 @@ void bhv_recovery_heart_loop(void) {
 
         struct MarioState* nearestInteractingState = nearest_interacting_mario_state_to_object(o);
         for (s32 i = 0; i < MAX_PLAYERS; i++) {
-            if (!gMarioStates[i].visibleToEnemies) { continue; }
+            if (!gMarioStates[i].visibleToObjects) { continue; }
             if (!is_player_active(&gMarioStates[i])) { continue; }
-            if (&gMarioStates[i] == nearestInteractingState || dist_between_objects(o, gMarioStates[i].marioObj) < 1000) {
+            if (&gMarioStates[i] == nearestInteractingState) {
                 gMarioStates[i].healCounter += 4;
             }
         }

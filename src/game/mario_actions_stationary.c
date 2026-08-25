@@ -10,6 +10,7 @@
 #include "level_update.h"
 #include "mario.h"
 #include "mario_actions_stationary.h"
+#include "mario_actions_cutscene.h"
 #include "mario_step.h"
 #include "memory.h"
 #include "save_file.h"
@@ -22,6 +23,9 @@
 #include "pc/lua/smlua.h"
 #include "hardcoded.h"
 
+/* |description|
+Checks for and handles common conditions that would cancel Mario's current idle action.
+|descriptionEnd| */
 s32 check_common_idle_cancels(struct MarioState *m) {
     if (!m) { return 0; }
     mario_drop_held_object(m);
@@ -65,6 +69,9 @@ s32 check_common_idle_cancels(struct MarioState *m) {
     return FALSE;
 }
 
+/* |description|
+Checks for and handles common conditions that would cancel Mario's current idle holding object action.
+|descriptionEnd| */
 s32 check_common_hold_idle_cancels(struct MarioState *m) {
     if (!m) { return 0; }
     if (m->floor && m->floor->normal.y < 0.29237169f) {
@@ -132,11 +139,11 @@ s32 act_idle(struct MarioState *m) {
         if (m->area && ((m->area->terrainType & TERRAIN_MASK) == TERRAIN_SNOW)) {
             return set_mario_action(m, ACT_SHIVERING, 0);
         } else {
-            if (!gDjuiInMainMenu) {
-                return set_mario_action(m, ACT_START_SLEEPING, 0);
-            } else {
+            if (gDjuiInMainMenu || gDjuiInPlayerMenu) {
                 m->actionState = 0;
                 m->actionTimer = 0;
+            } else {
+                return set_mario_action(m, ACT_START_SLEEPING, 0);
             }
         }
     }
@@ -186,6 +193,7 @@ s32 act_idle(struct MarioState *m) {
     return FALSE;
 }
 
+/* |description|Plays a `sound` if Mario's action state and animation frame match the parameters|descriptionEnd| */
 void play_anim_sound(struct MarioState *m, u32 actionState, s32 animFrame, u32 sound) {
     if (!m) { return; }
     if (!m->marioObj) { return; }
@@ -206,6 +214,10 @@ s32 act_start_sleeping(struct MarioState *m) {
 
     if (m->quicksandDepth > 30.0f) {
         return set_mario_action(m, ACT_IN_QUICKSAND, 0);
+    }
+
+    if (m->playerIndex == 0 && gDjuiInPlayerMenu) {
+        return set_mario_action(m, ACT_IDLE, 0);
     }
 
     if (m->actionState == 4) {
@@ -274,7 +286,7 @@ s32 act_sleeping(struct MarioState *m) {
     if (!m) { return 0; }
     s32 animFrame;
     if (m->playerIndex == 0) {
-        if (m->input 
+        if (m->input
             & (INPUT_NONZERO_ANALOG | INPUT_A_PRESSED | INPUT_OFF_FLOOR | INPUT_ABOVE_SLIDE
                | INPUT_FIRST_PERSON | INPUT_UNKNOWN_10 | INPUT_B_PRESSED | INPUT_Z_PRESSED)) {
             return set_mario_action(m, ACT_WAKING_UP, m->actionState);
@@ -285,6 +297,10 @@ s32 act_sleeping(struct MarioState *m) {
         }
 
         if (m->pos[1] - find_floor_height_relative_polar(m, -0x8000, 60.0f) > 24.0f) {
+            return set_mario_action(m, ACT_WAKING_UP, m->actionState);
+        }
+
+        if (gDjuiInPlayerMenu) {
             return set_mario_action(m, ACT_WAKING_UP, m->actionState);
         }
     }
@@ -645,6 +661,7 @@ s32 act_hold_panting_unused(struct MarioState *m) {
     return FALSE;
 }
 
+/* |description|Runs a stationary step, sets the character animation, and changes action if the animation has ended|descriptionEnd| */
 void stopping_step(struct MarioState *m, s32 animID, u32 action) {
     stationary_ground_step(m);
     set_character_animation(m, animID);
@@ -868,15 +885,19 @@ s32 act_shockwave_bounce(struct MarioState *m) {
     return FALSE;
 }
 
-s32 landing_step(struct MarioState *m, s32 arg1, u32 action) {
+/* |description|Runs a stationary step, sets the character animation, and changes action if the animation has ended|descriptionEnd| */
+s32 landing_step(struct MarioState *m, s32 animID, u32 action) {
     stationary_ground_step(m);
-    set_character_animation(m, arg1);
+    set_character_animation(m, animID);
     if (is_anim_at_end(m)) {
         return set_mario_action(m, action, 0);
     }
     return FALSE;
 }
 
+/* |description|
+Checks for and handles common conditions that would cancel Mario's current landing action.
+|descriptionEnd| */
 s32 check_common_landing_cancels(struct MarioState *m, u32 action) {
     if (!m) { return 0; }
     if (m->input & INPUT_UNKNOWN_10) {
@@ -1140,18 +1161,72 @@ s32 act_first_person(struct MarioState *m) {
     return FALSE;
 }
 
+s32 mario_exit_palette_editor(struct MarioState *m, struct Camera *c) {
+    if (!(m->flags & (MARIO_CAP_ON_HEAD | MARIO_CAP_IN_HAND))) {
+        return FALSE;
+    }
+
+    switch (c->paletteEditorCapState) {
+        case 0: return FALSE;
+        case 1: cutscene_put_cap_on(m); break;
+        case 2: cutscene_take_cap_off(m); break;
+    }
+    c->paletteEditorCapState = 0;
+    if (m->action == ACT_PALETTE_EDITOR_CAP) {
+        set_mario_action(m, ACT_IDLE, 0);
+    }
+    return TRUE;
+}
+
+s32 act_palette_editor_cap(struct MarioState *m) {
+    if (gCamera->cutscene != CUTSCENE_PALETTE_EDITOR) {
+        return mario_exit_palette_editor(m, gCamera);
+    }
+
+    // Put cap on
+    if (m->actionArg == 0) {
+        s16 animFrame = set_character_animation(m, CHAR_ANIM_PUT_CAP_ON);
+        if (animFrame == 28) {
+            cutscene_put_cap_on(m);
+        }
+        if (is_anim_at_end(m)) {
+            set_mario_action(m, ACT_IDLE, 0);
+        }
+    }
+
+    // Take cap off
+    else {
+        s16 animFrame = set_character_animation(m, CHAR_ANIM_TAKE_CAP_OFF_THEN_ON);
+        if (animFrame == 12) {
+            cutscene_take_cap_off(m);
+        }
+        if (animFrame >= 30) {
+            set_mario_action(m, ACT_IDLE, 0);
+        }
+    }
+
+    stationary_ground_step(m);
+    return FALSE;
+}
+
+/* |description|
+Checks for and handles common conditions that would cancel Mario's current stationary action.
+|descriptionEnd| */
 s32 check_common_stationary_cancels(struct MarioState *m) {
     if (!m) { return 0; }
     if (m->playerIndex != 0) { return FALSE; }
-
     if (m->pos[1] < m->waterLevel - 100) {
-        if (m->action == ACT_SPAWN_SPIN_LANDING) {
-            if (m == &gMarioStates[0]) {
-                load_level_init_text(0);
+        bool allowForceAction = true;
+        smlua_call_event_hooks(HOOK_ALLOW_FORCE_WATER_ACTION, m, false, &allowForceAction);
+        if (allowForceAction) {
+            if (m->action == ACT_SPAWN_SPIN_LANDING) {
+                if (m == &gMarioStates[0]) {
+                    load_level_init_text(0);
+                }
             }
+            update_mario_sound_and_camera(m);
+            return set_water_plunge_action(m);
         }
-        update_mario_sound_and_camera(m);
-        return set_water_plunge_action(m);
     }
 
     if (m->input & INPUT_SQUISHED) {
@@ -1168,6 +1243,10 @@ s32 check_common_stationary_cancels(struct MarioState *m) {
     return FALSE;
 }
 
+/* |description|
+Executes Mario's current object action by first checking common stationary cancels, then updating quicksand state.
+Dispatches to the appropriate action function, such as idle, sleeping, crouching, ect
+|descriptionEnd| */
 s32 mario_execute_stationary_action(struct MarioState *m) {
     if (!m) { return FALSE; }
     s32 cancel;
@@ -1219,10 +1298,11 @@ s32 mario_execute_stationary_action(struct MarioState *m) {
             case ACT_BRAKING_STOP:            cancel = act_braking_stop(m);                     break;
             case ACT_BUTT_SLIDE_STOP:         cancel = act_butt_slide_stop(m);                  break;
             case ACT_HOLD_BUTT_SLIDE_STOP:    cancel = act_hold_butt_slide_stop(m);             break;
+            case ACT_PALETTE_EDITOR_CAP:      cancel = act_palette_editor_cap(m);               break;
             default:
-                LOG_ERROR("Attempted to execute unimplemented action '%04X'", m->action);
+                LOG_ERROR("Attempted to execute unimplemented action '%08X'", m->action);
                 set_mario_action(m, ACT_IDLE, 0);
-                return false;
+                return FALSE;
         }
         /* clang-format on */
     }

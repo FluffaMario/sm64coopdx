@@ -6,15 +6,15 @@ struct Struct80331B30 {
 };
 
 struct ObjectHitbox sFlyingBookendHitbox = {
-    /* interactType:      */ INTERACT_HIT_FROM_BELOW,
-    /* downOffset:        */ 0,
-    /* damageOrCoinValue: */ 2,
-    /* health:            */ 0,
-    /* numLootCoins:      */ -1,
-    /* radius:            */ 60,
-    /* height:            */ 30,
-    /* hurtboxRadius:     */ 40,
-    /* hurtboxHeight:     */ 30,
+    .interactType = INTERACT_HIT_FROM_BELOW,
+    .downOffset = 0,
+    .damageOrCoinValue = 2,
+    .health = 0,
+    .numLootCoins = -1,
+    .radius = 60,
+    .height = 30,
+    .hurtboxRadius = 40,
+    .hurtboxHeight = 30,
 };
 
 struct Struct80331B30 D_80331B30[] = {
@@ -24,15 +24,15 @@ struct Struct80331B30 D_80331B30[] = {
 };
 
 struct ObjectHitbox sBookSwitchHitbox = {
-    /* interactType:      */ INTERACT_BREAKABLE,
-    /* downOffset:        */ 0,
-    /* damageOrCoinValue: */ 0,
-    /* health:            */ 99,
-    /* numLootCoins:      */ 0,
-    /* radius:            */ 20,
-    /* height:            */ 30,
-    /* hurtboxRadius:     */ 20,
-    /* hurtboxHeight:     */ 30,
+    .interactType = INTERACT_BREAKABLE,
+    .downOffset = 0,
+    .damageOrCoinValue = 0,
+    .health = 99,
+    .numLootCoins = 0,
+    .radius = 20,
+    .height = 30,
+    .hurtboxRadius = 20,
+    .hurtboxHeight = 30,
 };
 
 void flying_bookend_act_0(void) {
@@ -279,13 +279,13 @@ void bhv_haunted_bookshelf_manager_loop(void) {
             so->syncDeathEvent = FALSE;
             so->override_ownership = bhv_haunted_bookshelf_manager_override_ownership;
             so->ignore_if_true = bhv_haunted_bookshelf_manager_ignore_if_true;
-            sync_object_init_field_with_size(o, &o->activeFlags, 16);
-            sync_object_init_field(o, &o->oAction);
-            sync_object_init_field(o, &o->oBookSwitchManagerUnkF8);
-            sync_object_init_field(o, &o->oBookSwitchManagerUnkF4);
-            sync_object_init_field(o, &o->oTimer);
-            sync_object_init_field(o, &o->oPosX);
-            sync_object_init_field(o, &o->oForwardVel);
+            sync_object_init_field(o, o->activeFlags);
+            sync_object_init_field(o, o->oAction);
+            sync_object_init_field(o, o->oBookSwitchManagerUnkF8);
+            sync_object_init_field(o, o->oBookSwitchManagerUnkF4);
+            sync_object_init_field(o, o->oTimer);
+            sync_object_init_field(o, o->oPosX);
+            sync_object_init_field(o, o->oForwardVel);
         }
     }
 
@@ -315,12 +315,12 @@ void bhv_book_switch_loop(void) {
             so->override_ownership = bhv_haunted_bookshelf_manager_override_ownership;
             so->ignore_if_true = bhv_haunted_bookshelf_manager_ignore_if_true;
 
-            sync_object_init_field(o, &o->oAction);
-            sync_object_init_field(o, &o->oBookSwitchUnkF4);
-            sync_object_init_field(o, &o->oIntangibleTimer);
-            sync_object_init_field(o, &o->oPosX);
-            sync_object_init_field(o, &o->oPosZ);
-            sync_object_init_field(o, &o->oTimer);
+            sync_object_init_field(o, o->oAction);
+            sync_object_init_field(o, o->oBookSwitchUnkF4);
+            sync_object_init_field(o, o->oIntangibleTimer);
+            sync_object_init_field(o, o->oPosX);
+            sync_object_init_field(o, o->oPosZ);
+            sync_object_init_field(o, o->oTimer);
         }
     }
 

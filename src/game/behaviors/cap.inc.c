@@ -1,15 +1,15 @@
 // cap.c.inc
 
 static struct ObjectHitbox sCapHitbox = {
-    /* interactType:      */ INTERACT_CAP,
-    /* downOffset:        */ 0,
-    /* damageOrCoinValue: */ 0,
-    /* health:            */ 0,
-    /* numLootCoins:      */ 0,
-    /* radius:            */ 80,
-    /* height:            */ 80,
-    /* hurtboxRadius:     */ 90,
-    /* hurtboxHeight:     */ 90,
+    .interactType = INTERACT_CAP,
+    .downOffset = 0,
+    .damageOrCoinValue = 0,
+    .health = 0,
+    .numLootCoins = 0,
+    .radius = 80,
+    .height = 80,
+    .hurtboxRadius = 90,
+    .hurtboxHeight = 90,
 };
 
 s32 cap_set_hitbox(void) {
@@ -196,6 +196,8 @@ void bhv_normal_cap_init(void) {
 }
 
 void normal_cap_set_save_flags(void) {
+    if (o->oBehParams - 1 != 0) { return; }
+
     save_file_clear_flags(SAVE_FLAG_CAP_ON_GROUND);
 
     switch (gCurrCourseNum) {
@@ -250,6 +252,12 @@ void bhv_normal_cap_loop(void) {
 
     if (cap_set_hitbox() == 1)
         save_file_clear_flags(SAVE_FLAG_CAP_ON_GROUND);
+
+    if (o->globalPlayerIndex >= MAX_PLAYERS) {
+        o->globalPlayerIndex = 0;
+    }
+
+    obj_set_model(o, gMarioStates[network_local_index_from_global(o->globalPlayerIndex)].character->capModelId);
 }
 
 void bhv_vanish_cap_init(void) {

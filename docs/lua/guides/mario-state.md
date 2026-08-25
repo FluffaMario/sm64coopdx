@@ -1,8 +1,10 @@
+## [:rewind: Lua Reference](../lua.md)
+
 # How to use `gMarioStates`
 
 ## Section 1: What is `gMarioStates`?
 
-gMarioStates is an array that goes from 0 to the maximum amount of players, or 16, subtracted by 1, 0 being your mario, that contains a `MarioState` struct. The reason the end of the range is the max players subtracted by 1 instead of just the max players is because arrays are 0 indexed, which means that instead of starting at 1, arrays start at 0, so the total numbers of entries in that array is 16, which is the maximum amount of players. 
+gMarioStates is an array that goes from 0 to the maximum amount of players, or 16, subtracted by 1, 0 being your mario, that contains a `MarioState` struct. The reason the end of the range is the max players subtracted by 1 instead of just the max players is because arrays are 0 indexed, which means that instead of starting at 1, arrays start at 0, so the total numbers of entries in that array is 16, which is the maximum amount of players.
 
 ## Section 2: What is the `MarioState` Structure?
 
@@ -20,9 +22,9 @@ The `MarioState` structure contains 76 different variables, this guide will try 
 |`actionState`|`integer`|Typically used within actions, can be useful for deciding whether or not to return a specific action by reading this variable set within the action.
 |`actionTimer`|`integer`|How long it has been since the action was set.
 |`actionArg`|`integer`|This var is typically set when the action is set, i.e when setting the action to `ACT_STAR_DANCE`, decide whether or not the animation should be the water star dance animation or not, if yes, set `actionArg` to 1, else, set `actionArg` to 0
-|`intendedMag`|`integer`|The intended magnitude. Without smoothening, this is the magnitude 
+|`intendedMag`|`integer`|The intended magnitude. Without smoothening, this is the magnitude
 |`intendedYaw`|`integer`|The intended yaw, similar to above, except the yaw, or y axis.
-|`invincTimer`|`integer`|How long Mario will be invincible, if 0 or less than 0, there will be no invincibility for Mario. 
+|`invincTimer`|`integer`|How long Mario will be invincible, if 0 or less than 0, there will be no invincibility for Mario.
 |`framesSinceA`|`integer`|How long it has been since the controller last hit the A button.
 |`framesSinceB`|`integer`|How long it has been since the controller last hit the B button.
 |`wallKickTimer`|`integer`|When you bonk on a wall, this timer is set to 5, if you press A before the timer comes down to 0, then the walljump action can be set.
@@ -87,9 +89,10 @@ The `MarioState` structure contains 76 different variables, this guide will try 
 |`specialTripleJump`|`integer`|Can be used as a bool, sets whether or not to use the special triple jump unlocked after talking to Yoshi.
 |`wallNormal`|`Vec3f`|The angle of the current wall on the x, y, and z axis.
 |`cap`|`integer`|Where Mario's cap is meant to be. Can be on Mario's head, the snowman's head in Snowman's Land, held by Klepto, or on Ukiki's head.
+|`dialogID`|`integer`|The id of the current dialog Mario is in. The default value for not being in any dialog is -1.
 
 ## Section 3: When should I use `gMarioStates`?
-Most of the time you won't be using `gMarioStates[0]` to access your Mario, but rather use a hook. A lot of hooks pass `m` through the function. What does this mean? Well, here is a example with comments to explain it as good as possible:
+Most of the time you won't be using `gMarioStates[0]` to access your Mario, but rather use a hook. A lot of hooks pass `m` through the function. What does this mean? Well, here is a example with comments to explain it as well as possible:
 
 ```lua
 -- m here is gMarioStates with the index being 0...16, one of those, so you are not always modifying your own mario.

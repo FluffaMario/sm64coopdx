@@ -5,6 +5,10 @@
 
 #include "engine/graph_node.h"
 
+#define MATRIX_STACK_SIZE 64
+extern Mat4 gMatStack[MATRIX_STACK_SIZE];
+extern Mat4 gMatStackPrev[MATRIX_STACK_SIZE];
+
 extern f32 gProjectionMaxNearValue;
 extern s16 gProjectionVanillaNearValue;
 extern s16 gProjectionVanillaFarValue;
@@ -39,8 +43,16 @@ extern f32 gOverrideFar;
 
 void geo_process_node_and_siblings(struct GraphNode *firstNode);
 void geo_process_root(struct GraphNodeRoot *node, Vp *b, Vp *c, s32 clearColor);
-void interpolate_vectors(Vec3f res, Vec3f a, Vec3f b);
-void interpolate_vectors_s16(Vec3s res, Vec3s a, Vec3s b);
+
+struct GraphNodeInterpData {
+    Vec3s translation;
+    Vec3s rotation;
+    Vec3f scale;
+    u32 timestamp;
+};
+
+struct GraphNodeInterpData *geo_get_interp_data(void *node, struct GraphNodeObject *obj);
+void geo_clear_interp_data();
 
 struct ShadowInterp {
     Gfx*  gfx;

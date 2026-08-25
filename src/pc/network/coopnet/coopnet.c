@@ -15,9 +15,11 @@
 
 #ifdef COOPNET
 
+#define MAX_COOPNET_DESCRIPTION_LENGTH 1024
+
 uint64_t gCoopNetDesiredLobby = 0;
 char gCoopNetPassword[64] = "";
-char sCoopNetDescription[256] = "";
+char sCoopNetDescription[MAX_COOPNET_DESCRIPTION_LENGTH] = "";
 
 static uint64_t sLocalLobbyId = 0;
 static uint64_t sLocalLobbyOwnerId = 0;
@@ -30,7 +32,7 @@ bool ns_coopnet_query(QueryCallbackPtr callback, QueryFinishCallbackPtr finishCa
     gCoopNetCallbacks.OnLobbyListGot = callback;
     gCoopNetCallbacks.OnLobbyListFinish = finishCallback;
     if (coopnet_initialize() != COOPNET_OK) { return false; }
-    if (coopnet_lobby_list_get(get_game_name(), password) != COOPNET_OK) { return false; }
+    if (coopnet_lobby_list_get(GAME_NAME, password) != COOPNET_OK) { return false; }
     return true;
 }
 
@@ -86,7 +88,9 @@ static void coopnet_on_lobby_joined(uint64_t lobbyId, uint64_t userId, uint64_t 
         network_send_mod_list_request();
     }
 #ifdef DISCORD_SDK
-    discord_activity_update();
+    if (gDiscordInitialized) {
+        discord_activity_update();
+    }
 #endif
 }
 
@@ -144,7 +148,7 @@ static bool ns_coopnet_initialize(enum NetworkType networkType, bool reconnectin
     sNetworkType = networkType;
     sReconnecting = reconnecting;
     if (reconnecting) { return true; }
-    return coopnet_is_connected() 
+    return coopnet_is_connected()
         ? true
         : (coopnet_initialize() == COOPNET_OK);
 }
@@ -171,7 +175,7 @@ bool ns_coopnet_is_connected(void) {
 
 static void coopnet_populate_description(void) {
     char* buffer = sCoopNetDescription;
-    int bufferLength = 256;
+    int bufferLength = MAX_COOPNET_DESCRIPTION_LENGTH;
     // get version
     const char* version = get_version();
     int versionLength = strlen(version);
@@ -180,12 +184,10 @@ static void coopnet_populate_description(void) {
     bufferLength -= versionLength;
 
     // get mod strings
-    u8 autoexecMod = mods_has_autoexec_mod();
-    if (gActiveMods.entryCount - autoexecMod <= 0) { return; }
-    char* strings[gActiveMods.entryCount - autoexecMod];
+    if (gActiveMods.entryCount <= 0) { return; }
+    char* strings[gActiveMods.entryCount];
     for (int i = 0; i < gActiveMods.entryCount; i++) {
         struct Mod* mod = gActiveMods.entries[i];
-        if (mod_get_is_autoexec(mod)) { continue; }
         strings[i] = mod->name;
     }
 
@@ -196,7 +198,7 @@ static void coopnet_populate_description(void) {
     bufferLength -= strlen(sep);
 
     // concat mod strings
-    str_seperator_concat(buffer, bufferLength, strings, gActiveMods.entryCount - autoexecMod, "\\#dcdcdc\\\n");
+    str_seperator_concat(buffer, bufferLength, strings, gActiveMods.entryCount, "\\#dcdcdc\\\n");
 }
 
 void ns_coopnet_update(void) {
@@ -210,12 +212,12 @@ void ns_coopnet_update(void) {
             if (sReconnecting) {
                 LOG_INFO("Update lobby");
                 coopnet_populate_description();
-                coopnet_lobby_update(sLocalLobbyId, get_game_name(), get_version(), configPlayerName, mode, sCoopNetDescription);
+                coopnet_lobby_update(sLocalLobbyId, GAME_NAME, get_version(), configPlayerName, mode, sCoopNetDescription);
             } else {
                 LOG_INFO("Create lobby");
                 snprintf(gCoopNetPassword, 64, "%s", configPassword);
                 coopnet_populate_description();
-                coopnet_lobby_create(get_game_name(), get_version(), configPlayerName, mode, (uint16_t)configAmountofPlayers, gCoopNetPassword, sCoopNetDescription);
+                coopnet_lobby_create(GAME_NAME, get_version(), configPlayerName, mode, (uint16_t)configAmountOfPlayers, gCoopNetPassword, sCoopNetDescription);
             }
         } else if (sNetworkType == NT_CLIENT) {
             LOG_INFO("Join lobby");
@@ -262,6 +264,15 @@ static void ns_coopnet_shutdown(bool reconnecting) {
     coopnet_shutdown();
     gCoopNetCallbacks.OnLobbyListGot = NULL;
     gCoopNetCallbacks.OnLobbyListFinish = NULL;
+
+    gCoopNetCallbacks.OnConnected = NULL;
+    gCoopNetCallbacks.OnDisconnected = NULL;
+    gCoopNetCallbacks.OnReceive = NULL;
+    gCoopNetCallbacks.OnLobbyJoined = NULL;
+    gCoopNetCallbacks.OnLobbyLeft = NULL;
+    gCoopNetCallbacks.OnError = NULL;
+    gCoopNetCallbacks.OnPeerDisconnected = NULL;
+    gCoopNetCallbacks.OnLoadBalance = NULL;
 
     sLocalLobbyId = 0;
     sLocalLobbyOwnerId = 0;

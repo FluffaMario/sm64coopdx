@@ -1,4 +1,9 @@
 #include "include/types.h"
+
+  //////////////
+ // Textures //
+//////////////
+
 extern ALIGNED8 const Texture amp_seg8_texture_08000F18[];
 extern ALIGNED8 const Texture amp_seg8_texture_08001318[];
 extern ALIGNED8 const Texture amp_seg8_texture_08001B18[];
@@ -1543,7 +1548,18 @@ extern ALIGNED8 const Texture texture_font_aliased[];
 extern ALIGNED8 const Texture texture_font_title[];
 extern ALIGNED8 const Texture texture_font_hud[];
 extern ALIGNED8 const Texture texture_font_hud_recolor[];
+extern ALIGNED8 const Texture texture_font_special[];
+extern ALIGNED8 const Texture texture_selectionbox_back_icon[];
+extern ALIGNED8 const Texture texture_selectionbox_forward_icon[];
+extern ALIGNED8 const Texture texture_font_jp[];
+extern ALIGNED8 const Texture texture_font_jp_aliased[];
 extern ALIGNED8 const Texture texture_coopdx_logo[];
+extern ALIGNED8 const Texture texture_ping_empty[];
+extern ALIGNED8 const Texture texture_ping_one[];
+extern ALIGNED8 const Texture texture_ping_two[];
+extern ALIGNED8 const Texture texture_ping_three[];
+extern ALIGNED8 const Texture texture_ping_four[];
+extern ALIGNED8 const Texture texture_ping_full[];
 extern ALIGNED8 const Texture pss_seg7_texture_07000000[];
 extern ALIGNED8 const Texture pss_seg7_texture_07000800[];
 extern ALIGNED8 const Texture pss_seg7_texture_07001000[];
@@ -1630,7 +1646,6 @@ extern ALIGNED8 Texture gd_texture_sparkle_3[];
 extern ALIGNED8 Texture gd_texture_sparkle_4[];
 extern ALIGNED8 Texture gd_texture_sparkle_5[];
 
-extern ALIGNED8 const Texture mario_texture_metal[];
 extern ALIGNED8 const Texture mario_texture_metal_shade[];
 extern ALIGNED8 const Texture mario_texture_metal_light[];
 extern ALIGNED8 const Texture mario_texture_yellow_button[];
@@ -1651,9 +1666,10 @@ extern ALIGNED8 const Texture mario_texture_eyes_down[];
 extern ALIGNED8 const Texture mario_texture_eyes_dead[];
 extern ALIGNED8 const Texture mario_texture_wings_half_1[];
 extern ALIGNED8 const Texture mario_texture_wings_half_2[];
-extern ALIGNED8 const Texture mario_texture_metal_wings_half_1[];
-extern ALIGNED8 const Texture mario_texture_metal_wings_half_2[];
-extern ALIGNED8 const Texture mario_texture_cap_inside[];
+extern ALIGNED8 const Texture mario_texture_metal_wings_half_1_shade[];
+extern ALIGNED8 const Texture mario_texture_metal_wings_half_1_light[];
+extern ALIGNED8 const Texture mario_texture_metal_wings_half_2_shade[];
+extern ALIGNED8 const Texture mario_texture_metal_wings_half_2_light[];
 extern ALIGNED8 const Texture mario_cap_seg3_texture_0301CF50[];
 extern ALIGNED8 const Texture mario_cap_seg3_texture_0301DF50[];
 extern ALIGNED8 const Texture mario_cap_seg3_texture_0301E750[];
@@ -1686,6 +1702,8 @@ extern ALIGNED8 const Texture toad_player_texture_eyes_down[];
 extern ALIGNED8 const Texture toad_player_texture_eyes_dead[];
 extern ALIGNED8 const Texture wario_texture_white_button[];
 extern ALIGNED8 const Texture wario_texture_w_logo[];
+extern ALIGNED8 const Texture wario_texture_w_blend[];
+extern ALIGNED8 const Texture wario_texture_w_cap[];
 extern ALIGNED8 const Texture wario_texture_hair_sideburn[];
 extern ALIGNED8 const Texture wario_texture_add_sideburn[];
 extern ALIGNED8 const Texture wario_texture_skin_sideburn[];
@@ -1699,25 +1717,22 @@ extern ALIGNED8 const Texture wario_texture_eyes_left[];
 extern ALIGNED8 const Texture wario_texture_eyes_up[];
 extern ALIGNED8 const Texture wario_texture_eyes_down[];
 extern ALIGNED8 const Texture wario_texture_eyes_dead[];
-
-extern ALIGNED8 const Texture waluigi_custom_waluigi_overalls_button_rgba16[];
-extern ALIGNED8 const Texture waluigi_custom_waluigi_metal_rgba16[];
-extern ALIGNED8 const Texture waluigi_custom_waluigi_cap_rgba16[];
-extern ALIGNED8 const Texture waluigi_custom_waluigi_eyes_center_rgba16[];
-extern ALIGNED8 const Texture waluigi_custom_waluigi_mouth_rgba16[];
-extern ALIGNED8 const Texture waluigi_custom_waluigi_sideburns_rgba16[];
-extern ALIGNED8 const Texture waluigi_custom_waluigi_eyes_half_closed_rgba16[];
-extern ALIGNED8 const Texture waluigi_custom_waluigi_eyes_closed_rgba16[];
-extern ALIGNED8 const Texture waluigi_custom_waluigi_eyes_left_unused_rgba16[];
-extern ALIGNED8 const Texture waluigi_custom_waluigi_eyes_right_unused_rgba16[];
-extern ALIGNED8 const Texture waluigi_custom_waluigi_eyes_up_unused_rgba16[];
-extern ALIGNED8 const Texture waluigi_custom_waluigi_eyes_down_unused_rgba16[];
-extern ALIGNED8 const Texture waluigi_custom_waluigi_mouth_dead_rgba16[];
-extern ALIGNED8 const Texture waluigi_custom_waluigi_eyes_dead_rgba16[];
-extern ALIGNED8 const Texture waluigi_wing_2_rgba16[];
-extern ALIGNED8 const Texture waluigi_wing_1_rgba16[];
-extern ALIGNED8 const Texture waluigi_custom_waluigi_glove_rgba16[];
-
+extern ALIGNED8 const Texture waluigi_texture_r_logo[];
+extern ALIGNED8 const Texture waluigi_texture_r_blend[];
+extern ALIGNED8 const Texture waluigi_texture_r_cap[];
+extern ALIGNED8 const Texture waluigi_texture_hair_sideburn[];
+extern ALIGNED8 const Texture waluigi_texture_add_sideburn[];
+extern ALIGNED8 const Texture waluigi_texture_skin_sideburn[];
+extern ALIGNED8 const Texture waluigi_texture_mouth[];
+extern ALIGNED8 const Texture waluigi_texture_mouth_dead[];
+extern ALIGNED8 const Texture waluigi_texture_eyes_front[];
+extern ALIGNED8 const Texture waluigi_texture_eyes_half_closed[];
+extern ALIGNED8 const Texture waluigi_texture_eyes_closed[];
+extern ALIGNED8 const Texture waluigi_texture_eyes_right[];
+extern ALIGNED8 const Texture waluigi_texture_eyes_left[];
+extern ALIGNED8 const Texture waluigi_texture_eyes_up[];
+extern ALIGNED8 const Texture waluigi_texture_eyes_down[];
+extern ALIGNED8 const Texture waluigi_texture_eyes_dead[];
 extern ALIGNED8 const Texture water_skybox_texture_00000[];
 extern ALIGNED8 const Texture water_skybox_texture_00001[];
 extern ALIGNED8 const Texture water_skybox_texture_00002[];
@@ -2306,3 +2321,61 @@ extern ALIGNED8 const Texture bits_skybox_texture_0003C[];
 extern ALIGNED8 const Texture bits_skybox_texture_0003D[];
 extern ALIGNED8 const Texture bits_skybox_texture_0003E[];
 extern ALIGNED8 const Texture bits_skybox_texture_0003F[];
+
+extern ALIGNED8 const Texture cake_end_texture_0[];
+extern ALIGNED8 const Texture cake_end_texture_1[];
+extern ALIGNED8 const Texture cake_end_texture_2[];
+extern ALIGNED8 const Texture cake_end_texture_3[];
+extern ALIGNED8 const Texture cake_end_texture_4[];
+extern ALIGNED8 const Texture cake_end_texture_5[];
+extern ALIGNED8 const Texture cake_end_texture_6[];
+extern ALIGNED8 const Texture cake_end_texture_7[];
+extern ALIGNED8 const Texture cake_end_texture_8[];
+extern ALIGNED8 const Texture cake_end_texture_9[];
+extern ALIGNED8 const Texture cake_end_texture_10[];
+extern ALIGNED8 const Texture cake_end_texture_11[];
+extern ALIGNED8 const Texture cake_end_texture_12[];
+extern ALIGNED8 const Texture cake_end_texture_13[];
+extern ALIGNED8 const Texture cake_end_texture_14[];
+extern ALIGNED8 const Texture cake_end_texture_15[];
+extern ALIGNED8 const Texture cake_end_texture_16[];
+extern ALIGNED8 const Texture cake_end_texture_17[];
+extern ALIGNED8 const Texture cake_end_texture_18[];
+extern ALIGNED8 const Texture cake_end_texture_19[];
+extern ALIGNED8 const Texture cake_end_texture_20[];
+extern ALIGNED8 const Texture cake_end_texture_21[];
+extern ALIGNED8 const Texture cake_end_texture_22[];
+extern ALIGNED8 const Texture cake_end_texture_23[];
+extern ALIGNED8 const Texture cake_end_texture_24[];
+extern ALIGNED8 const Texture cake_end_texture_25[];
+extern ALIGNED8 const Texture cake_end_texture_26[];
+extern ALIGNED8 const Texture cake_end_texture_27[];
+extern ALIGNED8 const Texture cake_end_texture_28[];
+extern ALIGNED8 const Texture cake_end_texture_29[];
+extern ALIGNED8 const Texture cake_end_texture_30[];
+extern ALIGNED8 const Texture cake_end_texture_31[];
+extern ALIGNED8 const Texture cake_end_texture_32[];
+extern ALIGNED8 const Texture cake_end_texture_33[];
+extern ALIGNED8 const Texture cake_end_texture_34[];
+extern ALIGNED8 const Texture cake_end_texture_35[];
+extern ALIGNED8 const Texture cake_end_texture_36[];
+extern ALIGNED8 const Texture cake_end_texture_37[];
+extern ALIGNED8 const Texture cake_end_texture_38[];
+extern ALIGNED8 const Texture cake_end_texture_39[];
+extern ALIGNED8 const Texture cake_end_texture_40[];
+extern ALIGNED8 const Texture cake_end_texture_41[];
+extern ALIGNED8 const Texture cake_end_texture_42[];
+extern ALIGNED8 const Texture cake_end_texture_43[];
+extern ALIGNED8 const Texture cake_end_texture_44[];
+extern ALIGNED8 const Texture cake_end_texture_45[];
+extern ALIGNED8 const Texture cake_end_texture_46[];
+extern ALIGNED8 const Texture cake_end_texture_47[];
+
+  ///////////////////
+ // Display lists //
+///////////////////
+
+#define DISPLAY_LIST(name) \
+extern const Gfx name[];
+#include "include/display_lists.inl"
+#undef DISPLAY_LIST

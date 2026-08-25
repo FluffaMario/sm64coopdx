@@ -9,11 +9,12 @@ extern "C" {
 #include "include/model_ids.h"
 #include "include/object_constants.h"
 #include "include/object_fields.h"
-#include "src/game/area.h"
-#include "src/game/object_list_processor.h"
-#include "src/game/interaction.h"
-#include "src/pc/lua/utils/smlua_anim_utils.h"
-#include "src/pc/lua/utils/smlua_collision_utils.h"
+#include "game/area.h"
+#include "game/object_list_processor.h"
+#include "game/interaction.h"
+#include "pc/lua/smlua_hooks.h"
+#include "pc/lua/utils/smlua_anim_utils.h"
+#include "pc/lua/utils/smlua_collision_utils.h"
 
 // Models and Animations
 #include "actors/common0.h"
@@ -107,6 +108,7 @@ s64 DynOS_Bhv_ParseBehaviorIntegerScriptConstants(const String &_Arg, bool *foun
     bhv_constant(INTERACT_POLE);
     bhv_constant(INTERACT_KOOPA);
     bhv_constant(INTERACT_UNKNOWN_08);
+    bhv_constant(INTERACT_SPINY_WALKING);
     bhv_constant(INTERACT_BREAKABLE);
     bhv_constant(INTERACT_STRONG_WIND);
     bhv_constant(INTERACT_WARP_DOOR);
@@ -168,7 +170,7 @@ s64 DynOS_Bhv_ParseBehaviorIntegerScriptConstants(const String &_Arg, bool *foun
 
     // Object List Types
     bhv_constant(OBJ_LIST_PLAYER);
-    bhv_constant(OBJ_LIST_UNUSED_1);
+    bhv_constant(OBJ_LIST_EXT);
     bhv_constant(OBJ_LIST_DESTRUCTIVE);
     bhv_constant(OBJ_LIST_UNUSED_3);
     bhv_constant(OBJ_LIST_GENACTOR);
@@ -775,9 +777,11 @@ s64 DynOS_Bhv_ParseBehaviorScriptConstants(const String &_Arg, bool *found) {
     bhv_constant(id_bhvYoshi);
     bhv_constant(id_RM_Scroll_Texture);
     bhv_constant(id_editor_Scroll_Texture);
+    bhv_constant(id_bhvAmbientLight);
+    bhv_constant(id_bhvPointLight);
 
     // Define a special type for new ids that don't override.
-    if (_Arg == "id_bhvNewId") { return (BehaviorScript) (0xFFFF); }
+    if (_Arg == "id_bhvNewId") { return (BehaviorScript) LUA_BEHAVIOR_NEW_ID; }
 
     // Legacy behavior ids
     bhv_legacy_constant(id_bhvFish2, id_bhvManyBlueFishSpawner);
@@ -870,6 +874,25 @@ s64 DynOS_Bhv_ParseBehaviorScriptConstants(const String &_Arg, bool *found) {
     bhv_constant(oMacroUnk108);
     bhv_constant(oMacroUnk10C);
     bhv_constant(oMacroUnk110);
+
+    /* Mario */
+    bhv_constant(oMarioParticleFlags);
+    bhv_constant(oMarioPoleUnk108);
+    bhv_constant(oMarioReadingSignDYaw);
+    bhv_constant(oMarioPoleYawVel);
+    bhv_constant(oMarioCannonObjectYaw);
+    bhv_constant(oMarioTornadoYawVel);
+    bhv_constant(oMarioReadingSignDPosX);
+    bhv_constant(oMarioPolePos);
+    bhv_constant(oMarioCannonInputYaw);
+    bhv_constant(oMarioTornadoPosY);
+    bhv_constant(oMarioReadingSignDPosZ);
+    bhv_constant(oMarioWhirlpoolPosY);
+    bhv_constant(oMarioJumboStarCutscenePosZ);
+    bhv_constant(oMarioBurnTimer);
+    bhv_constant(oMarioLongJumpIsSlow);
+    bhv_constant(oMarioSteepJumpYaw);
+    bhv_constant(oMarioWalkingPitch);
 
     /* 1-UpHidden */
     bhv_constant(o1UpHiddenUnkF4);
@@ -1352,7 +1375,7 @@ s64 DynOS_Bhv_ParseBehaviorScriptConstants(const String &_Arg, bool *found) {
     bhv_constant(oCameraLakituCircleRadius);
     bhv_constant(oCameraLakituFinishedDialog);
 #ifndef VERSION_JP
-    bhv_constant(oCameraLakituUnk104);
+    bhv_constant(oCameraLakituMusicPlayed);
 #endif
     bhv_constant(oCameraLakituPitchVel);
     bhv_constant(oCameraLakituYawVel);
@@ -1883,39 +1906,44 @@ s64 DynOS_Bhv_ParseBehaviorScriptConstants(const String &_Arg, bool *found) {
     /* BreakableWall */
     bhv_constant(oBreakableWallForce);
 
+    /* PointLight */
+    bhv_constant(oLightID);
+
     *found = false;
     return 0;
 }
 
-template <typename T>
-DataNode<T> *FindDataNode(DataNodes<T> &aDataNodes, String &aName, u32 aModelIdentifier) {
-    DataNode<T> *best = NULL;
-    for (auto& node : aDataNodes) {
-        if (aName == node->mName) {
-            if (aModelIdentifier == node->mModelIdentifier) {
-                return node;
-            }
-            best = node;
-        }
-    }
-    return best;
-}
-
 static BehaviorScript ParseBehaviorScriptSymbolArgInternal(GfxData *aGfxData, DataNode<BehaviorScript> *aNode, u64 &aTokenIndex, bool *found) {
     String _Arg = aNode->mTokens[aTokenIndex++];
-    u64 _ModelIdentifier = aNode->mModelIdentifier;
     *found = true;
 
+    // Remove (de-)referencing
+    if (_Arg.Length() > 0 && (_Arg[0] == '&' || _Arg[0] == '*')) {
+        _Arg.Remove(0);
+    }
+
     // Built-in functions
-    const void *_FunctionPtr = DynOS_Builtin_Func_GetFromName(_Arg.begin());
+    const void *_FunctionPtr = DynOS_Builtin_Func_GetFromName(_Arg.begin(), FUNCTION_BHV);
     if (_FunctionPtr != NULL) {
         return (s64) _FunctionPtr;
+    }
+    String error = DynOS_Builtin_Func_CheckMisuse(_Arg.begin(), FUNCTION_BHV);
+    if (!error.Empty()) {
+        PrintDataError("  ERROR: %s", error.begin());
+        *found = false;
+        return 0;
     }
 
     // Built-in actors
     auto builtinActor = DynOS_Builtin_Actor_GetFromName(_Arg.begin());
     if (builtinActor != NULL) {
         return (BehaviorScript)builtinActor;
+    }
+
+    // Built-in Lvl Macros
+    auto builtinLvlMacro = DynOS_Builtin_LvlMacro_GetFromName(_Arg.begin());
+    if (builtinLvlMacro != NULL) {
+        return (BehaviorScript)builtinLvlMacro;
     }
 
     // Built-in Lvl Geos
@@ -2095,6 +2123,7 @@ static void ParseBehaviorScriptSymbol(GfxData *aGfxData, DataNode<BehaviorScript
 
     bhv_symbol_3(SET_INT_RAND_RSHIFT, 0, 0, 0);
     bhv_symbol_3(SET_RANDOM_INT, 0, 0, 0);
+    bhv_symbol_3(SET_RANDOM_FLOAT, 0, 0, 0);
     bhv_symbol_3(ADD_RANDOM_FLOAT, 0, 0, 0);
     bhv_symbol_3(ADD_INT_RAND_RSHIFT, 0, 0, 0);
     bhv_symbol_3(SUM_FLOAT, 0, 0, 0);
@@ -2245,7 +2274,7 @@ static void ParseBehaviorScriptSymbol(GfxData *aGfxData, DataNode<BehaviorScript
     }
 
     if (_Symbol == "LOAD_ANIMATIONS") {
-        u64 topTokenIndex = aTokenIndex;
+        //u64 topTokenIndex = aTokenIndex;
 
         bool foundAnimation = true;
 
@@ -2262,7 +2291,7 @@ static void ParseBehaviorScriptSymbol(GfxData *aGfxData, DataNode<BehaviorScript
             //BehaviorScript _Bs[] = { LOAD_ANIMATIONS_EXT(field, animIndex) };
             //memcpy(aHead, _Bs, sizeof(_Bs));
             //aHead += (sizeof(_Bs) / sizeof(_Bs[0]));
-            PrintDataError("  ERROR: : Custom external animations are currently not supported. Skipping LOAD_ANIMATIONS_EXT.");
+            PrintDataError("  ERROR: Custom external animations are currently not supported. Skipping LOAD_ANIMATIONS_EXT.");
         }
         return;
     }
@@ -2406,6 +2435,48 @@ static void ParseBehaviorScriptSymbol(GfxData *aGfxData, DataNode<BehaviorScript
     PrintDataError("  ERROR: Unknown behavior symbol: %s", _Symbol.begin());
 }
 
+static bool DynOS_Bhv_CheckCommands(const BehaviorScript *aBhv, const Array<BehaviorScript> &aCommands) {
+    u8 bhvCommand = (*aBhv >> 24) & 0xFF;
+    for (const auto &commandToCheck : aCommands) {
+        if (bhvCommand == ((commandToCheck >> 24) & 0xFF)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool DynOS_Bhv_Validate(GfxData *aGfxData, const DataNode<BehaviorScript> *aNode) {
+
+    // 1st command must be BEGIN
+    if (!DynOS_Bhv_CheckCommands(aNode->mData + 0, { BEGIN(0) })) {
+        PrintDataError("  ERROR: Validation failed for behavior %s: First command of the script must be BEGIN.", aNode->mName.begin());
+        return false;
+    }
+
+    // 2nd command must be ID
+    if (!DynOS_Bhv_CheckCommands(aNode->mData + 1, { ID(0) })) {
+        PrintDataError("  ERROR: Validation failed for behavior %s: Second command of the script must be ID.", aNode->mName.begin());
+        return false;
+    }
+
+    // Last command must be a terminating command
+    if (!DynOS_Bhv_CheckCommands(aNode->mData + aNode->mSize - 1, {
+        CALL(0),
+        RETURN(),
+        GOTO(0),
+        END_LOOP(),
+        BREAK(),
+        DEACTIVATE(),
+        CALL_EXT(0),
+        GOTO_EXT(0),
+    })) {
+        PrintDataError("  ERROR: Validation failed for behavior %s: Last command of the script must be one of:\n    CALL, RETURN, GOTO, END_LOOP, BREAK, DEACTIVATE", aNode->mName.begin());
+        return false;
+    }
+
+    return true;
+}
+
 DataNode<BehaviorScript> *DynOS_Bhv_Parse(GfxData *aGfxData, DataNode<BehaviorScript> *aNode, bool aDisplayPercent) {
     if (aNode->mData) return aNode;
 
@@ -2417,19 +2488,14 @@ DataNode<BehaviorScript> *DynOS_Bhv_Parse(GfxData *aGfxData, DataNode<BehaviorSc
         ParseBehaviorScriptSymbol(aGfxData, aNode, _Head, _TokenIndex, _SwitchNodes);
         if (aDisplayPercent && aGfxData->mErrorCount == 0) { PrintNoNewLine("%3d%%\b\b\b\b", (s32) (_TokenIndex * 100) / aNode->mTokens.Count()); }
     }
-    if (aDisplayPercent && aGfxData->mErrorCount == 0) { Print("100%%"); }
     aNode->mSize = (u32)(_Head - aNode->mData);
     aNode->mLoadIndex = aGfxData->mLoadIndex++;
-    return aNode;
-}
 
-static DataNode<BehaviorScript> *GetBehaviorScript(GfxData *aGfxData, const String &aBhvRoot) {
-    for (DataNode<BehaviorScript> *_Node : aGfxData->mBehaviorScripts) {
-        if (_Node->mName == aBhvRoot) {
-            return _Node;
-        }
-    }
-    return NULL;
+    // Validate behavior script
+    DynOS_Bhv_Validate(aGfxData, aNode);
+
+    if (aDisplayPercent && aGfxData->mErrorCount == 0) { Print("100%%"); }
+    return aNode;
 }
 
   /////////////
@@ -2453,7 +2519,7 @@ static void DynOS_Bhv_Write(BinFile* aFile, GfxData* aGfxData, DataNode<Behavior
     for (u32 i = 0; i != aNode->mSize; ++i) {
         BehaviorScript *_Head = &aNode->mData[i];
         if (aGfxData->mPointerList.Find((void *) _Head) != -1) {
-            DynOS_Pointer_Write(aFile, (const void *) (*_Head), aGfxData);
+            DynOS_Pointer_Write(aFile, (const void *) (*_Head), aGfxData, FUNCTION_BHV);
         } else if (aGfxData->mLuaPointerList.Find((void *) _Head) != -1) {
             DynOS_Pointer_Lua_Write(aFile, *(u32 *)_Head, aGfxData);
         } else {
@@ -2494,7 +2560,7 @@ static DataNode<BehaviorScript> *DynOS_Bhv_Load(BinFile *aFile, GfxData *aGfxDat
         // We have nothing to return, So return NULL.
         return NULL;
     }
-    
+
     // Allocate our node.
     DataNode<BehaviorScript> *_Node = New<DataNode<BehaviorScript>>();
 
@@ -2518,7 +2584,7 @@ static DataNode<BehaviorScript> *DynOS_Bhv_Load(BinFile *aFile, GfxData *aGfxDat
         // We have nothing to return, So return NULL.
         return NULL;
     }
-    
+
     // If we have nothing in the .bhv file, It compiled incorrectly or is maliciously crafted.
     // We also check if the specified behavior size is valid for the file.
     u32 dataSize = aFile->Read<u32>();
@@ -2541,14 +2607,20 @@ static DataNode<BehaviorScript> *DynOS_Bhv_Load(BinFile *aFile, GfxData *aGfxDat
             break;
         }
         u32 _Value = aFile->Read<u32>();
-        void *_Ptr = DynOS_Pointer_Load(aFile, aGfxData, _Value, &_Node->mFlags);
+        void *_Ptr = DynOS_Pointer_Load(aFile, aGfxData, _Value, FUNCTION_BHV, &_Node->mFlags);
         if (_Ptr) {
             _Node->mData[i] = (uintptr_t) _Ptr;
         } else {
             _Node->mData[i] = (uintptr_t) _Value;
         }
     }
-    
+
+    // Validate it
+    if (!DynOS_Bhv_Validate(aGfxData, _Node)) {
+        Delete(_Node);
+        return NULL;
+    }
+
     // Add it
     if (aGfxData != NULL) {
         aGfxData->mBehaviorScripts.Add(_Node);
@@ -2563,6 +2635,7 @@ GfxData *DynOS_Bhv_LoadFromBinary(const SysPath &aFilename, const char *aBehavio
     GfxData *_GfxData = NULL;
     BinFile *_File = BinFile::OpenR(aFilename.c_str());
     if (_File != NULL) {
+        PrintInfo("Loading behavior '%s' from file: %s", aBehaviorName, aFilename.c_str());
         _GfxData = New<GfxData>();
         for (bool _Done = false; !_Done;) {
             switch (_File->Read<u8>()) {
@@ -2590,18 +2663,6 @@ static String GetBehaviorFolder(const Array<Pair<u64, String>> &aBehaviorsFolder
 }
 
 static void DynOS_Bhv_Generate(const SysPath &aPackFolder, Array<Pair<u64, String>> _BehaviorsFolders, GfxData *_GfxData) {
-    // do not regen this folder if we find any existing bins
-    for (s32 bhvIndex = _GfxData->mBehaviorScripts.Count() - 1; bhvIndex >= 0; bhvIndex--) {
-        auto &_BhvNode = _GfxData->mBehaviorScripts[bhvIndex];
-        String _BhvRootName = _BhvNode->mName;
-
-        // If there is an existing binary file for this layout, skip and go to the next behavior.
-        SysPath _BinFilename = fstring("%s/%s.bhv", aPackFolder.c_str(), _BhvRootName.begin());
-        if (fs_sys_file_exists(_BinFilename.c_str())) {
-            return;
-        }
-    }
-
     // generate in reverse order to detect children
     for (s32 bhvIndex = _GfxData->mBehaviorScripts.Count() - 1; bhvIndex >= 0; bhvIndex--) {
         auto &_BhvNode = _GfxData->mBehaviorScripts[bhvIndex];
@@ -2614,7 +2675,7 @@ static void DynOS_Bhv_Generate(const SysPath &aPackFolder, Array<Pair<u64, Strin
         // Init
         _GfxData->mLoadIndex                  = 0;
         _GfxData->mErrorCount                 = 0;
-        _GfxData->mModelIdentifier            = _BhvNode->mModelIdentifier;
+        _GfxData->mDataIdentifier             = _BhvNode->mDataIdentifier;
         _GfxData->mPackFolder                 = aPackFolder;
         _GfxData->mPointerList                = { NULL }; // The NULL pointer is needed, so we add it here
         _GfxData->mPointerOffsetList          = { };
@@ -2625,8 +2686,7 @@ static void DynOS_Bhv_Generate(const SysPath &aPackFolder, Array<Pair<u64, Strin
         _GfxData->mGeoNodeStack.Clear();
 
         // Parse data
-        PrintNoNewLine("%s.bhv: Model identifier: %X - Processing... ", _BhvRootName.begin(), _GfxData->mModelIdentifier);
-        PrintConsole("%s.bhv: Model identifier: %X - Processing... ", _BhvRootName.begin(), _GfxData->mModelIdentifier);
+        PrintInfoNoNewLine("%s.bhv: Behavior identifier: %llX - Processing... ", _BhvRootName.begin(), _GfxData->mDataIdentifier);
         DynOS_Bhv_Parse(_GfxData, _BhvNode, true);
 
         // Write if no error
@@ -2647,7 +2707,12 @@ static void DynOS_Bhv_Generate(const SysPath &aPackFolder, Array<Pair<u64, Strin
 }
 
 void DynOS_Bhv_GeneratePack(const SysPath &aPackFolder) {
-    Print("Processing Behaviors: \"%s\"", aPackFolder.c_str());
+    Print("Processing behaviors: \"%s\"", aPackFolder.c_str());
+
+    if (!DynOS_ShouldGeneratePack2Ext(aPackFolder, ".bhv", ".c")) {
+        return;
+    }
+
     Array<Pair<u64, String>> _BehaviorsFolders;
     GfxData *_GfxData = New<GfxData>();
 
@@ -2655,12 +2720,12 @@ void DynOS_Bhv_GeneratePack(const SysPath &aPackFolder) {
 
     // Read the main folder.
     if (fs_sys_dir_exists(aPackFolder.c_str())) {
-        _GfxData->mModelIdentifier = 0;
+        _GfxData->mDataIdentifier = 0;
 
         DynOS_Read_Source(_GfxData, fstring("%s/behavior_data.c", aPackFolder.c_str()));
 
-        if (_GfxData->mModelIdentifier != 0) {
-            _BehaviorsFolders.Add({ _GfxData->mModelIdentifier, String(aPackFolder.c_str()) });
+        if (_GfxData->mDataIdentifier != 0) {
+            _BehaviorsFolders.Add({ _GfxData->mDataIdentifier, String(aPackFolder.c_str()) });
         }
     }
 
@@ -2678,12 +2743,12 @@ void DynOS_Bhv_GeneratePack(const SysPath &aPackFolder) {
             // For each subfolder, read tokens from behavior_data.c
             SysPath _Folder = fstring("%s/%s", aPackFolder.c_str(), _PackEnt->d_name);
             if (fs_sys_dir_exists(_Folder.c_str())) {
-                _GfxData->mModelIdentifier = 0;
+                _GfxData->mDataIdentifier = 0;
 
                 DynOS_Read_Source(_GfxData, fstring("%s/behavior_data.c", _Folder.c_str()));
 
-                if (_GfxData->mModelIdentifier != 0) {
-                    _BehaviorsFolders.Add({ _GfxData->mModelIdentifier, String(_PackEnt->d_name) });
+                if (_GfxData->mDataIdentifier != 0) {
+                    _BehaviorsFolders.Add({ _GfxData->mDataIdentifier, String(_PackEnt->d_name) });
                 }
             }
         }

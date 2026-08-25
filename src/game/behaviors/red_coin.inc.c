@@ -8,15 +8,15 @@
  * Red coin's hitbox details.
  */
 static struct ObjectHitbox sRedCoinHitbox = {
-    /* interactType:      */ INTERACT_COIN,
-    /* downOffset:        */ 0,
-    /* damageOrCoinValue: */ 2,
-    /* health:            */ 0,
-    /* numLootCoins:      */ 0,
-    /* radius:            */ 100,
-    /* height:            */ 64,
-    /* hurtboxRadius:     */ 0,
-    /* hurtboxHeight:     */ 0,
+    .interactType = INTERACT_COIN,
+    .downOffset = 0,
+    .damageOrCoinValue = 2,
+    .health = 0,
+    .numLootCoins = 0,
+    .radius = 100,
+    .height = 64,
+    .hurtboxRadius = 0,
+    .hurtboxHeight = 0,
 };
 
 /**
@@ -29,7 +29,7 @@ void bhv_red_coin_init(void) {
     if (hiddenRedCoinStar == NULL) {
         hiddenRedCoinStar = cur_obj_nearest_object_with_behavior(bhvBowserCourseRedCoinStar);
     }
-    
+
     // If we found a red coin star, It's our parent.
     if (hiddenRedCoinStar != NULL) {
         o->parentObj = hiddenRedCoinStar;
@@ -53,8 +53,8 @@ void bhv_red_coin_loop(void) {
             if (gCurrentArea) {
                 o->parentObj->oHiddenStarTriggerCounter = gCurrentArea->numRedCoins - redCoins;
             }
-            
-            // Set the last person who interacted with a red coin to the 
+
+            // Set the last person who interacted with a red coin to the
             // parent so only they get the star cutscene.
             struct MarioState *player = nearest_mario_state_to_object(o);
             if (player) {

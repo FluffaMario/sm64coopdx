@@ -1,39 +1,39 @@
 // strong_wind_particle.c.inc
 
 struct ObjectHitbox sStrongWindParticleHitbox = {
-    /* interactType: */ INTERACT_STRONG_WIND,
-    /* downOffset: */ 0,
-    /* damageOrCoinValue: */ 0,
-    /* health: */ 0,
-    /* numLootCoins: */ 0,
-    /* radius: */ 20,
-    /* height: */ 70,
-    /* hurtboxRadius: */ 20,
-    /* hurtboxHeight: */ 70,
+    .interactType = INTERACT_STRONG_WIND,
+    .downOffset = 0,
+    .damageOrCoinValue = 0,
+    .health = 0,
+    .numLootCoins = 0,
+    .radius = 20,
+    .height = 70,
+    .hurtboxRadius = 20,
+    .hurtboxHeight = 70,
 };
 
 void bhv_strong_wind_particle_loop(void) {
     struct Object *penguinObj;
     f32 distanceFromPenguin;
     f32 penguinXDist, penguinZDist;
-    
+
     obj_set_hitbox(o, &sStrongWindParticleHitbox);
-    
+
     if (o->oTimer == 0) {
         o->oStrongWindParticlePenguinObj = cur_obj_nearest_object_with_behavior(bhvSLWalkingPenguin);
         obj_translate_xyz_random(o, 100.0f);
-        
+
         o->oForwardVel = coss(o->oMoveAnglePitch) * 100.0f;
         o->oVelY = sins(o->oMoveAnglePitch) * -100.0f;
-        
+
         o->oMoveAngleYaw += random_f32_around_zero(o->oBehParams2ndByte * 500); // Wind spread
         o->oOpacity = 100;
     }
-    
+
     cur_obj_move_using_fvel_and_gravity();
     if (o->oTimer > 15) // Deactivate after 15 frames
         obj_mark_for_deletion(o);
-    
+
     // If collided with the SL walking penguin, deactivate.
     penguinObj = o->oStrongWindParticlePenguinObj;
     if (penguinObj != NULL) {

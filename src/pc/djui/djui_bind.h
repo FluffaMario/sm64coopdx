@@ -1,6 +1,6 @@
 #pragma once
 #include "djui.h"
-#include "src/pc/configfile.h"
+#include "pc/configfile.h"
 
 struct DjuiBind {
     struct DjuiBase base;
@@ -11,3 +11,5 @@ struct DjuiBind {
 };
 
 struct DjuiBind* djui_bind_create(struct DjuiBase* parent, const char* message, unsigned int configKey[]);
+void djui_bind_refresh(struct DjuiBind* bind);
+void djui_bind_unbind(struct DjuiBase* caller);

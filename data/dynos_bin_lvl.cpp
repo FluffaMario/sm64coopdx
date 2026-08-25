@@ -6,11 +6,11 @@ extern "C" {
 #include "include/surface_terrains.h"
 #include "include/seq_ids.h"
 #include "level_commands.h"
-#include "src/game/level_update.h"
+#include "game/level_update.h"
 #include "include/dialog_ids.h"
 #include "levels/scripts.h"
 #include "levels/menu/header.h"
-#include "src/game/area.h"
+#include "game/area.h"
 }
 
 // Free data pointers, but keep nodes and tokens intact
@@ -374,23 +374,8 @@ s64 DynOS_Lvl_ParseLevelScriptConstants(const String& _Arg, bool* found) {
     return 0;
 }
 
-template <typename T>
-DataNode<T>* FindDataNode(DataNodes<T>& aDataNodes, String& aName, u32 aModelIdentifier) {
-    DataNode<T>* best = NULL;
-    for (auto& node : aDataNodes) {
-        if (aName == node->mName) {
-            if (aModelIdentifier == node->mModelIdentifier) {
-                return node;
-            }
-            best = node;
-        }
-    }
-    return best;
-}
-
 static LevelScript ParseLevelScriptSymbolArgInternal(GfxData* aGfxData, DataNode<LevelScript>* aNode, u64& aTokenIndex, bool* found) {
     String _Arg = aNode->mTokens[aTokenIndex++];
-    u64 _ModelIdentifier = aNode->mModelIdentifier;
     *found = true;
 
     // Integers
@@ -409,9 +394,15 @@ static LevelScript ParseLevelScriptSymbolArgInternal(GfxData* aGfxData, DataNode
     }
 
     // Built-in functions
-    const void *_FunctionPtr = DynOS_Builtin_Func_GetFromName(_Arg.begin());
+    const void *_FunctionPtr = DynOS_Builtin_Func_GetFromName(_Arg.begin(), FUNCTION_LVL);
     if (_FunctionPtr != NULL) {
         return (s64) _FunctionPtr;
+    }
+    String error = DynOS_Builtin_Func_CheckMisuse(_Arg.begin(), FUNCTION_LVL);
+    if (!error.Empty()) {
+        PrintDataError("  ERROR: %s", error.begin());
+        *found = false;
+        return 0;
     }
 
     bool constantFound = false;
@@ -422,7 +413,7 @@ static LevelScript ParseLevelScriptSymbolArgInternal(GfxData* aGfxData, DataNode
 
     // Level Scripts
     {
-        auto _Node = FindDataNode<LevelScript>(aGfxData->mLevelScripts, _Arg, aGfxData->mModelIdentifier);
+        auto _Node = aGfxData->mLevelScripts.Find(_Arg, aGfxData->mDataIdentifier);
         if (_Node != NULL) {
             auto base = DynOS_Lvl_Parse(aGfxData, _Node, false)->mData;
             auto data = (u8*)base + _Offset;
@@ -435,7 +426,7 @@ static LevelScript ParseLevelScriptSymbolArgInternal(GfxData* aGfxData, DataNode
 
     // Geo layouts
     {
-        auto _Node = FindDataNode<GeoLayout>(aGfxData->mGeoLayouts, _Arg, aGfxData->mModelIdentifier);
+        auto _Node = aGfxData->mGeoLayouts.Find(_Arg, aGfxData->mDataIdentifier);
         if (_Node != NULL) {
             return (LevelScript) DynOS_Geo_Parse(aGfxData, _Node, false)->mData;
         }
@@ -443,7 +434,7 @@ static LevelScript ParseLevelScriptSymbolArgInternal(GfxData* aGfxData, DataNode
 
     // Collisions
     {
-        auto _Node = FindDataNode<Collision>(aGfxData->mCollisions, _Arg, aGfxData->mModelIdentifier);
+        auto _Node = aGfxData->mCollisions.Find(_Arg, aGfxData->mDataIdentifier);
         if (_Node != NULL) {
             return (LevelScript) DynOS_Col_Parse(aGfxData, _Node, false)->mData;
         }
@@ -451,7 +442,7 @@ static LevelScript ParseLevelScriptSymbolArgInternal(GfxData* aGfxData, DataNode
 
     // MacroObjects
     {
-        auto _Node = FindDataNode<MacroObject>(aGfxData->mMacroObjects, _Arg, aGfxData->mModelIdentifier);
+        auto _Node = aGfxData->mMacroObjects.Find(_Arg, aGfxData->mDataIdentifier);
         if (_Node != NULL) {
             return (LevelScript) DynOS_MacroObject_Parse(aGfxData, _Node, false)->mData;
         }
@@ -459,7 +450,7 @@ static LevelScript ParseLevelScriptSymbolArgInternal(GfxData* aGfxData, DataNode
 
     // Trajectories
     {
-        auto _Node = FindDataNode<Trajectory>(aGfxData->mTrajectories, _Arg, aGfxData->mModelIdentifier);
+        auto _Node = aGfxData->mTrajectories.Find(_Arg, aGfxData->mDataIdentifier);
         if (_Node != NULL) {
             return (LevelScript) DynOS_Trajectory_Parse(aGfxData, _Node, false)->mData;
         }
@@ -467,7 +458,7 @@ static LevelScript ParseLevelScriptSymbolArgInternal(GfxData* aGfxData, DataNode
 
     // Movtexs
     {
-        auto _Node = FindDataNode<Movtex>(aGfxData->mMovtexs, _Arg, aGfxData->mModelIdentifier);
+        auto _Node = aGfxData->mMovtexs.Find(_Arg, aGfxData->mDataIdentifier);
         if (_Node != NULL) {
             return (LevelScript) DynOS_Movtex_Parse(aGfxData, _Node, false)->mData;
         }
@@ -475,7 +466,7 @@ static LevelScript ParseLevelScriptSymbolArgInternal(GfxData* aGfxData, DataNode
 
     // MovtexQCs
     {
-        auto _Node = FindDataNode<MovtexQC>(aGfxData->mMovtexQCs, _Arg, aGfxData->mModelIdentifier);
+        auto _Node = aGfxData->mMovtexQCs.Find(_Arg, aGfxData->mDataIdentifier);
         if (_Node != NULL) {
             return (LevelScript) DynOS_MovtexQC_Parse(aGfxData, _Node)->mData;
         }
@@ -483,7 +474,7 @@ static LevelScript ParseLevelScriptSymbolArgInternal(GfxData* aGfxData, DataNode
 
     // Rooms
     {
-        auto _Node = FindDataNode<u8>(aGfxData->mRooms, _Arg, aGfxData->mModelIdentifier);
+        auto _Node = aGfxData->mRooms.Find(_Arg, aGfxData->mDataIdentifier);
         if (_Node != NULL) {
             return (LevelScript) DynOS_Rooms_Parse(aGfxData, _Node)->mData;
         }
@@ -493,6 +484,12 @@ static LevelScript ParseLevelScriptSymbolArgInternal(GfxData* aGfxData, DataNode
     auto builtinActor = DynOS_Builtin_Actor_GetFromName(_Arg.begin());
     if (builtinActor != NULL) {
         return (LevelScript)builtinActor;
+    }
+
+    // Built-in Lvl Macros
+    auto builtinLvlMacro = DynOS_Builtin_LvlMacro_GetFromName(_Arg.begin());
+    if (builtinLvlMacro != NULL) {
+        return (LevelScript)builtinLvlMacro;
     }
 
     // Built-in Lvl Geos
@@ -629,6 +626,15 @@ static LevelScript ParseLevelScriptSymbolArg(GfxData* aGfxData, DataNode<LevelSc
         return;                                  \
     }
 
+static LevelScript ParseLevelScriptObjectSymbolArgInternal(GfxData* aGfxData, DataNode<LevelScript>* aNode, u64& aTokenIndex, u32 *luaParams, u32 luaParamFlag) {
+    bool foundParam = true;
+    LevelScript value = ParseLevelScriptSymbolArgInternal(aGfxData, aNode, aTokenIndex, &foundParam);
+    if (!foundParam) {
+        *luaParams |= luaParamFlag;
+    }
+    return value;
+}
+
 static void ParseLevelScriptSymbol(GfxData* aGfxData, DataNode<LevelScript>* aNode, LevelScript*& aHead, u64& aTokenIndex, Array<u64>& aSwitchNodes) {
     const String& _Symbol = aNode->mTokens[aTokenIndex++];
 
@@ -666,8 +672,10 @@ static void ParseLevelScriptSymbol(GfxData* aGfxData, DataNode<LevelScript>* aNo
     lvl_symbol_3(FIXED_LOAD, 1, 2, 3);
     lvl_symbol_noop_3(LOAD_RAW);
     lvl_symbol_noop_3(LOAD_MIO0);
+    lvl_symbol_noop_3(LOAD_YAY0);
     lvl_symbol_1(LOAD_MARIO_HEAD, 0);
     lvl_symbol_noop_3(LOAD_MIO0_TEXTURE);
+    lvl_symbol_noop_3(LOAD_YAY0_TEXTURE);
 
     // levels
     lvl_symbol_0(INIT_LEVEL);
@@ -687,8 +695,6 @@ static void ParseLevelScriptSymbol(GfxData* aGfxData, DataNode<LevelScript>* aNo
     lvl_symbol_3(MARIO, 2, 0, 0);
 
     // warps
-    lvl_symbol_5(WARP_NODE, 0, 0, 0);
-    lvl_symbol_5(PAINTING_WARP_NODE, 0, 0, 0);
     lvl_symbol_5(INSTANT_WARP, 0, 0, 0);
 
     // misc
@@ -699,7 +705,6 @@ static void ParseLevelScriptSymbol(GfxData* aGfxData, DataNode<LevelScript>* aNo
     lvl_symbol_0(CMD2D);
     lvl_symbol_1(TERRAIN, 1);
     lvl_symbol_1(ROOMS, 1);
-    lvl_symbol_2(SHOW_DIALOG, 0, 0);
     lvl_symbol_1(TERRAIN_TYPE, 0);
     lvl_symbol_0(NOP);
 
@@ -721,73 +726,73 @@ static void ParseLevelScriptSymbol(GfxData* aGfxData, DataNode<LevelScript>* aNo
     lvl_symbol_0(ADV_DEMO);
     lvl_symbol_0(CLEAR_DEMO_PTR);
 
-    // object
-    if (_Symbol == "OBJECT") {
+    // dialog
+    if (_Symbol == "SHOW_DIALOG") {
         u64 topTokenIndex = aTokenIndex;
 
-        bool foundModel = true;
-        bool foundBeh = true;
-        LevelScript model    = ParseLevelScriptSymbolArgInternal(aGfxData, aNode, aTokenIndex, &foundModel);
-        LevelScript posX     = ParseLevelScriptSymbolArg(aGfxData, aNode, aTokenIndex);
-        LevelScript posY     = ParseLevelScriptSymbolArg(aGfxData, aNode, aTokenIndex);
-        LevelScript posZ     = ParseLevelScriptSymbolArg(aGfxData, aNode, aTokenIndex);
-        LevelScript angleX   = ParseLevelScriptSymbolArg(aGfxData, aNode, aTokenIndex);
-        LevelScript angleY   = ParseLevelScriptSymbolArg(aGfxData, aNode, aTokenIndex);
-        LevelScript angleZ   = ParseLevelScriptSymbolArg(aGfxData, aNode, aTokenIndex);
-        LevelScript behParam = ParseLevelScriptSymbolArg(aGfxData, aNode, aTokenIndex);
-        LevelScript beh      = ParseLevelScriptSymbolArgInternal(aGfxData, aNode, aTokenIndex, &foundBeh);
+        u32 luaParams = 0;
+        LevelScript index = ParseLevelScriptObjectSymbolArgInternal(aGfxData, aNode, aTokenIndex, &luaParams, SHOW_DIALOG_EXT_LUA_INDEX);
+        LevelScript dialogId = ParseLevelScriptObjectSymbolArgInternal(aGfxData, aNode, aTokenIndex, &luaParams, SHOW_DIALOG_EXT_LUA_DIALOG);
 
-        if (foundModel && foundBeh) {
-            aGfxData->mPointerList.Add(aHead + 5);
-            LevelScript _Ls[] = { OBJECT(model, posX, posY, posZ, angleX, angleY, angleZ, behParam, beh) };
-            memcpy(aHead, _Ls, sizeof(_Ls));
-            aHead += (sizeof(_Ls) / sizeof(_Ls[0]));
-        } else if (foundModel) {
-            u32 behIndex   = DynOS_Lua_RememberVariable(aGfxData, aHead + 5, aNode->mTokens[topTokenIndex + 8]);
-            LevelScript _Ls[] = { OBJECT_EXT(model, posX, posY, posZ, angleX, angleY, angleZ, behParam, behIndex) };
+        if (luaParams != 0) {
+            LevelScript finalIndex = (luaParams & SHOW_DIALOG_EXT_LUA_INDEX) ? DynOS_Lua_RememberVariable(aGfxData, aHead + 1, aNode->mTokens[topTokenIndex + 0]) : index;
+            LevelScript finalDialogId = (luaParams & SHOW_DIALOG_EXT_LUA_DIALOG) ? DynOS_Lua_RememberVariable(aGfxData, aHead + 2, aNode->mTokens[topTokenIndex + 1]) : dialogId;
+
+            LevelScript _Ls[] = { SHOW_DIALOG_EXT(luaParams, finalIndex, finalDialogId) };
             memcpy(aHead, _Ls, sizeof(_Ls));
             aHead += (sizeof(_Ls) / sizeof(_Ls[0]));
         } else {
-            u32 modelIndex = DynOS_Lua_RememberVariable(aGfxData, aHead + 5, aNode->mTokens[topTokenIndex + 0]);
-            u32 behIndex   = DynOS_Lua_RememberVariable(aGfxData, aHead + 6, aNode->mTokens[topTokenIndex + 8]);
-            LevelScript _Ls[] = { OBJECT_EXT2(modelIndex, posX, posY, posZ, angleX, angleY, angleZ, behParam, behIndex) };
+            LevelScript _Ls[] = { SHOW_DIALOG(index, dialogId) };
             memcpy(aHead, _Ls, sizeof(_Ls));
             aHead += (sizeof(_Ls) / sizeof(_Ls[0]));
         }
         return;
     }
 
-    // object with acts
-    if (_Symbol == "OBJECT_WITH_ACTS") {
+    // object
+    if (_Symbol == "OBJECT" || _Symbol == "OBJECT_WITH_ACTS") {
         u64 topTokenIndex = aTokenIndex;
 
-        bool foundModel = true;
-        bool foundBeh = true;
-        LevelScript model    = ParseLevelScriptSymbolArgInternal(aGfxData, aNode, aTokenIndex, &foundModel);
-        LevelScript posX     = ParseLevelScriptSymbolArg(aGfxData, aNode, aTokenIndex);
-        LevelScript posY     = ParseLevelScriptSymbolArg(aGfxData, aNode, aTokenIndex);
-        LevelScript posZ     = ParseLevelScriptSymbolArg(aGfxData, aNode, aTokenIndex);
-        LevelScript angleX   = ParseLevelScriptSymbolArg(aGfxData, aNode, aTokenIndex);
-        LevelScript angleY   = ParseLevelScriptSymbolArg(aGfxData, aNode, aTokenIndex);
-        LevelScript angleZ   = ParseLevelScriptSymbolArg(aGfxData, aNode, aTokenIndex);
-        LevelScript behParam = ParseLevelScriptSymbolArg(aGfxData, aNode, aTokenIndex);
-        LevelScript beh      = ParseLevelScriptSymbolArgInternal(aGfxData, aNode, aTokenIndex, &foundBeh);
-        LevelScript acts     = ParseLevelScriptSymbolArg(aGfxData, aNode, aTokenIndex);
+        u32 luaParams = 0;
+        LevelScript model    = ParseLevelScriptObjectSymbolArgInternal(aGfxData, aNode, aTokenIndex, &luaParams, OBJECT_EXT_LUA_MODEL);
+        LevelScript posX     = ParseLevelScriptObjectSymbolArgInternal(aGfxData, aNode, aTokenIndex, &luaParams, OBJECT_EXT_LUA_POS_X);
+        LevelScript posY     = ParseLevelScriptObjectSymbolArgInternal(aGfxData, aNode, aTokenIndex, &luaParams, OBJECT_EXT_LUA_POS_Y);
+        LevelScript posZ     = ParseLevelScriptObjectSymbolArgInternal(aGfxData, aNode, aTokenIndex, &luaParams, OBJECT_EXT_LUA_POS_Z);
+        LevelScript angleX   = ParseLevelScriptObjectSymbolArgInternal(aGfxData, aNode, aTokenIndex, &luaParams, OBJECT_EXT_LUA_ANGLE_X);
+        LevelScript angleY   = ParseLevelScriptObjectSymbolArgInternal(aGfxData, aNode, aTokenIndex, &luaParams, OBJECT_EXT_LUA_ANGLE_Y);
+        LevelScript angleZ   = ParseLevelScriptObjectSymbolArgInternal(aGfxData, aNode, aTokenIndex, &luaParams, OBJECT_EXT_LUA_ANGLE_Z);
+        LevelScript behParam = ParseLevelScriptObjectSymbolArgInternal(aGfxData, aNode, aTokenIndex, &luaParams, OBJECT_EXT_LUA_BEH_PARAMS);
+        LevelScript beh      = ParseLevelScriptObjectSymbolArgInternal(aGfxData, aNode, aTokenIndex, &luaParams, OBJECT_EXT_LUA_BEHAVIOR);
+        LevelScript acts     = (_Symbol == "OBJECT_WITH_ACTS") ? ParseLevelScriptObjectSymbolArgInternal(aGfxData, aNode, aTokenIndex, &luaParams, OBJECT_EXT_LUA_ACTS) : 0x1F;
 
-        if (foundModel && foundBeh) {
+        // At least one parameter is a Lua variable, use OBJECT_EXT_LUA_PARAMS
+        if (luaParams != 0) {
+
+            // Remember behavior pointer if it's not a Lua param
+            if (!(luaParams & OBJECT_EXT_LUA_BEHAVIOR)) {
+                aGfxData->mPointerList.Add(aHead + 9);
+            }
+
+            LevelScript finalModel    = (luaParams & OBJECT_EXT_LUA_MODEL) ? DynOS_Lua_RememberVariable(aGfxData, aHead + 1, aNode->mTokens[topTokenIndex + 0]) : model;
+            LevelScript finalPosX     = (luaParams & OBJECT_EXT_LUA_POS_X) ? DynOS_Lua_RememberVariable(aGfxData, aHead + 2, aNode->mTokens[topTokenIndex + 1]) : posX;
+            LevelScript finalPosY     = (luaParams & OBJECT_EXT_LUA_POS_Y) ? DynOS_Lua_RememberVariable(aGfxData, aHead + 3, aNode->mTokens[topTokenIndex + 2]) : posY;
+            LevelScript finalPosZ     = (luaParams & OBJECT_EXT_LUA_POS_Z) ? DynOS_Lua_RememberVariable(aGfxData, aHead + 4, aNode->mTokens[topTokenIndex + 3]) : posZ;
+            LevelScript finalAngleX   = (luaParams & OBJECT_EXT_LUA_ANGLE_X) ? DynOS_Lua_RememberVariable(aGfxData, aHead + 5, aNode->mTokens[topTokenIndex + 4]) : angleX;
+            LevelScript finalAngleY   = (luaParams & OBJECT_EXT_LUA_ANGLE_Y) ? DynOS_Lua_RememberVariable(aGfxData, aHead + 6, aNode->mTokens[topTokenIndex + 5]) : angleY;
+            LevelScript finalAngleZ   = (luaParams & OBJECT_EXT_LUA_ANGLE_Z) ? DynOS_Lua_RememberVariable(aGfxData, aHead + 7, aNode->mTokens[topTokenIndex + 6]) : angleZ;
+            LevelScript finalBehParam = (luaParams & OBJECT_EXT_LUA_BEH_PARAMS) ? DynOS_Lua_RememberVariable(aGfxData, aHead + 8, aNode->mTokens[topTokenIndex + 7]) : behParam;
+            LevelScript finalBeh      = (luaParams & OBJECT_EXT_LUA_BEHAVIOR) ? DynOS_Lua_RememberVariable(aGfxData, aHead + 9, aNode->mTokens[topTokenIndex + 8]) : beh;
+            LevelScript finalActs     = (luaParams & OBJECT_EXT_LUA_ACTS) ? DynOS_Lua_RememberVariable(aGfxData, aHead + 10, aNode->mTokens[topTokenIndex + 9]) : acts;
+
+            LevelScript _Ls[] = { OBJECT_EXT_LUA_PARAMS(luaParams, finalModel, finalPosX, finalPosY, finalPosZ, finalAngleX, finalAngleY, finalAngleZ, finalBehParam, finalBeh, finalActs) };
+            memcpy(aHead, _Ls, sizeof(_Ls));
+            aHead += (sizeof(_Ls) / sizeof(_Ls[0]));
+        }
+
+        // No Lua parameter, use OBJECT_WITH_ACTS
+        else {
             aGfxData->mPointerList.Add(aHead + 5);
             LevelScript _Ls[] = { OBJECT_WITH_ACTS(model, posX, posY, posZ, angleX, angleY, angleZ, behParam, beh, acts) };
-            memcpy(aHead, _Ls, sizeof(_Ls));
-            aHead += (sizeof(_Ls) / sizeof(_Ls[0]));
-        } else if (foundModel) {
-            u32 behIndex = DynOS_Lua_RememberVariable(aGfxData, aHead + 5, aNode->mTokens[topTokenIndex + 8]);
-            LevelScript _Ls[] = { OBJECT_WITH_ACTS_EXT(model, posX, posY, posZ, angleX, angleY, angleZ, behParam, behIndex, acts) };
-            memcpy(aHead, _Ls, sizeof(_Ls));
-            aHead += (sizeof(_Ls) / sizeof(_Ls[0]));
-        } else {
-            u32 modelIndex = DynOS_Lua_RememberVariable(aGfxData, aHead + 5, aNode->mTokens[topTokenIndex + 0]);
-            u32 behIndex   = DynOS_Lua_RememberVariable(aGfxData, aHead + 6, aNode->mTokens[topTokenIndex + 8]);
-            LevelScript _Ls[] = { OBJECT_WITH_ACTS_EXT2(modelIndex, posX, posY, posZ, angleX, angleY, angleZ, behParam, behIndex, acts) };
             memcpy(aHead, _Ls, sizeof(_Ls));
             aHead += (sizeof(_Ls) / sizeof(_Ls[0]));
         }
@@ -816,13 +821,61 @@ static void ParseLevelScriptSymbol(GfxData* aGfxData, DataNode<LevelScript>* aNo
 
     // JUMP_AREA
     if (_Symbol == "JUMP_AREA") {
-        LevelScript _Arg0 = ParseLevelScriptSymbolArg(aGfxData, aNode, aTokenIndex);
-        LevelScript _Arg1 = ParseLevelScriptSymbolArg(aGfxData, aNode, aTokenIndex);
-        LevelScript _Arg2 = ParseLevelScriptSymbolArg(aGfxData, aNode, aTokenIndex);
+        LevelScript op = ParseLevelScriptSymbolArg(aGfxData, aNode, aTokenIndex);
+        LevelScript arg = ParseLevelScriptSymbolArg(aGfxData, aNode, aTokenIndex);
+        LevelScript target = ParseLevelScriptSymbolArg(aGfxData, aNode, aTokenIndex);
         aGfxData->mPointerList.Add(aHead + 2);
-        LevelScript _Ls[] = { JUMP_AREA_EXT(_Arg0, _Arg1, _Arg2) };
+        LevelScript _Ls[] = { JUMP_AREA_EXT(op, arg, target) };
         memcpy(aHead, _Ls, sizeof(_Ls));
         aHead += (sizeof(_Ls) / sizeof(_Ls[0]));
+        return;
+    }
+
+    // WARP_NODE
+    if (_Symbol == "WARP_NODE") {
+        u64 topTokenIndex = aTokenIndex;
+
+        bool foundLevel = true;
+        LevelScript id = ParseLevelScriptSymbolArg(aGfxData, aNode, aTokenIndex);
+        LevelScript destLevel = ParseLevelScriptSymbolArgInternal(aGfxData, aNode, aTokenIndex, &foundLevel);
+        LevelScript destArea = ParseLevelScriptSymbolArg(aGfxData, aNode, aTokenIndex);
+        LevelScript destNode = ParseLevelScriptSymbolArg(aGfxData, aNode, aTokenIndex);
+        LevelScript flags = ParseLevelScriptSymbolArg(aGfxData, aNode, aTokenIndex);
+
+        if (foundLevel) {
+            LevelScript _Ls[] = { WARP_NODE(id, destLevel, destArea, destNode, flags) };
+            memcpy(aHead, _Ls, sizeof(_Ls));
+            aHead += (sizeof(_Ls) / sizeof(_Ls[0]));
+        } else {
+            s16 destLevelIndex = DynOS_Lua_RememberVariable(aGfxData, aHead + 1, aNode->mTokens[topTokenIndex + 1]);
+            LevelScript _Ls[] = { WARP_NODE(id, destLevelIndex, destArea, destNode, flags) };
+            memcpy(aHead, _Ls, sizeof(_Ls));
+            aHead += (sizeof(_Ls) / sizeof(_Ls[0]));
+        }
+        return;
+    }
+
+    // PAINTING_WARP_NODE
+    if (_Symbol == "PAINTING_WARP_NODE") {
+        u64 topTokenIndex = aTokenIndex;
+
+        bool foundLevel = true;
+        LevelScript id = ParseLevelScriptSymbolArg(aGfxData, aNode, aTokenIndex);
+        LevelScript destLevel = ParseLevelScriptSymbolArgInternal(aGfxData, aNode, aTokenIndex, &foundLevel);
+        LevelScript destArea = ParseLevelScriptSymbolArg(aGfxData, aNode, aTokenIndex);
+        LevelScript destNode = ParseLevelScriptSymbolArg(aGfxData, aNode, aTokenIndex);
+        LevelScript flags = ParseLevelScriptSymbolArg(aGfxData, aNode, aTokenIndex);
+
+        if (foundLevel) {
+            LevelScript _Ls[] = { PAINTING_WARP_NODE(id, destLevel, destArea, destNode, flags) };
+            memcpy(aHead, _Ls, sizeof(_Ls));
+            aHead += (sizeof(_Ls) / sizeof(_Ls[0]));
+        } else {
+            s16 destLevelIndex = DynOS_Lua_RememberVariable(aGfxData, aHead + 1, aNode->mTokens[topTokenIndex + 1]);
+            LevelScript _Ls[] = { PAINTING_WARP_NODE(id, destLevelIndex, destArea, destNode, flags) };
+            memcpy(aHead, _Ls, sizeof(_Ls));
+            aHead += (sizeof(_Ls) / sizeof(_Ls[0]));
+        }
         return;
     }
 
@@ -847,15 +900,6 @@ DataNode<LevelScript>* DynOS_Lvl_Parse(GfxData* aGfxData, DataNode<LevelScript>*
     return aNode;
 }
 
-static DataNode<LevelScript> *GetLevelScript(GfxData *aGfxData, const String& aGeoRoot) {
-    for (DataNode<LevelScript> *_Node : aGfxData->mLevelScripts) {
-        if (_Node->mName == aGeoRoot) {
-            return _Node;
-        }
-    }
-    return NULL;
-}
-
   /////////////
  // Writing //
 /////////////
@@ -872,7 +916,7 @@ static void DynOS_Lvl_Write(BinFile* aFile, GfxData* aGfxData, DataNode<LevelScr
     for (u32 i = 0; i != aNode->mSize; ++i) {
         LevelScript *_Head = &aNode->mData[i];
         if (aGfxData->mPointerList.Find((void *) _Head) != -1) {
-            DynOS_Pointer_Write(aFile, (const void *) (*_Head), aGfxData);
+            DynOS_Pointer_Write(aFile, (const void *) (*_Head), aGfxData, FUNCTION_LVL);
         } else if (aGfxData->mLuaPointerList.Find((void *) _Head) != -1) {
             DynOS_Pointer_Lua_Write(aFile, *(u32 *)_Head, aGfxData);
         } else {
@@ -1001,14 +1045,14 @@ static DataNode<LevelScript>* DynOS_Lvl_Load(BinFile *aFile, GfxData *aGfxData) 
 
         bool requirePointer = DynOS_Lvl_Validate_RequirePointer(_Value);
 
-        void *_Ptr = DynOS_Pointer_Load(aFile, aGfxData, _Value, &_Node->mFlags);
+        void *_Ptr = DynOS_Pointer_Load(aFile, aGfxData, _Value, FUNCTION_LVL, &_Node->mFlags);
         if (_Ptr) {
-            if (!requirePointer) {
+            if (!requirePointer && _Value != LUA_VAR_CODE) {
                 PrintError("Didn't expect a pointer while reading level script: %s, %u", _Node->mName.begin(), _Value);
             }
             _Node->mData[i] = (uintptr_t) _Ptr;
         } else {
-            if (requirePointer) {
+            if (requirePointer && _Value != LUA_VAR_CODE) {
                 PrintError("Expected a pointer while reading level script: %s, %u", _Node->mName.begin(), _Value);
                 _Node->mData[i] = 0;
             } else {
@@ -1028,6 +1072,7 @@ GfxData *DynOS_Lvl_LoadFromBinary(const SysPath &aFilename, const char *aLevelNa
     GfxData *_GfxData = NULL;
     BinFile *_File = DynOS_Bin_Decompress(aFilename);
     if (_File) {
+        PrintInfo("Loading level '%s' from file: %s", aLevelName, aFilename.c_str());
         _GfxData = New<GfxData>();
         for (bool _Done = false; !_Done;) {
             switch (_File->Read<u8>()) {
@@ -1067,25 +1112,16 @@ static bool DynOS_Lvl_GeneratePack_Internal(const SysPath &aPackFolder, Array<Pa
     bool generated = false;
     for (auto &_LvlNode : _GfxData->mLevelScripts) {
         String _LvlRootName = _LvlNode->mName;
-        DataNode<LevelScript> *_LvlRoot = GetLevelScript(_GfxData, _LvlRootName);
+        DataNode<LevelScript> *_LvlRoot = _GfxData->mLevelScripts.Find(_LvlRootName);
         if (_LvlRoot == NULL) { continue; }
         if (_LvlRootName.Find("_entry") == -1) { continue; }
         // If there is an existing binary file for this level, skip and go to the next level
         SysPath _LvlFilename = fstring("%s/%s.lvl", aPackFolder.c_str(), _LvlRootName.begin());
-        if (fs_sys_file_exists(_LvlFilename.c_str())) {
-#ifdef DEVELOPMENT
-            // Compress file to gain some space
-            if (!DynOS_Bin_IsCompressed(_LvlFilename)) {
-                DynOS_Bin_Compress(_LvlFilename);
-            }
-#endif
-            continue;
-        }
 
         // Init
         _GfxData->mLoadIndex                  = 0;
         _GfxData->mErrorCount                 = 0;
-        _GfxData->mModelIdentifier            = _LvlRoot->mModelIdentifier;
+        _GfxData->mDataIdentifier             = _LvlRoot->mDataIdentifier;
         _GfxData->mPackFolder                 = aPackFolder;
         _GfxData->mPointerList                = { NULL }; // The NULL pointer is needed, so we add it here
         _GfxData->mPointerOffsetList          = { };
@@ -1096,25 +1132,24 @@ static bool DynOS_Lvl_GeneratePack_Internal(const SysPath &aPackFolder, Array<Pa
         _GfxData->mGeoNodeStack.Clear();
 
         // Parse data
-        PrintNoNewLine("%s.lvl: Model identifier: %X - Processing... ", _LvlRootName.begin(), _GfxData->mModelIdentifier);
-        PrintConsole("%s.lvl: Model identifier: %X - Processing... ", _LvlRootName.begin(), _GfxData->mModelIdentifier);
+        PrintInfoNoNewLine("%s.lvl: Level identifier: %llX - Processing... ", _LvlRootName.begin(), _GfxData->mDataIdentifier);
         DynOS_Lvl_Parse(_GfxData, _LvlRoot, true);
 
         // Force all of the movtexs, collisions, and trajectories into the compiled lvl
         for (auto &_Node : _GfxData->mMovtexs) {
-            if (_Node->mModelIdentifier != _GfxData->mModelIdentifier) { continue; }
+            if (_Node->mDataIdentifier != _GfxData->mDataIdentifier) { continue; }
             DynOS_Movtex_Parse(_GfxData, _Node, false);
         }
         for (auto &_Node : _GfxData->mMovtexQCs) {
-            if (_Node->mModelIdentifier != _GfxData->mModelIdentifier) { continue; }
+            if (_Node->mDataIdentifier != _GfxData->mDataIdentifier) { continue; }
             DynOS_MovtexQC_Parse(_GfxData, _Node);
         }
         for (auto &_Node : _GfxData->mCollisions) {
-            if (_Node->mModelIdentifier != _GfxData->mModelIdentifier) { continue; }
+            if (_Node->mDataIdentifier != _GfxData->mDataIdentifier) { continue; }
             DynOS_Col_Parse(_GfxData, _Node, false);
         }
         for (auto &_Node : _GfxData->mTrajectories) {
-            if (_Node->mModelIdentifier != _GfxData->mModelIdentifier) { continue; }
+            if (_Node->mDataIdentifier != _GfxData->mDataIdentifier) { continue; }
             DynOS_Trajectory_Parse(_GfxData, _Node, false);
         }
 
@@ -1186,11 +1221,16 @@ static void DynOS_Lvl_GeneratePack_Recursive(const SysPath &directory, GfxData *
 }
 
 void DynOS_Lvl_GeneratePack(const SysPath &aPackFolder) {
-    Print("Processing Levels: \"%s\"", aPackFolder.c_str());
+    Print("Processing levels: \"%s\"", aPackFolder.c_str());
+
+    if (!DynOS_ShouldGeneratePack(aPackFolder, { ".lvl" })) {
+        return;
+    }
+
     Array<Pair<u64, String>> _ActorsFolders;
 
     GfxData *_GfxData = New<GfxData>();
-    _GfxData->mModelIdentifier = 0;
+    _GfxData->mDataIdentifier = 0;
 
     DIR *aPackDir = opendir(aPackFolder.c_str());
     if (aPackDir) {
@@ -1201,28 +1241,34 @@ void DynOS_Lvl_GeneratePack(const SysPath &aPackFolder) {
             if (SysPath(_PackEnt->d_name) == ".") continue;
             if (SysPath(_PackEnt->d_name) == "..") continue;
 
-#ifdef DEVELOPMENT
             // Compress .lvl files to gain some space
-            // TODO: is this required anymore?
-            /*SysPath _Filename = fstring("%s/%s", aPackFolder.c_str(), _PackEnt->d_name);
-            if (SysPath(_PackEnt->d_name).find(".lvl") != SysPath::npos && !DynOS_Bin_IsCompressed(_Filename)) {
-                DynOS_Bin_Compress(_Filename);
+            bool _IsLvl = (SysPath(_PackEnt->d_name).find(".lvl") != SysPath::npos);
+            SysPath _Filename = fstring("%s/%s", aPackFolder.c_str(), _PackEnt->d_name);
+            if (_IsLvl && !DynOS_Bin_IsCompressed(_Filename)) {
+                if (configCompressOnStartup) { DynOS_Bin_Compress(_Filename); }
                 continue;
-            }*/
-#endif
+            }
 
             // For each subfolder, read tokens from script.c
             SysPath _Folder = fstring("%s/%s", aPackFolder.c_str(), _PackEnt->d_name);
             if (!fs_sys_dir_exists(_Folder.c_str())) continue;
 
+            // Only parse folders with a 'script.c'
+            SysPath _ScriptFile = fstring("%s/script.c", _Folder.c_str());
+            if (!fs_sys_file_exists(_ScriptFile.c_str())) {
+                _ScriptFile = fstring("%s/custom.script.c", _Folder.c_str());
+                if (!fs_sys_file_exists(_ScriptFile.c_str())) {
+                    continue;
+                }
+            }
+
             // Prevent generating from folders that likely already generated
             SysPath _LvlFile = fstring("%s/level_%s_entry.lvl", aPackFolder.c_str(), _PackEnt->d_name);
-            if (fs_sys_file_exists(_LvlFile.c_str())) continue;
+            if (DynOS_GenFileExistsAndIsNewerThanFolder(_LvlFile, _Folder)) {
+                continue;
+            }
 
-            // Only parse folders with a 'script.c'
-            if (!fs_sys_file_exists(fstring("%s/script.c", _Folder.c_str()).c_str()) && !fs_sys_file_exists(fstring("%s/custom.script.c", _Folder.c_str()).c_str())) continue;
-
-            _GfxData->mModelIdentifier++;
+            _GfxData->mDataIdentifier = DynOS_NewDataIdentifier();
             DynOS_Lvl_GeneratePack_Recursive(_Folder, _GfxData);
 
         }

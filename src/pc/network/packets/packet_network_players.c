@@ -2,7 +2,7 @@
 #include "../network.h"
 #include "object_fields.h"
 #include "behavior_data.h"
-#include "src/game/behavior_actions.h"
+#include "game/behavior_actions.h"
 #include "pc/debuglog.h"
 #include "pc/configfile.h"
 #include "pc/network/moderator_list.h"
@@ -34,7 +34,8 @@ static void network_send_to_network_players(u8 sendToLocalIndex) {
         packet_write(&p, &networkId,                             sizeof(s64));
         packet_write(&p, &gNetworkPlayers[i].modelIndex,         sizeof(u8));
         packet_write(&p, &gNetworkPlayers[i].palette,            sizeof(struct PlayerPalette));
-        packet_write(&p, &gNetworkPlayers[i].name,               sizeof(u8) * MAX_PLAYER_STRING);
+        packet_write(&p, &gNetworkPlayers[i].name,               sizeof(u8) * MAX_CONFIG_STRING);
+        packet_write(&p, &gNetworkPlayers[i].discordId,          sizeof(u8) * 64);
         LOG_INFO("send network player [%d == %d]", gNetworkPlayers[i].globalIndex, npType);
     }
 
@@ -81,6 +82,10 @@ void network_receive_network_players(struct Packet *p) {
         LOG_ERROR("received list of clients as a non-client");
         return;
     }
+    if (network_player_any_connected() && gNetworkPlayers[p->localIndex].type != NPT_SERVER) {
+        LOG_ERROR("list of clients came from non-server... refuse!");
+        return;
+    }
     u8 connectedCount = 0;
     packet_read(p, &connectedCount, sizeof(u8));
     for (s16 i = 0; i < connectedCount; i++) {
@@ -91,7 +96,8 @@ void network_receive_network_players(struct Packet *p) {
         s64 networkId;
         u8 modelIndex;
         struct PlayerPalette palette;
-        char playerName[MAX_PLAYER_STRING] = { 0 };
+        char playerName[MAX_CONFIG_STRING] = { 0 };
+        char discordId[64] = { 0 };
 
         packet_read(p, &npType,         sizeof(u8));
         packet_read(p, &globalIndex,    sizeof(u8));
@@ -105,9 +111,12 @@ void network_receive_network_players(struct Packet *p) {
         packet_read(p, &networkId,      sizeof(s64));
         packet_read(p, &modelIndex,     sizeof(u8));
         packet_read(p, &palette,        sizeof(struct PlayerPalette));
-        packet_read(p, &playerName,     sizeof(u8) * MAX_PLAYER_STRING);
+        packet_read(p, &playerName,     sizeof(u8) * MAX_CONFIG_STRING);
+        packet_read(p, &discordId,      sizeof(u8) * 64);
 
-        u8 localIndex = network_player_connected(npType, globalIndex, modelIndex, &palette, playerName);
+        if (globalIndex >= MAX_PLAYERS) { continue; }
+
+        u8 localIndex = network_player_connected(npType, globalIndex, modelIndex, &palette, playerName, discordId);
         LOG_INFO("received network player [%d == %d] (%d)", globalIndex, npType, localIndex);
         if (localIndex != UNKNOWN_GLOBAL_INDEX) {
             struct NetworkPlayer *np = &gNetworkPlayers[localIndex];

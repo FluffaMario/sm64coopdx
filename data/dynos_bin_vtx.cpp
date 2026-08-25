@@ -1,6 +1,7 @@
 #include "dynos.cpp.h"
 extern "C" {
 #include "engine/graph_node.h"
+#include "pc/lua/utils/smlua_gfx_utils.h"
 }
 
 #define F32VTX_SENTINEL_0 0x3346
@@ -34,12 +35,12 @@ DataNode<Vtx>* DynOS_Vtx_Parse(GfxData* aGfxData, DataNode<Vtx>* aNode) {
 
     // Vertex data
     aNode->mSize = (u32) (aNode->mTokens.Count() / 10);
-    aNode->mData = New<Vtx>(aNode->mSize);
+    aNode->mData = vtx_allocate_internal(NULL, aNode->mSize);
     for (u32 i = 0; i != aNode->mSize; ++i) {
         f32 px = (f32) aNode->mTokens[10 * i + 0].ParseFloat();
         f32 py = (f32) aNode->mTokens[10 * i + 1].ParseFloat();
         f32 pz = (f32) aNode->mTokens[10 * i + 2].ParseFloat();
-        u8 fl = (u8) aNode->mTokens[10 * i + 3].ParseInt();
+        u16 fl = (u16) aNode->mTokens[10 * i + 3].ParseInt();
         s16 tu = (s16) aNode->mTokens[10 * i + 4].ParseInt();
         s16 tv = (s16) aNode->mTokens[10 * i + 5].ParseInt();
         u8 nx = (u8) aNode->mTokens[10 * i + 6].ParseInt();
@@ -115,7 +116,7 @@ void DynOS_Vtx_Load(BinFile *aFile, GfxData *aGfxData) {
     // Data
     bool isUsingF32Vtx = false;
     _Node->mSize = aFile->Read<u32>();
-    _Node->mData = New<Vtx>(_Node->mSize);
+    _Node->mData = vtx_allocate_internal(NULL, _Node->mSize);
     for (u32 i = 0; i != _Node->mSize; ++i) {
         if (isUsingF32Vtx) {
             _Node->mData[i].n.ob[0] = aFile->Read<f32>();
@@ -138,6 +139,30 @@ void DynOS_Vtx_Load(BinFile *aFile, GfxData *aGfxData) {
         if (!isUsingF32Vtx && i == 0 && IsUsingF32Vtx(_Node->mData[i].n.ob)) {
             _Node->mSize--; i--;
             isUsingF32Vtx = true;
+        }
+    }
+
+    // Billboard check
+    if (!(_Node->mFlags & GRAPH_EXTRA_FORCE_3D)) {
+        Vec3f pn = { 0, 0, 0 };
+        for (u32 i = 2; i < _Node->mSize; ++i) {
+            Vec3f p0; vec3f_copy(p0, _Node->mData[i - 2].v.ob);
+            Vec3f p1; vec3f_copy(p1, _Node->mData[i - 1].v.ob);
+            Vec3f p2; vec3f_copy(p2, _Node->mData[i - 0].v.ob);
+            Vec3f v0; vec3f_dif(v0, p0, p1);
+            Vec3f v1; vec3f_dif(v1, p1, p2);
+            Vec3f vn; vec3f_cross(vn, v0, v1);
+            if (vn[0] != 0.f || vn[1] != 0.f || vn[2] != 0.f) { // skip zero normals
+                vec3f_normalize(vn);
+                if (pn[0] != 0.f || pn[1] != 0.f || pn[2] != 0.f) { // don't compare to zero normal
+                    f32 dot = vec3f_dot(vn, pn);
+                    if (dot < 0.9f) { // Points don't form a plane -> no billboard
+                        _Node->mFlags |= GRAPH_EXTRA_FORCE_3D;
+                        break;
+                    }
+                }
+                vec3f_copy(pn, vn);
+            }
         }
     }
 

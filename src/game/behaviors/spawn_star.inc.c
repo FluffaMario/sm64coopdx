@@ -16,7 +16,7 @@ void bhv_star_number_loop(void) {
         obj_set_angle(o, 0, 0, 0);
         obj_scale(o, 1.f);
         o->oAnimState = o->oBehParams2ndByte = ((star->oBehParams >> 24) & 0xFF) + 1;
-        o->header.gfx.node.flags = star->header.gfx.node.flags;
+        o->header.gfx.node.flags = star->header.gfx.node.flags | GRAPH_RENDER_BILLBOARD;
     } else {
         cur_obj_disable_rendering();
         cur_obj_hide();
@@ -47,15 +47,15 @@ void spawn_star_number(void) {
 }
 
 static struct ObjectHitbox sCollectStarHitbox = {
-    /* interactType:      */ INTERACT_STAR_OR_KEY,
-    /* downOffset:        */ 0,
-    /* damageOrCoinValue: */ 0,
-    /* health:            */ 0,
-    /* numLootCoins:      */ 0,
-    /* radius:            */ 80,
-    /* height:            */ 50,
-    /* hurtboxRadius:     */ 0,
-    /* hurtboxHeight:     */ 0,
+    .interactType = INTERACT_STAR_OR_KEY,
+    .downOffset = 0,
+    .damageOrCoinValue = 0,
+    .health = 0,
+    .numLootCoins = 0,
+    .radius = 80,
+    .height = 50,
+    .hurtboxRadius = 0,
+    .hurtboxHeight = 0,
 };
 
 void bhv_collect_star_init(void) {
@@ -97,7 +97,7 @@ void bhv_star_spawn_init(void) {
         else
             cutscene_object(CUTSCENE_RED_COIN_STAR_SPAWN, o);
 
-        gMarioStates[0].freeze = 60;
+        // gMarioStates[0].freeze = 60;
         set_time_stop_flags(TIME_STOP_ENABLED | TIME_STOP_MARIO_AND_DOORS);
         o->activeFlags |= ACTIVE_FLAG_INITIATED_TIME_STOP;
     }
@@ -108,9 +108,9 @@ void bhv_star_spawn_init(void) {
 void bhv_star_spawn_loop(void) {
     if (!sync_object_is_initialized(o->oSyncID)) {
         sync_object_init(o, 4000);
-        sync_object_init_field(o, &o->oBehParams);
-        sync_object_init_field(o, &o->oAction);
-        sync_object_init_field(o, &o->oStarSpawnExtCutsceneFlags);
+        sync_object_init_field(o, o->oBehParams);
+        sync_object_init_field(o, o->oAction);
+        sync_object_init_field(o, o->oStarSpawnExtCutsceneFlags);
     }
 
     switch (o->oAction) {
@@ -169,7 +169,13 @@ void bhv_star_spawn_loop(void) {
                 o->oInteractStatus = 0;
             }
 
-            network_send_object(o);
+            struct SyncObject* so = sync_object_get(o->oSyncID);
+            if (so) {
+                so->owned = sync_object_should_own(so->id);
+                if (so->owned) { network_send_object(o); }
+            } else {
+                network_send_object(o);
+            }
             break;
     }
     spawn_star_number();
@@ -314,11 +320,11 @@ void bhv_hidden_red_coin_star_init(void) {
     if (!sync_object_is_initialized(o->oSyncID)) {
         struct SyncObject *so = sync_object_init(o, SYNC_DISTANCE_ONLY_EVENTS);
         if (so) {
-            sync_object_init_field(o, &o->oAction);
-            sync_object_init_field(o, &o->oHiddenStarTriggerCounter);
-            sync_object_init_field(o, &o->oPosX);
-            sync_object_init_field(o, &o->oPosY);
-            sync_object_init_field(o, &o->oPosZ);
+            sync_object_init_field(o, o->oAction);
+            sync_object_init_field(o, o->oHiddenStarTriggerCounter);
+            sync_object_init_field(o, o->oPosX);
+            sync_object_init_field(o, o->oPosY);
+            sync_object_init_field(o, o->oPosZ);
         }
     }
 }

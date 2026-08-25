@@ -15,6 +15,8 @@
 #include "pc/network/network.h"
 #include "pc/lua/utils/smlua_level_utils.h"
 #include "pc/utils/misc.h"
+#include "pc/configfile.h"
+#include "audio/external.h"
 
 #ifndef bcopy
 #define bcopy(b1,b2,len) (memmove((b2), (b1), (len)), (void) 0)
@@ -27,7 +29,7 @@
 #define INVALID_SRC_SLOT(_ss) ((u32)_ss >= 2)
 #define INVALID_LEVEL_NUM(_ln) ((u32)_ln >= LEVEL_COUNT)
 #define INVALID_COURSE_STAR_INDEX(_ci) ((u32)_ci >= COURSE_COUNT)
-#define INVALID_COURSE_COIN_INDEX(_ci) ((u32)_ci >= COURSE_COUNT)
+#define INVALID_COURSE_COIN_INDEX(_ci) ((u32)_ci >= COURSE_STAGES_COUNT)
 
 STATIC_ASSERT(sizeof(struct SaveBuffer) == EEPROM_SIZE, "eeprom buffer size must match");
 
@@ -55,11 +57,14 @@ s8 gLevelToCourseNumTable[] = {
 #undef STUB_LEVEL
 #undef DEFINE_LEVEL
 
-#define STUB_LEVEL(_0, levelenum, _2, _3, _4, _5, _6, _7, _8) levelenum,
-#define DEFINE_LEVEL(_0, levelenum, _2, _3, _4, _5, _6, _7, _8, _9, _10) levelenum,
-s8 gCourseNumToLevelNumTable[] = {
+#define STUB_LEVEL(_0, levelenum, courseenum, _3, _4, _5, _6, _7, _8) [courseenum] = levelenum,
+#define DEFINE_LEVEL(_0, levelenum, courseenum, _3, _4, _5, _6, _7, _8, _9, _10) [courseenum] = levelenum,
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Woverride-init" // this is hacky, but its dealt with in the getter function
+s8 sCourseNumToLevelNumTable[] = {
 #include "levels/level_defines.h"
 };
+#pragma GCC diagnostic pop
 #undef STUB_LEVEL
 #undef DEFINE_LEVEL
 
@@ -70,7 +75,17 @@ s8 get_level_num_from_course_num(s16 courseNum) {
     if (courseNum < 0 || courseNum >= COURSE_COUNT) {
         return LEVEL_NONE;
     }
-    return gCourseNumToLevelNumTable[courseNum];
+    switch (courseNum) { // deal with the overridden courses
+        case COURSE_NONE:
+            return LEVEL_CASTLE;
+        case COURSE_BITDW:
+            return LEVEL_BITDW;
+        case COURSE_BITFS:
+            return LEVEL_BITFS;
+        case COURSE_BITS:
+            return LEVEL_BITS;
+    }
+    return sCourseNumToLevelNumTable[courseNum];
 }
 
 s8 get_level_course_num(s16 levelNum) {
@@ -427,26 +442,24 @@ void save_file_erase(s32 fileIndex) {
     save_file_do_save(fileIndex, TRUE);
 }
 
-void save_file_reload(u8 load_all) {
+void save_file_reload(u8 loadAll) {
     gSaveFileModified = TRUE;
     update_all_mario_stars();
 
-    if (load_all == TRUE) {
+    if (loadAll) {
         save_file_load_all(TRUE);
-        save_file_do_save(gCurrSaveFileNum-1, TRUE);
+        save_file_do_save(gCurrSaveFileNum - 1, TRUE);
         update_all_mario_stars();
     }
 }
 
 void save_file_erase_current_backup_save(void) {
     if (INVALID_FILE_INDEX(gCurrSaveFileNum-1)) { return; }
-    if (network_is_server()) {
-        bzero(&gSaveBuffer.files[gCurrSaveFileNum-1][1], sizeof(gSaveBuffer.files[gCurrSaveFileNum-1][1]));
+    if (gNetworkType != NT_SERVER) { return; }
 
-        save_file_reload(FALSE);
-
-        save_file_do_save(gCurrSaveFileNum-1, TRUE);
-    }
+    bzero(&gSaveBuffer.files[gCurrSaveFileNum - 1][1], sizeof(gSaveBuffer.files[gCurrSaveFileNum - 1][1]));
+    save_file_reload(FALSE);
+    save_file_do_save(gCurrSaveFileNum - 1, TRUE);
 }
 
 //! Needs to be s32 to match on -O2, despite no return value.
@@ -553,6 +566,7 @@ void save_file_collect_star_or_key(s16 coinScore, s16 starIndex, u8 fromNetwork)
         }
     }
 
+    s32 index = gLevelValues.useGlobalStarIds ? starByte : courseIndex;
     switch (gCurrLevelNum) {
         case LEVEL_BOWSER_1:
             if (!(save_file_get_flags() & (SAVE_FLAG_HAVE_KEY_1 | SAVE_FLAG_UNLOCKED_BASEMENT_DOOR))) {
@@ -570,7 +584,6 @@ void save_file_collect_star_or_key(s16 coinScore, s16 starIndex, u8 fromNetwork)
             break;
 
         default:
-            s32 index = gLevelValues.useGlobalStarIds ? starByte : courseIndex;
             if (!(save_file_get_star_flags(fileIndex, index) & starFlag)) {
                 save_file_set_star_flags(fileIndex, index, starFlag);
             }
@@ -709,11 +722,11 @@ void save_file_set_star_flags(s32 fileIndex, s32 courseIndex, u32 starFlags) {
 void save_file_remove_star_flags(s32 fileIndex, s32 courseIndex, u32 starFlagsToRemove) {
     if (INVALID_FILE_INDEX(fileIndex)) { return; }
     if (INVALID_SRC_SLOT(gSaveFileUsingBackupSlot)) { return; }
-    
+
     if (courseIndex == -1) {
         gSaveBuffer.files[fileIndex][gSaveFileUsingBackupSlot].flags &= ~STAR_FLAG_TO_SAVE_FLAG(starFlagsToRemove);
         network_send_save_remove_flag(fileIndex, courseIndex, 0, STAR_FLAG_TO_SAVE_FLAG(starFlagsToRemove));
-    } 
+    }
     else if (!INVALID_COURSE_STAR_INDEX(courseIndex)) {
         gSaveBuffer.files[fileIndex][gSaveFileUsingBackupSlot].courseStars[courseIndex] &= ~starFlagsToRemove;
         network_send_save_remove_flag(fileIndex, courseIndex, starFlagsToRemove, 0);
@@ -740,6 +753,9 @@ s32 save_file_get_course_coin_score(s32 fileIndex, s32 courseIndex) {
 }
 
 void save_file_set_course_coin_score(s32 fileIndex, s32 courseIndex, u8 coinScore) {
+    if (INVALID_FILE_INDEX(fileIndex)) { return; }
+    if (INVALID_SRC_SLOT(gSaveFileUsingBackupSlot)) { return; }
+    if (INVALID_COURSE_COIN_INDEX(courseIndex)) { return; }
     gSaveBuffer.files[fileIndex][gSaveFileUsingBackupSlot].courseCoinScores[courseIndex] = coinScore;
 }
 
@@ -777,7 +793,7 @@ void save_file_set_cap_pos(s16 x, s16 y, s16 z) {
     save_file_set_flags(SAVE_FLAG_CAP_ON_GROUND);
 }
 
-s32 save_file_get_cap_pos(Vec3s capPos) {
+s32 save_file_get_cap_pos(VEC_OUT Vec3s capPos) {
     if (INVALID_FILE_INDEX(gCurrSaveFileNum - 1)) { return 0; }
     if (INVALID_SRC_SLOT(gSaveFileUsingBackupSlot)) { return 0; }
     struct SaveFile *saveFile = &gSaveBuffer.files[gCurrSaveFileNum - 1][gSaveFileUsingBackupSlot];
@@ -800,7 +816,8 @@ void save_file_set_sound_mode(u16 mode) {
 }
 
 u16 save_file_get_sound_mode(void) {
-    return gSaveBuffer.menuData[0].soundMode;
+    if (configSoundOutput > SOUND_MODE_HEADSET) { return SOUND_MODE_STEREO; }
+    return configSoundOutput;
 }
 
 void save_file_move_cap_to_default_location(void) {

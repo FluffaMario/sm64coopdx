@@ -10,15 +10,15 @@
  * Mario has to enter to enter BBH.
  */
 static struct ObjectHitbox sBooCageHitbox = {
-    /* interactType: */ INTERACT_BBH_ENTRANCE,
-    /* downOffset: */ 0,
-    /* damageOrCoinValue: */ 0,
-    /* health: */ 0,
-    /* numLootCoins: */ 0,
-    /* radius: */ 120,
-    /* height: */ 300,
-    /* hurtboxRadius: */ 0,
-    /* hurtboxHeight: */ 0,
+    .interactType = INTERACT_BBH_ENTRANCE,
+    .downOffset = 0,
+    .damageOrCoinValue = 0,
+    .health = 0,
+    .numLootCoins = 0,
+    .radius = 120,
+    .height = 300,
+    .hurtboxRadius = 0,
+    .hurtboxHeight = 0,
 };
 
 static void bhv_boo_cage_on_received_post(UNUSED u8 localIndex) {
@@ -32,13 +32,13 @@ void bhv_boo_cage_init(void) {
     struct SyncObject* so = sync_object_init(o, SYNC_DISTANCE_ONLY_EVENTS);
     if (so == NULL) { return; }
     so->on_received_post = bhv_boo_cage_on_received_post;
-    sync_object_init_field(o, &o->oAction);
-    sync_object_init_field(o, &o->oPosX);
-    sync_object_init_field(o, &o->oPosY);
-    sync_object_init_field(o, &o->oPosZ);
-    sync_object_init_field(o, &o->oVelX);
-    sync_object_init_field(o, &o->oVelY);
-    sync_object_init_field(o, &o->oVelZ);
+    sync_object_init_field(o, o->oAction);
+    sync_object_init_field(o, o->oPosX);
+    sync_object_init_field(o, o->oPosY);
+    sync_object_init_field(o, o->oPosZ);
+    sync_object_init_field(o, o->oVelX);
+    sync_object_init_field(o, o->oVelY);
+    sync_object_init_field(o, o->oVelZ);
 }
 
 /**

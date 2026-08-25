@@ -10,7 +10,7 @@
 #include "macro_presets.h"
 
 #include "special_presets.h"
-#include "src/pc/network/sync_object.h"
+#include "pc/network/sync_object.h"
 /*
  * Converts the rotation value supplied by macro objects into one
  * that can be used by in-game objects.
@@ -90,7 +90,7 @@ struct Object* spawn_macro_abs_special(s32 model, const BehaviorScript *behavior
     return newObj;
 }
 
-static void spawn_macro_coin_unknown(const BehaviorScript *behavior, s16 a1[]) {
+UNUSED static void spawn_macro_coin_unknown(const BehaviorScript *behavior, s16 a1[]) {
     struct Object *sp3C;
     s16 model;
 

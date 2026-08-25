@@ -95,6 +95,10 @@
 # define GBI_FLOATS
 #endif
 
+#ifndef GBI_NO_MULTI_COMMANDS
+# define GBI_NO_MULTI_COMMANDS
+#endif
+
 #ifdef    F3DEX_GBI_2
 # ifndef  F3DEX_GBI
 #  define F3DEX_GBI
@@ -1133,10 +1137,33 @@ typedef struct {
 	unsigned char   a;      /* alpha  */
 } Vtx_tn;
 
+typedef struct {
+    float x;
+    float y;
+    float z;
+    unsigned short flag;
+    short tu;
+    short tv;
+    union {
+        unsigned char r;
+        signed char nx;
+    };
+    union {
+        unsigned char g;
+        signed char ny;
+    };
+    union {
+        unsigned char b;
+        signed char nz;
+    };
+    unsigned char a;
+} Vtx_L;
+
 typedef union {
-    Vtx_t		v;  /* Use this one for colors  */
-    Vtx_tn              n;  /* Use this one for normals */
-    long long int	force_structure_alignment;
+    Vtx_t           v;  /* Use this one for colors  */
+    Vtx_tn          n;  /* Use this one for normals */
+    Vtx_L           l;  /* Use this one for Lua */
+    long long int   force_structure_alignment;
 } Vtx;
 
 /*
@@ -3197,6 +3224,28 @@ typedef union {
 					       G_ACMUX_##Ad1));		\
 }
 
+#define	gDPSetCombineLERPNoString(pkt, a0, b0, c0, d0, Aa0, Ab0, Ac0, Ad0,	\
+	a1, b1, c1, d1,	Aa1, Ab1, Ac1, Ad1)			\
+{									\
+	Gfx *_g = (Gfx *)(pkt);						\
+								\
+	_g->words.w0 =	_SHIFTL(G_SETCOMBINE, 24, 8) |			\
+		_SHIFTL(GCCc0w0(a0, c0,	\
+				   Aa0, Ac0) |	\
+			   GCCc1w0(a1, c1), 	\
+			   0, 24);					\
+	_g->words.w1 =	(unsigned int)(GCCc0w1(b0, 		\
+					   d0,		\
+					   Ab0, 		\
+					   Ad0) |		\
+				   GCCc1w1(b1, 		\
+					   Aa1,		\
+					   Ac1, 		\
+					   d1,		\
+					   Ab1, 		\
+					   Ad1));		\
+}
+
 #define	gsDPSetCombineLERP(a0, b0, c0, d0, Aa0, Ab0, Ac0, Ad0,		\
 		a1, b1, c1, d1,	Aa1, Ab1, Ac1, Ad1)			\
 {{									\
@@ -4435,6 +4484,22 @@ typedef union {
 }}
 
 /* Fraction never used in fill */
+#ifdef GBI_NO_MULTI_COMMANDS
+
+#define	gDPFillRectangle(pkt, ulx, uly, lrx, lry) \
+{ \
+	Gfx *_g = (Gfx *) pkt; \
+	_g->words.w0 = _SHIFTL(G_FILLRECT, 24, 8) | _SHIFTL((uly), 12, 12) | _SHIFTL((lry), 0, 12); \
+	_g->words.w1 = _SHIFTL((ulx), 16, 16) | _SHIFTL((lrx), 0, 16); \
+}
+
+#define	gsDPFillRectangle(ulx, uly, lrx, lry) \
+{{ \
+	_SHIFTL(G_FILLRECT, 24, 8) | _SHIFTL((uly), 12, 12) | _SHIFTL((lry), 0, 12), \
+	_SHIFTL((ulx), 16, 16) | _SHIFTL((lrx), 0, 16), \
+}}
+
+#else
 #ifdef F3DEX_GBI_2E
 #define	gDPFillRectangle(pkt, ulx, uly, lrx, lry)			\
 {									\
@@ -4469,6 +4534,7 @@ typedef union {
 	 _SHIFTL((lry), 2, 10)),					\
 	(_SHIFTL((ulx), 14, 10) | _SHIFTL((uly), 2, 10))		\
 }}
+#endif
 #endif
 
 /* like gDPFillRectangle but accepts negative arguments */
@@ -4568,6 +4634,7 @@ typedef union {
  * under normal circumstances (use gsSPTextureRectangle()).
  * That is also why there is no gDPTextureRectangle() macros.
  */
+#if 0 // DO NOT USE
 #define gsDPTextureRectangle(xl, yl, xh, yh, tile, s, t, dsdx, dtdy)	\
 {{									\
     (_SHIFTL(G_TEXRECT, 24, 8) | _SHIFTL(xh, 12, 12) | 			\
@@ -4615,7 +4682,50 @@ typedef union {
     _g->words.w0 = (_SHIFTL(s, 16, 16) | _SHIFTL(t, 0, 16));		\
     _g->words.w1 = (_SHIFTL(dsdx, 16, 16) | _SHIFTL(dtdy, 0, 16));	\
 }
+#endif
 
+#ifdef GBI_NO_MULTI_COMMANDS
+
+#define gSPTextureRectangle(pkt, xl, yl, xh, yh, tile, s, t, dsdx, dtdy) \
+{ \
+	Gfx *_g = (Gfx *) (pkt); \
+	_g->words.w0 = 	_SHIFTL(G_TEXRECT, 24, 8) | \
+					_SHIFTL((xh) >> 2, 13, 11) | \
+					_SHIFTL((yh) >> 2, 4, 9) | \
+					_SHIFTL((dtdy) >> 6, 0, 4); /* decimal part */ \
+	_g->words.w1 = 	_SHIFTL((xl) >> 2, 21, 11) | \
+					_SHIFTL((yl) >> 2, 12, 9) | \
+					_SHIFTL((dsdx) >> 6, 4, 8) | \
+					_SHIFTL((dtdy) >> 10, 0, 4); /* integer part */ \
+}
+
+#define gsSPTextureRectangle(xl, yl, xh, yh, tile, s, t, dsdx, dtdy) \
+{{ \
+	_SHIFTL(G_TEXRECT, 24, 8) | \
+	_SHIFTL((xh) >> 2, 13, 11) | \
+	_SHIFTL((yh) >> 2, 4, 9) | \
+	_SHIFTL((dtdy) >> 6, 0, 4), /* decimal part */ \
+\
+	_SHIFTL((xl) >> 2, 21, 11) | \
+	_SHIFTL((yl) >> 2, 12, 9) | \
+	_SHIFTL((dsdx) >> 6, 4, 8) | \
+	_SHIFTL((dtdy) >> 10, 0, 4) /* integer part */ \
+}}
+
+#define gSPTextureRectangleFlip(pkt, xl, yl, xh, yh, tile, s, t, dsdx, dtdy) \
+{ \
+	Gfx *_g = (Gfx *) (pkt); \
+	_g->words.w0 = 	_SHIFTL(G_TEXRECTFLIP, 24, 8) | \
+					_SHIFTL((xh) >> 2, 13, 11) | \
+					_SHIFTL((yh) >> 2, 4, 9) | \
+					_SHIFTL((dtdy) >> 6, 0, 4); /* decimal part */ \
+	_g->words.w1 = 	_SHIFTL((xl) >> 2, 21, 11) | \
+					_SHIFTL((yl) >> 2, 12, 9) | \
+					_SHIFTL((dsdx) >> 6, 4, 8) | \
+					_SHIFTL((dtdy) >> 10, 0, 4); /* integer part */ \
+}
+
+#else
 #ifdef F3D_OLD
 # define gSPTextureRectangle(pkt, xl, yl, xh, yh, tile, s, t, dsdx, dtdy)\
 {									\
@@ -4786,6 +4896,7 @@ typedef union {
     gImmp1(pkt, G_RDPHALF_1, (_SHIFTL(s, 16, 16) | _SHIFTL(t, 0, 16)));	\
     gImmp1(pkt, G_RDPHALF_2, (_SHIFTL(dsdx, 16, 16) | _SHIFTL(dtdy, 0, 16))); \
 }
+#endif
 #endif
 
 #define gsDPWord(wordhi, wordlo)			\

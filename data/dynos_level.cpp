@@ -4,6 +4,8 @@ extern "C" {
 #include "game/save_file.h"
 #include "levels/scripts.h"
 #include "pc/lua/utils/smlua_level_utils.h"
+#include "game/area.h"
+#include "game/level_update.h"
 }
 
 //
@@ -16,6 +18,8 @@ extern const BehaviorScript *sWarpBhvSpawnTable[];
 }
 
 #define DYNOS_LEVEL_MOD_INDEX_VANILLA (-1)
+
+#define DYNOS_LEVEL_MARIO_POS_WARP_ID (-1)
 
 extern void *gDynosLevelScriptsOriginal[LEVEL_COUNT];
 
@@ -45,10 +49,14 @@ struct DynosLevelScript {
 
 static DynosLevelScript sDynosLevelScripts[LEVEL_COUNT] = { { NULL, DYNOS_LEVEL_MOD_INDEX_VANILLA } };
 static Array<DynosWarp> sDynosLevelWarps[LEVEL_COUNT] = { Array<DynosWarp>() };
+static Collision *sDynosLevelCollision[LEVEL_COUNT][MAX_AREAS] = { NULL };
+static s32 sDynosCustomLevelSlot[LEVEL_UNKNOWN_2 + 1] = { 0 };
 
 u64 DynOS_Level_CmdGet(void *aCmd, u64 aOffset) {
     u64 _Offset = (((aOffset) & 3llu) | (((aOffset) & ~3llu) << (sizeof(void *) >> 3llu)));
-    return *((u64 *) (u64(aCmd) + _Offset));
+    u64 value = 0;
+    memcpy(&value, (void *) ((uintptr_t) aCmd + _Offset), sizeof(value));
+    return value;
 }
 
 LvlCmd *DynOS_Level_CmdNext(LvlCmd *aCmd) {
@@ -61,45 +69,10 @@ LvlCmd *DynOS_Level_CmdNext(LvlCmd *aCmd) {
 // Init
 //
 
-static s32 DynOS_Level_PreprocessMasterScript(u8 aType, void *aCmd) {
-    static bool sDynosScriptExecLevelTable = false;
-    static s32 sDynosLevelNum = -1;
-
-    if (sDynosScriptExecLevelTable) {
-        switch (aType) {
-
-            // JUMP_IF
-            case 0x0C: {
-                sDynosLevelNum = (s32) DynOS_Level_CmdGet(aCmd, 0x04);
-            } return 0;
-
-            // EXECUTE
-            case 0x00: {
-                void *_Script = (void *) DynOS_Level_CmdGet(aCmd, 0x0C);
-                if (sDynosLevelNum >= 0 && sDynosLevelNum < LEVEL_COUNT && !sDynosLevelScripts[sDynosLevelNum].mLevelScript) {
-                    sDynosLevelScripts[sDynosLevelNum].mLevelScript = _Script;
-                    sDynosLevelScripts[sDynosLevelNum].mModIndex = DYNOS_LEVEL_MOD_INDEX_VANILLA;
-                    gDynosLevelScriptsOriginal[sDynosLevelNum] = _Script;
-                }
-                sDynosLevelNum = -1;
-            } return 2;
-
-            // EXIT or SLEEP
-            case 0x02:
-            case 0x03:
-                return 3;
-        }
-    } else if (aType == 0x06) { // JUMP_LINK
-        sDynosScriptExecLevelTable = true;
-        return 0;
-    }
-    return 0;
-}
-
-static s32 sDynosCurrentLevelNum;
+static s32 sDynosCurrentLevelNum = 0;
 static u8 sDynosAreaIndex = 0;
 
-inline static DynosWarp *DynOS_Level_GetWarpStruct(u8 aId) {
+inline static DynosWarp *DynOS_Level_GetWarpStruct(s8 aId) {
     for (s32 i = 0; i != sDynosLevelWarps[sDynosCurrentLevelNum].Count(); ++i) {
         if (sDynosLevelWarps[sDynosCurrentLevelNum][i].mArea == sDynosAreaIndex &&
             sDynosLevelWarps[sDynosCurrentLevelNum][i].mId == aId) {
@@ -150,10 +123,29 @@ static s32 DynOS_Level_PreprocessScript(u8 aType, void *aCmd) {
             }
         } break;
 
+        // MARIO_POS
+        case 0x2B: {
+            DynosWarp *_Warp = DynOS_Level_GetWarpStruct(DYNOS_LEVEL_MARIO_POS_WARP_ID);
+            _Warp->mArea = (s16) DynOS_Level_CmdGet(aCmd, 2);
+            _Warp->mAngle = ((s16) DynOS_Level_CmdGet(aCmd, 4) * 0x8000) / 180 - 0x8000;
+            _Warp->mPosX = (s16) DynOS_Level_CmdGet(aCmd, 6);
+            _Warp->mPosY = (s16) DynOS_Level_CmdGet(aCmd, 8);
+            _Warp->mPosZ = (s16) DynOS_Level_CmdGet(aCmd, 10);
+            _Warp->mType = MARIO_SPAWN_IDLE - 1;
+            _Warp->mDestLevel = sDynosCurrentLevelNum;
+            _Warp->mDestArea = _Warp->mArea;
+            _Warp->mDestId = DYNOS_LEVEL_MARIO_POS_WARP_ID;
+        } break;
+
         // SLEEP or SLEEP_BEFORE_EXIT
         case 0x03:
         case 0x04:
             return 3;
+
+        // TERRAIN
+        case 0x2E: {
+            sDynosLevelCollision[sDynosCurrentLevelNum][sDynosAreaIndex] = (Collision*) DynOS_Level_CmdGet(aCmd, 4);
+        } break;
     }
 
     return 0;
@@ -200,6 +192,10 @@ void DynOS_Level_Override(void* originalScript, void* newScript, s32 modIndex) {
 }
 
 void DynOS_Level_Unoverride() {
+    // clear custom level slots
+    sDynosCustomLevelSlot[LEVEL_UNKNOWN_1] = 0;
+    sDynosCustomLevelSlot[LEVEL_UNKNOWN_2] = 0;
+
     for (s32 i = 0; i < LEVEL_COUNT; i++) {
         sDynosCurrentLevelNum = i;
         sDynosLevelWarps[i].Clear();
@@ -238,6 +234,13 @@ bool DynOS_Level_IsVanillaLevel(s32 aLevel) {
         return sDynosLevelScripts[aLevel].mLevelScript == gDynosLevelScriptsOriginal[aLevel];
     }
     return false;
+}
+
+Collision *DynOS_Level_GetCollision(u32 aLevel, u16 aArea) {
+    if (aLevel >= LEVEL_COUNT) return NULL;
+    if (aArea >= MAX_AREAS) return NULL;
+    DynOS_Level_Init();
+    return sDynosLevelCollision[aLevel][aArea];
 }
 
 //
@@ -385,13 +388,47 @@ void DynOS_Level_ParseScript(const void *aScript, s32 (*aPreprocessFunction)(u8,
 // Level Script Utilities
 //
 
-s16 *DynOS_Level_GetWarp(s32 aLevel, s32 aArea, u8 aWarpId) {
+s16 *DynOS_Level_GetWarp(s32 aLevel, s32 aArea, s8 aWarpId) {
     if (aLevel >= CUSTOM_LEVEL_NUM_START) {
         struct CustomLevelInfo* info = smlua_level_util_get_info(aLevel);
         if (!info || !info->script) { return NULL; }
-        sDynosCurrentLevelNum = 1;
-        DynOS_Level_ParseScript(info->script, DynOS_Level_PreprocessScript);
-        for (const auto &_Warp : sDynosLevelWarps[1]) {
+
+        // This requires some explaination...
+        // It's a bit of a hack but it works.
+
+        // DynOS's arrays for level information are LEVEL_MAX in size.
+        // LEVEL_MAX is based on the max number of vanilla levels.
+
+        // So when we want to warp to a custom level we load the
+        // data into a slot that vanilla left unused.
+
+        // We need two unused slots because we may warp from one
+        // custom level to another.
+
+        // Check if we're warping to a level we've already loaded into a slot
+        if (sDynosCustomLevelSlot[LEVEL_UNKNOWN_1] == aLevel) {
+            sDynosCurrentLevelNum = LEVEL_UNKNOWN_1;
+        } else if (sDynosCustomLevelSlot[LEVEL_UNKNOWN_2] == aLevel) {
+            sDynosCurrentLevelNum = LEVEL_UNKNOWN_2;
+        } else {
+            // Pick the unused slot
+            s32 unusedSlot = (sDynosCustomLevelSlot[LEVEL_UNKNOWN_1] == gCurrLevelNum) ? LEVEL_UNKNOWN_2 : LEVEL_UNKNOWN_1;
+
+            // Assign it to dynos
+            sDynosCurrentLevelNum = unusedSlot;
+
+            // Remember that the custom level is loaded into the slot
+            sDynosCustomLevelSlot[sDynosCurrentLevelNum] = aLevel;
+
+            // Clear cached level warps from the slot to be loaded
+            sDynosLevelWarps[sDynosCurrentLevelNum].Clear();
+
+            // Parse the custom level to fill in the level warps
+            DynOS_Level_ParseScript(info->script, DynOS_Level_PreprocessScript);
+        }
+
+        // find the custom level warp
+        for (const auto &_Warp : sDynosLevelWarps[sDynosCurrentLevelNum]) {
             if (_Warp.mArea == aArea && _Warp.mId == aWarpId) {
                 return (s16 *) &_Warp;
             }
@@ -421,7 +458,7 @@ s16 *DynOS_Level_GetWarpEntry(s32 aLevel, s32 aArea) {
         if (sDynosLevelScripts[aLevel].mLevelScript == level_castle_inside_entry) {
             return DynOS_Level_GetWarp(aLevel, aArea, (aArea == 3) ? 0x00 : 0x01);
         } else if (sDynosLevelScripts[aLevel].mLevelScript == level_castle_grounds_entry) {
-            return DynOS_Level_GetWarp(aLevel, aArea, 0x00);
+            return DynOS_Level_GetWarp(aLevel, aArea, DYNOS_LEVEL_MARIO_POS_WARP_ID);
         } else if (sDynosLevelScripts[aLevel].mLevelScript == level_castle_courtyard_entry) {
             return DynOS_Level_GetWarp(aLevel, aArea, 0x01);
         }

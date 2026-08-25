@@ -12,6 +12,7 @@
 #include "pc/platform.h"
 #include "pc/fs/fs.h"
 #include "pc/lua/utils/smlua_audio_utils.h"
+#include "pc/lua/smlua_hooks.h"
 
 #define ALIGN16(val) (((val) + 0xF) & ~0xF)
 
@@ -578,7 +579,7 @@ void preload_sequence(s32 arg0, s32 arg1) {
     }
 }
 #else
-void patch_sound(UNUSED struct AudioBankSound *sound, UNUSED u8 *memBase, UNUSED u8 *offsetBase) {
+UNUSED void patch_sound(UNUSED struct AudioBankSound *sound, UNUSED u8 *memBase, UNUSED u8 *offsetBase) {
     struct AudioBankSample *sample;
     void *patched;
     UNUSED u8 *mem; // unused on US
@@ -1480,6 +1481,13 @@ u8 get_missing_bank(u32 seqId, s32 *nonNullCount, s32 *nullCount) {
 #endif
 
 #ifndef VERSION_SH
+
+s32 gOverrideBank = -1;
+
+void set_sound_bank_override(s32 bank) {
+    gOverrideBank = bank;
+}
+
 struct AudioBank *load_banks_immediate(s32 seqId, u8 *arg1) {
     void *ret = NULL;
     u32 bankId = 0;
@@ -1496,6 +1504,10 @@ struct AudioBank *load_banks_immediate(s32 seqId, u8 *arg1) {
         offset++;
         bankId = gAlBankSets[offset - 1];
 #endif
+
+        if (gOverrideBank > 0) {
+            bankId = gOverrideBank;
+        }
 
         if (IS_BANK_LOAD_COMPLETE(bankId) == TRUE) {
 #ifdef VERSION_EU
@@ -1552,6 +1564,11 @@ void preload_sequence(u32 seqId, u8 preloadMask) {
 void load_sequence_internal(u32 player, u32 seqId, s32 loadAsync);
 
 void load_sequence(u32 player, u32 seqId, s32 loadAsync) {
+    u32 seqIdOverride = 0;
+    if (smlua_call_event_hooks(HOOK_ON_SEQ_LOAD, player, seqId, loadAsync, &seqIdOverride)) {
+        seqId = seqIdOverride;
+    }
+
     if (!loadAsync) {
         gAudioLoadLock = AUDIO_LOCK_LOADING;
     }
@@ -1574,7 +1591,15 @@ void load_sequence_internal(u32 player, u32 seqId, s32 loadAsync) {
         if (smlua_audio_utils_override(seqId, &bankId, &sequenceData)) {
             sequence_player_disable(seqPlayer);
             seqPlayer->defaultBank[0] = bankId;
-            if (!bank_load_immediate(bankId, 0)) { return; }
+
+            // Check if the bank is already loaded in the temporary cache
+            if (get_bank_or_seq(&gBankLoadedPool, 0, bankId) == NULL) {
+                if (!bank_load_immediate(bankId, 0)) { return; }
+            } else if (gBankLoadStatus[bankId] == SOUND_LOAD_STATUS_DISCARDABLE) {
+                // This bank is still available, so just mark it as loaded again
+                gBankLoadStatus[bankId] = SOUND_LOAD_STATUS_COMPLETE;
+            }
+
             seqPlayer->seqId = seqId;
             gSeqLoadStatus[seqId] = SOUND_LOAD_STATUS_COMPLETE;
             init_sequence_player(player);
@@ -1842,7 +1867,7 @@ void audio_init() {
     }
 
 #ifdef VERSION_EU
-    // We want the refresh rate to be 60 FPS on PC. 
+    // We want the refresh rate to be 60 FPS on PC.
     // We shouldn't need to worry about PAL specfic computers anymore.
     D_EU_802298D0 = 16.713f;
     gRefreshRate = 60;
@@ -1854,14 +1879,6 @@ void audio_init() {
     gRefreshRate = 60;
     func_sh_802f6a9c();
 #endif
-#endif
-
-#ifdef TARGET_N64
-    eu_stubbed_printf_3("Clear Workarea %x -%x size %x \n",
-        (uintptr_t) &gAudioGlobalsStartMarker,
-        (uintptr_t) &gAudioGlobalsEndMarker,
-        (uintptr_t) &gAudioGlobalsEndMarker - (uintptr_t) &gAudioGlobalsStartMarker
-    );
 #endif
 
     eu_stubbed_printf_1("AudioHeap is %x\n", gAudioHeapSize);

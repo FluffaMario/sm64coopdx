@@ -5,6 +5,13 @@
 #include "data/dynos.c.h"
 #include "pc/debuglog.h"
 #include "pc/loading.h"
+#include "pc/fs/fmem.h"
+#include "pc/pc_main.h"
+#include "pc/utils/misc.h"
+
+#if defined(_WIN32)
+#include <windows.h>
+#endif
 
 #define MAX_SESSION_CHARS 7
 
@@ -27,7 +34,7 @@ void mods_get_main_mod_name(char* destination, u32 maxSize) {
 
     for (u16 i = 0; i < gLocalMods.entryCount; i++) {
         struct Mod* mod = gLocalMods.entries[i];
-        if (!mod->enabled || mod_get_is_autoexec(mod)) { continue; }
+        if (!mod->enabled) { continue; }
         size_t size = mod_get_lua_size(mod);
         if (size > pickedSize) {
             picked = mod;
@@ -45,27 +52,21 @@ u16 mods_get_enabled_count(void) {
         if (!gLocalMods.entries[i]->enabled) { continue; }
         enabled++;
     }
-    
-    return enabled;
-}
-
-u16 mods_get_character_select_count(void) {
-    u16 enabled = 0;
-
-    for (u16 i = 0; i < gLocalMods.entryCount; i++) {
-        struct Mod* mod = gLocalMods.entries[i];
-        if (!mod->enabled || strcmp(mod->name, "[CS]")) { continue; }
-        enabled++;
-    }
 
     return enabled;
 }
 
-u8 mods_has_autoexec_mod(void) {
-    for (u16 i = 0; i < gLocalMods.entryCount; i++) {
-        if (mod_get_is_autoexec(gLocalMods.entries[i])) { return TRUE; }
+bool mods_get_all_pausable(void) {
+    bool pausable = true;
+
+    for (u16 i = 0; i < gActiveMods.entryCount; i++) {
+        if (!gActiveMods.entries[i]->pausable) {
+            pausable = false;
+            break;
+        }
     }
-    return FALSE;
+
+    return pausable;
 }
 
 static void mods_local_store_enabled(void) {
@@ -83,6 +84,7 @@ static void mods_local_store_enabled(void) {
         } else {
             prev->next = n;
         }
+        prev = n;
     }
 }
 
@@ -107,7 +109,12 @@ bool mods_generate_remote_base_path(void) {
         LOG_ERROR("Failed to concat tmp path");
         return false;
     }
-    if (!fs_sys_dir_exists(tmpPath)) { fs_sys_mkdir(tmpPath); }
+    if (!fs_sys_dir_exists(tmpPath)) {
+        fs_sys_mkdir(tmpPath);
+#if defined(_WIN32)
+        SetFileAttributesA(tmpPath, FILE_ATTRIBUTE_HIDDEN);
+#endif
+    }
 
     // generate session
     char session[MAX_SESSION_CHARS + 1] = { 0 };
@@ -125,14 +132,6 @@ bool mods_generate_remote_base_path(void) {
     return true;
 }
 
-static struct Mod* get_autoexec_mod(void) {
-    for (u16 i = 0; i < gLocalMods.entryCount; i++) {
-        if (mod_get_is_autoexec(gLocalMods.entries[i])) {
-            return gLocalMods.entries[i];
-        }
-    }
-}
-
 void mods_activate(struct Mods* mods) {
     mods_clear(&gActiveMods);
 
@@ -143,11 +142,8 @@ void mods_activate(struct Mods* mods) {
         if (mod->enabled) { enabledCount++; }
     }
 
-    // is joining a game and has an autoexec mod
-    bool autoexec = mods == &gRemoteMods && mods_has_autoexec_mod();
-
     // allocate
-    gActiveMods.entries = calloc(enabledCount + autoexec, sizeof(struct Mod*));
+    gActiveMods.entries = calloc(enabledCount, sizeof(struct Mod*));
     if (gActiveMods.entries == NULL) {
         LOG_ERROR("Failed to allocate active mods table!");
         return;
@@ -156,9 +152,8 @@ void mods_activate(struct Mods* mods) {
     // copy enabled entries
     gActiveMods.entryCount = 0;
     gActiveMods.size = 0;
-    for (int i = 0; i < mods->entryCount + autoexec; i++) {
-        // checks if the mod is out of the remote mods bounds and if so, use the autoexec mod
-        struct Mod* mod = i == mods->entryCount ? get_autoexec_mod() : mods->entries[i];
+    for (int i = 0; i < mods->entryCount; i++) {
+        struct Mod* mod = mods->entries[i];
         if (mod->enabled) {
             mod->index = gActiveMods.entryCount;
             gActiveMods.entries[gActiveMods.entryCount++] = mod;
@@ -176,14 +171,19 @@ static void mods_sort(struct Mods* mods) {
     }
 
     // By default, this is the alphabetical order on name
+    char modNameNoColor_i[MOD_NAME_SIZE];
+    char modNameNoColor_j[MOD_NAME_SIZE];
     for (s32 i = 1; i < mods->entryCount; ++i) {
-        struct Mod* mod = mods->entries[i];
+        struct Mod* mod_i = mods->entries[i];
+        djui_text_get_uncolored_string(modNameNoColor_i, MOD_NAME_SIZE, mod_i->name);
         for (s32 j = 0; j < i; ++j) {
-            struct Mod* mod2 = mods->entries[j];
-            if (strcmp(mod->name, mod2->name) < 0) {
-                mods->entries[i] = mod2;
-                mods->entries[j] = mod;
-                mod = mods->entries[i];
+            struct Mod* mod_j = mods->entries[j];
+            djui_text_get_uncolored_string(modNameNoColor_j, MOD_NAME_SIZE, mod_j->name);
+            if (strcmp(modNameNoColor_i, modNameNoColor_j) < 0) {
+                mods->entries[i] = mod_j;
+                mods->entries[j] = mod_i;
+                mod_i = mod_j;
+                memcpy(modNameNoColor_i, modNameNoColor_j, MOD_NAME_SIZE * sizeof(char));
             }
         }
     }
@@ -198,8 +198,8 @@ static u32 mods_count_directory(char* modsBasePath) {
     return pathCount;
 }
 
-static void mods_load(struct Mods* mods, char* modsBasePath, bool isUserModPath) {
-    if (gIsThreaded) { REFRESH_MUTEX(snprintf(gCurrLoadingSegment.str, 256, "Generating DynOS Packs in %s mod path:\n\\#808080\\%s", isUserModPath ? "user" : "local", modsBasePath)); }
+static void mods_load(struct Mods* mods, char* modsBasePath, UNUSED bool isUserModPath) {
+    LOADING_SCREEN_MUTEX(snprintf(gCurrLoadingSegment.str, 256, "Generating DynOS Packs In %s Mod Path:\n\\#808080\\%s", isUserModPath ? "User" : "Local", modsBasePath));
 
     // generate bins
     dynos_generate_packs(modsBasePath);
@@ -214,7 +214,7 @@ static void mods_load(struct Mods* mods, char* modsBasePath, bool isUserModPath)
     normalize_path(modsBasePath);
 
     // check for existence
-    if (!is_directory(modsBasePath)) {
+    if (!fs_sys_dir_exists(modsBasePath)) {
         LOG_ERROR("Could not find directory '%s'", modsBasePath);
     }
 
@@ -227,9 +227,12 @@ static void mods_load(struct Mods* mods, char* modsBasePath, bool isUserModPath)
         LOG_ERROR("Could not open directory '%s'", modsBasePath);
         return;
     }
-    f32 count = (f32) mods_count_directory(modsBasePath);
+    UNUSED f32 count = (f32) mods_count_directory(modsBasePath);
 
-    if (gIsThreaded) { REFRESH_MUTEX(snprintf(gCurrLoadingSegment.str, 256, "Loading mods in %s mod path:\n\\#808080\\%s", isUserModPath ? "user" : "local", modsBasePath)); }
+    LOADING_SCREEN_MUTEX(
+        loading_screen_reset_progress_bar();
+        snprintf(gCurrLoadingSegment.str, 256, "Loading Mods In %s Mod Path:\n\\#808080\\%s", isUserModPath ? "User" : "Local", modsBasePath);
+    );
 
     // iterate
     char path[SYS_MAX_PATH] = { 0 };
@@ -238,22 +241,23 @@ static void mods_load(struct Mods* mods, char* modsBasePath, bool isUserModPath)
         // sanity check / fill path[]
         if (!directory_sanity_check(dir, modsBasePath, path)) { continue; }
 
-        if (gIsThreaded) { REFRESH_MUTEX(snprintf(gCurrLoadingSegment.str, 256, "Loading mod:\n\\#808080\\%s/%s", modsBasePath, dir->d_name)); }
+        LOADING_SCREEN_MUTEX(snprintf(gCurrLoadingSegment.str, 256, "Loading Mod:\n\\#808080\\%s/%s", modsBasePath, dir->d_name));
 
         // load the mod
         if (!mod_load(mods, modsBasePath, dir->d_name)) {
             break;
         }
 
-        if (gIsThreaded) { REFRESH_MUTEX(gCurrLoadingSegment.percentage = (f32) i / count); }
+        LOADING_SCREEN_MUTEX(gCurrLoadingSegment.percentage = (f32) i / count);
     }
 
     closedir(d);
-    if (gIsThreaded) { REFRESH_MUTEX(gCurrLoadingSegment.percentage = 1); }
+    LOADING_SCREEN_MUTEX(gCurrLoadingSegment.percentage = 1);
 }
 
 void mods_refresh_local(void) {
-    mods_local_store_enabled();
+    LOADING_SCREEN_MUTEX(loading_screen_set_segment_text("Refreshing Mod Cache"));
+    if (gGameInited) { mods_local_store_enabled(); }
 
     // figure out user path
     bool hasUserPath = true;
@@ -271,10 +275,8 @@ void mods_refresh_local(void) {
     // load mods
     if (hasUserPath) { mods_load(&gLocalMods, userModPath, true); }
 
-    const char* exePath = path_to_executable();
     char defaultModsPath[SYS_MAX_PATH] = { 0 };
-    path_get_folder((char*)exePath, defaultModsPath);
-    strncat(defaultModsPath, MOD_DIRECTORY, SYS_MAX_PATH-1);
+    snprintf(defaultModsPath, SYS_MAX_PATH, "%s/%s", sys_resource_path(), MOD_DIRECTORY);
     mods_load(&gLocalMods, defaultModsPath, false);
 
     // sort
@@ -287,7 +289,7 @@ void mods_refresh_local(void) {
         gLocalMods.size += mod->size;
     }
 
-    mods_local_restore_enabled();
+    if (gGameInited) { mods_local_restore_enabled(); }
 }
 
 void mods_enable(char* relativePath) {
@@ -303,7 +305,6 @@ void mods_enable(char* relativePath) {
 }
 
 void mods_init(void) {
-    if (gIsThreaded) { REFRESH_MUTEX(snprintf(gCurrLoadingSegment.str, 256, "Caching Mods")); }
 
     // load mod cache
     mod_cache_load();
@@ -319,7 +320,8 @@ void mods_clear(struct Mods* mods) {
             for (int j = 0; j < mod->fileCount; j++) {
                 struct ModFile* file = &mod->files[j];
                 if (file->fp != NULL) {
-                    fclose(file->fp);
+                    f_close(file->fp);
+                    f_delete(file->fp);
                     file->fp = NULL;
                 }
             }
@@ -347,7 +349,7 @@ void mods_clear(struct Mods* mods) {
 void mods_shutdown(void) {
     mod_cache_save();
     mod_cache_shutdown();
-    mods_clear(&gRemoteMods);
     mods_clear(&gActiveMods);
+    mods_clear(&gRemoteMods);
     mods_clear(&gLocalMods);
 }

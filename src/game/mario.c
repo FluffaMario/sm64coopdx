@@ -78,75 +78,43 @@ s32 is_anim_past_end(struct MarioState *m) {
     return o->header.gfx.animInfo.animFrame >= (o->header.gfx.animInfo.curAnim->loopEnd - 2);
 }
 
-/**
- * Sets Mario's animation without any acceleration, running at its default rate.
- */
-s16 set_mario_animation(struct MarioState *m, s32 targetAnimID) {
+static s16 mario_set_animation_internal(struct MarioState *m, s32 targetAnimID, s32 accel) {
     if (!m) { return 0; }
     struct Object *o = m->marioObj;
     if (!o || !m->animation) { return 0; }
-    struct Animation *targetAnim = m->animation->targetAnim;
-    if (!targetAnim) { return 0; }
 
-    if (load_patchable_table(m->animation, targetAnimID)) {
-        targetAnim->values = (void *) VIRTUAL_TO_PHYSICAL((u8 *) targetAnim + (uintptr_t) targetAnim->values);
-        targetAnim->index = (void *) VIRTUAL_TO_PHYSICAL((u8 *) targetAnim + (uintptr_t) targetAnim->index);
-    }
+    load_patchable_table(m->animation, targetAnimID, true);
+    if (!m->animation->targetAnim) { return 0; }
 
     if (o->header.gfx.animInfo.animID != targetAnimID) {
+        struct Animation *targetAnim = m->animation->targetAnim;
         o->header.gfx.animInfo.animID = targetAnimID;
         o->header.gfx.animInfo.curAnim = targetAnim;
-        o->header.gfx.animInfo.animAccel = 0;
         o->header.gfx.animInfo.animYTrans = m->unkB0;
 
         if (targetAnim->flags & ANIM_FLAG_2) {
-            o->header.gfx.animInfo.animFrame = targetAnim->startFrame;
+            o->header.gfx.animInfo.animFrameAccelAssist = (targetAnim->startFrame << 0x10);
         } else {
-            if (targetAnim->flags & ANIM_FLAG_FORWARD) {
-                o->header.gfx.animInfo.animFrame = targetAnim->startFrame + 1;
+            if (targetAnim->flags & ANIM_FLAG_BACKWARD) {
+                o->header.gfx.animInfo.animFrameAccelAssist = (targetAnim->startFrame << 0x10) + accel;
             } else {
-                o->header.gfx.animInfo.animFrame = targetAnim->startFrame - 1;
+                o->header.gfx.animInfo.animFrameAccelAssist = (targetAnim->startFrame << 0x10) - accel;
             }
         }
+
+        o->header.gfx.animInfo.animFrame = (o->header.gfx.animInfo.animFrameAccelAssist >> 0x10);
     }
+
+    o->header.gfx.animInfo.animAccel = accel;
 
     return o->header.gfx.animInfo.animFrame;
 }
 
 /**
- * Sets the character specific animation without any acceleration, running at its default rate.
+ * Sets Mario's animation without any acceleration, running at its default rate.
  */
-s16 set_character_animation(struct MarioState *m, s32 targetAnimID) {
-    if (!m) { return 0; }
-    struct Object *o = m->marioObj;
-    if (!o || !m->animation) { return 0; }
-    struct Animation *targetAnim = m->animation->targetAnim;
-    s32 charAnimID = get_character_anim(m, targetAnimID);
-    if (!targetAnim) { return 0; }
-    
-    if (load_patchable_table(m->animation, charAnimID)) {
-        targetAnim->values = (void *) VIRTUAL_TO_PHYSICAL((u8 *) targetAnim + (uintptr_t) targetAnim->values);
-        targetAnim->index = (void *) VIRTUAL_TO_PHYSICAL((u8 *) targetAnim + (uintptr_t) targetAnim->index);
-    }
-
-    if (o->header.gfx.animInfo.animID != charAnimID) {
-        o->header.gfx.animInfo.animID = charAnimID;
-        o->header.gfx.animInfo.curAnim = targetAnim;
-        o->header.gfx.animInfo.animAccel = 0;
-        o->header.gfx.animInfo.animYTrans = m->unkB0;
-
-        if (targetAnim->flags & ANIM_FLAG_2) {
-            o->header.gfx.animInfo.animFrame = targetAnim->startFrame;
-        } else {
-            if (targetAnim->flags & ANIM_FLAG_FORWARD) {
-                o->header.gfx.animInfo.animFrame = targetAnim->startFrame + 1;
-            } else {
-                o->header.gfx.animInfo.animFrame = targetAnim->startFrame - 1;
-            }
-        }
-    }
-
-    return o->header.gfx.animInfo.animFrame;
+s16 set_mario_animation(struct MarioState *m, s32 targetAnimID) {
+    return mario_set_animation_internal(m, targetAnimID, 0x10000);
 }
 
 /**
@@ -154,78 +122,22 @@ s16 set_character_animation(struct MarioState *m, s32 targetAnimID) {
  * slowed down via acceleration.
  */
 s16 set_mario_anim_with_accel(struct MarioState *m, s32 targetAnimID, s32 accel) {
-    if (!m) { return 0; }
-    struct Object *o = m->marioObj;
-    if (!o || !m->animation) { return 0; }
-    struct Animation *targetAnim = m->animation->targetAnim;
-    if (!targetAnim) { return 0; }
+    return mario_set_animation_internal(m, targetAnimID, accel);
+}
 
-    if (load_patchable_table(m->animation, targetAnimID)) {
-        targetAnim->values = (void *) VIRTUAL_TO_PHYSICAL((u8 *) targetAnim + (uintptr_t) targetAnim->values);
-        targetAnim->index = (void *) VIRTUAL_TO_PHYSICAL((u8 *) targetAnim + (uintptr_t) targetAnim->index);
-    }
-
-    if (o->header.gfx.animInfo.animID != targetAnimID) {
-        o->header.gfx.animInfo.animID = targetAnimID;
-        o->header.gfx.animInfo.curAnim = targetAnim;
-        o->header.gfx.animInfo.animYTrans = m->unkB0;
-
-        if (targetAnim->flags & ANIM_FLAG_2) {
-            o->header.gfx.animInfo.animFrameAccelAssist = (targetAnim->startFrame << 0x10);
-        } else {
-            if (targetAnim->flags & ANIM_FLAG_FORWARD) {
-                o->header.gfx.animInfo.animFrameAccelAssist = (targetAnim->startFrame << 0x10) + accel;
-            } else {
-                o->header.gfx.animInfo.animFrameAccelAssist = (targetAnim->startFrame << 0x10) - accel;
-            }
-        }
-
-        o->header.gfx.animInfo.animFrame = (o->header.gfx.animInfo.animFrameAccelAssist >> 0x10);
-    }
-
-    o->header.gfx.animInfo.animAccel = accel;
-
-    return o->header.gfx.animInfo.animFrame;
+/**
+ * Sets the character specific animation without any acceleration, running at its default rate.
+ */
+s16 set_character_animation(struct MarioState *m, enum CharacterAnimID targetAnimID) {
+    return mario_set_animation_internal(m, get_character_anim(m, targetAnimID), 0x10000);
 }
 
 /**
  * Sets character specific animation where the animation is sped up or
  * slowed down via acceleration.
  */
-s16 set_character_anim_with_accel(struct MarioState *m, s32 targetAnimID, s32 accel) {
-    if (!m) { return 0; }
-    struct Object *o = m->marioObj;
-    if (!o || !m->animation) { return 0; }
-    struct Animation *targetAnim = m->animation->targetAnim;
-    if (!targetAnim) { return 0; }
-    s32 charAnimID = get_character_anim(m, targetAnimID);
-
-    if (load_patchable_table(m->animation, charAnimID)) {
-        targetAnim->values = (void *) VIRTUAL_TO_PHYSICAL((u8 *) targetAnim + (uintptr_t) targetAnim->values);
-        targetAnim->index = (void *) VIRTUAL_TO_PHYSICAL((u8 *) targetAnim + (uintptr_t) targetAnim->index);
-    }
-
-    if (o->header.gfx.animInfo.animID != charAnimID) {
-        o->header.gfx.animInfo.animID = charAnimID;
-        o->header.gfx.animInfo.curAnim = targetAnim;
-        o->header.gfx.animInfo.animYTrans = m->unkB0;
-
-        if (targetAnim->flags & ANIM_FLAG_2) {
-            o->header.gfx.animInfo.animFrameAccelAssist = (targetAnim->startFrame << 0x10);
-        } else {
-            if (targetAnim->flags & ANIM_FLAG_FORWARD) {
-                o->header.gfx.animInfo.animFrameAccelAssist = (targetAnim->startFrame << 0x10) + accel;
-            } else {
-                o->header.gfx.animInfo.animFrameAccelAssist = (targetAnim->startFrame << 0x10) - accel;
-            }
-        }
-
-        o->header.gfx.animInfo.animFrame = (o->header.gfx.animInfo.animFrameAccelAssist >> 0x10);
-    }
-
-    o->header.gfx.animInfo.animAccel = accel;
-
-    return o->header.gfx.animInfo.animFrame;
+s16 set_character_anim_with_accel(struct MarioState *m, enum CharacterAnimID targetAnimID, s32 accel) {
+    return mario_set_animation_internal(m, get_character_anim(m, targetAnimID), accel);
 }
 
 /**
@@ -239,13 +151,13 @@ void set_anim_to_frame(struct MarioState *m, s16 animFrame) {
     if (animInfo == NULL) { return; }
 
     if (animInfo->animAccel) {
-        if (curAnim != NULL && curAnim->flags & ANIM_FLAG_FORWARD) {
+        if (curAnim != NULL && curAnim->flags & ANIM_FLAG_BACKWARD) {
             animInfo->animFrameAccelAssist = (animFrame << 0x10) + animInfo->animAccel;
         } else {
             animInfo->animFrameAccelAssist = (animFrame << 0x10) - animInfo->animAccel;
         }
     } else {
-        if (curAnim != NULL && curAnim->flags & ANIM_FLAG_FORWARD) {
+        if (curAnim != NULL && curAnim->flags & ANIM_FLAG_BACKWARD) {
             animInfo->animFrame = animFrame + 1;
         } else {
             animInfo->animFrame = animFrame - 1;
@@ -264,7 +176,7 @@ s32 is_anim_past_frame(struct MarioState *m, s16 animFrame) {
     struct Animation *curAnim = animInfo->curAnim;
 
     if (animInfo->animAccel) {
-        if (curAnim->flags & ANIM_FLAG_FORWARD) {
+        if (curAnim->flags & ANIM_FLAG_BACKWARD) {
             isPastFrame =
                 (animInfo->animFrameAccelAssist > acceleratedFrame)
                 && (acceleratedFrame >= (animInfo->animFrameAccelAssist - animInfo->animAccel));
@@ -274,7 +186,7 @@ s32 is_anim_past_frame(struct MarioState *m, s16 animFrame) {
                 && (acceleratedFrame <= (animInfo->animFrameAccelAssist + animInfo->animAccel));
         }
     } else {
-        if (curAnim->flags & ANIM_FLAG_FORWARD) {
+        if (curAnim->flags & ANIM_FLAG_BACKWARD) {
             isPastFrame = (animInfo->animFrame == (animFrame + 1));
         } else {
             isPastFrame = ((animInfo->animFrame + 1) == animFrame);
@@ -288,7 +200,7 @@ s32 is_anim_past_frame(struct MarioState *m, s16 animFrame) {
  * Rotates the animation's translation into the global coordinate system
  * and returns the animation's flags.
  */
-s16 find_mario_anim_flags_and_translation(struct Object *obj, s32 yaw, Vec3s translation) {
+s16 find_mario_anim_flags_and_translation(struct Object *obj, s32 yaw, VEC_OUT Vec3s translation) {
     if (!obj) { return 0; }
     f32 dx;
     f32 dz;
@@ -500,17 +412,24 @@ bool mario_is_crouching(struct MarioState *m) {
         m->action == ACT_CROUCH_SLIDE;
 }
 
+bool mario_is_ground_pound_landing(struct MarioState *m) {
+    if (!m) { return false; }
+
+    return m->action == ACT_GROUND_POUND_LAND ||
+        (!(m->action & ACT_FLAG_AIR) && (determine_interaction(m, m->marioObj) & INT_GROUND_POUND));
+}
+
 bool mario_can_bubble(struct MarioState* m) {
     if (!m) { return false; }
     if (!gServerSettings.bubbleDeath) { return false; }
     if (m->playerIndex != 0) { return false; }
     if (m->action == ACT_BUBBLED) { return false; }
-    if (!m->visibleToEnemies) { return false; }
+    if (!m->visibleToObjects) { return false; }
 
     u8 allInBubble = TRUE;
     for (s32 i = 1; i < MAX_PLAYERS; i++) {
         if (!is_player_active(&gMarioStates[i])) { continue; }
-        if (!gMarioStates[i].visibleToEnemies) { continue; }
+        if (!gMarioStates[i].visibleToObjects) { continue; }
         if (gMarioStates[i].action != ACT_BUBBLED && gMarioStates[i].health >= 0x100) {
             allInBubble = FALSE;
             break;
@@ -528,7 +447,7 @@ void mario_set_bubbled(struct MarioState* m) {
     gLocalBubbleCounter = 20;
 
     drop_and_set_mario_action(m, ACT_BUBBLED, 0);
-    if (m->numLives > -1) {
+    if (m->numLives > 0) {
         m->numLives--;
     }
     m->healCounter = 0;
@@ -603,6 +522,11 @@ s32 mario_get_floor_class(struct MarioState *m) {
     // Crawling allows Mario to not slide on certain steeper surfaces.
     if (m->action == ACT_CRAWLING && m->floor && m->floor->normal.y > 0.5f && floorClass == SURFACE_CLASS_DEFAULT) {
         floorClass = SURFACE_CLASS_NOT_SLIPPERY;
+    }
+
+    s32 floorClassOverride = 0;
+    if (smlua_call_event_hooks(HOOK_MARIO_OVERRIDE_FLOOR_CLASS, m, floorClass, &floorClassOverride)) {
+        return floorClassOverride;
     }
 
     return floorClass;
@@ -696,7 +620,7 @@ u32 mario_get_terrain_sound_addend(struct MarioState *m) {
 /**
  * Collides with walls and returns the most recent wall.
  */
-struct Surface *resolve_and_return_wall_collisions(Vec3f pos, f32 offset, f32 radius) {
+struct Surface *resolve_and_return_wall_collisions(VEC_OUT Vec3f pos, f32 offset, f32 radius) {
     struct WallCollisionData collisionData;
     struct Surface *wall = NULL;
 
@@ -721,7 +645,7 @@ struct Surface *resolve_and_return_wall_collisions(Vec3f pos, f32 offset, f32 ra
 /**
  * Collides with walls and returns the wall collision data.
  */
-void resolve_and_return_wall_collisions_data(Vec3f pos, f32 offset, f32 radius, struct WallCollisionData* collisionData) {
+void resolve_and_return_wall_collisions_data(VEC_OUT Vec3f pos, f32 offset, f32 radius, struct WallCollisionData* collisionData) {
     if (!collisionData || !pos) { return; }
 
     collisionData->x = pos[0];
@@ -740,7 +664,7 @@ void resolve_and_return_wall_collisions_data(Vec3f pos, f32 offset, f32 radius, 
 /**
  * Finds the ceiling from a vec3f horizontally and a height (with 80 vertical buffer).
  */
-f32 vec3f_find_ceil(Vec3f pos, f32 height, struct Surface **ceil) {
+f32 vec3f_find_ceil(Vec3f pos, f32 height, RET struct Surface **ceil) {
     if (!ceil) { return 0; }
     UNUSED f32 unused;
 
@@ -752,7 +676,7 @@ f32 vec3f_find_ceil(Vec3f pos, f32 height, struct Surface **ceil) {
  * Prevents exposed ceiling bug
  */
 // Prevent exposed ceilings
-f32 vec3f_mario_ceil(Vec3f pos, f32 height, struct Surface **ceil) {
+f32 vec3f_mario_ceil(Vec3f pos, f32 height, RET struct Surface **ceil) {
     if (!ceil) { return 0; }
     if (gLevelValues.fixCollisionBugs) {
         height = MAX(height + 80.0f, pos[1] - 2);
@@ -1119,6 +1043,29 @@ static u32 set_mario_action_airborne(struct MarioState *m, u32 action, u32 actio
         case ACT_JUMP_KICK:
             m->vel[1] = 20.0f;
             break;
+
+        // Set forward vel to a predefined value for non-player knockbacks
+        case ACT_BACKWARD_AIR_KB:
+        case ACT_HARD_BACKWARD_AIR_KB:
+            if (!(actionArg & PVP_ATTACK_KNOCKBACK_ACTION_ARG)) {
+                mario_set_forward_vel(m, -16.0f);
+            }
+            break;
+
+        case ACT_FORWARD_AIR_KB:
+        case ACT_HARD_FORWARD_AIR_KB:
+            if (!(actionArg & PVP_ATTACK_KNOCKBACK_ACTION_ARG)) {
+                mario_set_forward_vel(m, 16.0f);
+            }
+            break;
+
+        case ACT_THROWN_BACKWARD:
+        case ACT_THROWN_FORWARD:
+        case ACT_SOFT_BONK:
+            if (!(actionArg & PVP_ATTACK_KNOCKBACK_ACTION_ARG)) {
+                mario_set_forward_vel(m, m->forwardVel); // needed to update velocities
+            }
+            break;
     }
 
     m->peakHeight = m->pos[1];
@@ -1218,9 +1165,10 @@ static u32 set_mario_action_cutscene(struct MarioState *m, u32 action, UNUSED u3
  */
 u32 set_mario_action(struct MarioState *m, u32 action, u32 actionArg) {
     if (!m) { return FALSE; }
-    u32 returnValue = 0;
-    smlua_call_event_hooks_mario_action_params_ret_int(HOOK_BEFORE_SET_MARIO_ACTION, m, action, &returnValue);
-    if (returnValue == 1) { return TRUE; } else if (returnValue) { action = returnValue; }
+    u32 actionOverride = 0;
+    smlua_call_event_hooks(HOOK_BEFORE_SET_MARIO_ACTION, m, action, actionArg, &actionOverride);
+    if (actionOverride == 1) { return TRUE; }
+    if (actionOverride != 0) { action = actionOverride; }
 
     switch (action & ACT_GROUP_MASK) {
         case ACT_GROUP_MOVING:
@@ -1254,7 +1202,7 @@ u32 set_mario_action(struct MarioState *m, u32 action, u32 actionArg) {
     m->actionState = 0;
     m->actionTimer = 0;
 
-    smlua_call_event_hooks_mario_param(HOOK_ON_SET_MARIO_ACTION, m);
+    smlua_call_event_hooks(HOOK_ON_SET_MARIO_ACTION, m);
 
     return TRUE;
 }
@@ -1579,7 +1527,7 @@ void update_mario_joystick_inputs(struct MarioState *m) {
         } else if (get_first_person_enabled()) {
             m->intendedYaw = atan2s(-controller->stickY, controller->stickX) + gLakituState.yaw;
         } else {
-            m->intendedYaw = atan2s(-controller->stickY, controller->stickX) - newcam_yaw + 0x4000;
+            m->intendedYaw = atan2s(-controller->stickY, controller->stickX) - gNewCamera.yaw + 0x4000;
         }
         m->input |= INPUT_NONZERO_ANALOG;
     } else {
@@ -1592,11 +1540,13 @@ void update_mario_joystick_inputs(struct MarioState *m) {
  */
 void update_mario_geometry_inputs(struct MarioState *m) {
     if (!m) { return; }
-    u8 copiedPlayer = FALSE;
-copyPlayerGoto:;
 
     f32 gasLevel;
     f32 ceilToFloorDist;
+
+    bool allowUpdateGeometryInputs = true;
+    smlua_call_event_hooks(HOOK_MARIO_OVERRIDE_GEOMETRY_INPUTS, m, &allowUpdateGeometryInputs);
+    if (!allowUpdateGeometryInputs) { return; }
 
     f32_find_wall_collision(&m->pos[0], &m->pos[1], &m->pos[2], 60.0f, 50.0f);
     f32_find_wall_collision(&m->pos[0], &m->pos[1], &m->pos[2], 30.0f, 24.0f);
@@ -1615,6 +1565,8 @@ copyPlayerGoto:;
     m->ceilHeight = vec3f_mario_ceil(&m->pos[0], m->floorHeight, &m->ceil);
     gasLevel = find_poison_gas_level(m->pos[0], m->pos[2]);
     m->waterLevel = find_water_level(m->pos[0], m->pos[2]);
+
+    if (m->action == ACT_DEBUG_FREE_MOVE) { return; }
 
     if (m->floor != NULL) {
         m->floorAngle = atan2s(m->floor->normal.z, m->floor->normal.x);
@@ -1645,22 +1597,19 @@ copyPlayerGoto:;
             m->input |= INPUT_IN_POISON_GAS;
         }
 
-    } else {
-        if (!copiedPlayer) {
-            // try to prevent OOB by copying position of other player
-            struct Surface* floor2 = NULL;
-            for (s32 i = 0; i < MAX_PLAYERS; i++) {
-                struct MarioState* m2 = &gMarioStates[i];
-                if (m == m2) { continue; }
-                find_floor(m2->pos[0], m2->pos[1], m2->pos[2], &floor2);
-                if (floor2 == NULL) { continue; }
-                LOG_INFO("OOB! teleporting to player with local index %d", i);
-                vec3f_copy(m->pos, m2->pos);
-                copiedPlayer = TRUE;
-                goto copyPlayerGoto;
-            }
-        }
+    } else if (!is_other_player_active()) {
         level_trigger_warp(m, WARP_OP_DEATH);
+    } else {
+        vec3s_to_vec3f(m->pos, m->spawnInfo->startPos);
+        m->faceAngle[1] = m->spawnInfo->startAngle[1];
+        struct Surface* floor = NULL;
+        find_floor(m->pos[0], m->pos[1], m->pos[2], &floor);
+        if (floor == NULL) {
+            level_trigger_warp(m, WARP_OP_DEATH);
+        } else {
+            update_mario_geometry_inputs(m);
+            return;
+        }
     }
 }
 
@@ -1701,10 +1650,6 @@ void update_mario_inputs(struct MarioState *m) {
     }
 #endif
     /* End of developer stuff */
-
-    if ((m->action == ACT_END_PEACH_CUTSCENE || m->action == ACT_CREDITS_CUTSCENE) && m->controller->buttonPressed & START_BUTTON) {
-        lvl_skip_credits();
-    }
 
     if (m->playerIndex == 0) {
         if (!localIsPaused && (gCameraMovementFlags & CAM_MOVE_C_UP_MODE)) {
@@ -2005,7 +1950,7 @@ void mario_update_hitbox_and_cap_model(struct MarioState *m) {
  * An unused and possibly a debug function. Z + another button input
  * sets Mario with a different cap.
  */
-static void debug_update_mario_cap(u16 button, s32 flags, u16 capTimer, u16 capMusic) {
+UNUSED static void debug_update_mario_cap(u16 button, s32 flags, u16 capTimer, u16 capMusic) {
     // This checks for Z_TRIG instead of Z_DOWN flag
     // (which is also what other debug functions do),
     // so likely debug behavior rather than unused behavior.
@@ -2058,6 +2003,8 @@ s32 execute_mario_action(UNUSED struct Object *o) {
 
     if (gMarioState->knockbackTimer > 0) {
         gMarioState->knockbackTimer--;
+    } else if (gMarioState->knockbackTimer < 0) {
+        gMarioState->knockbackTimer++;
     }
 
     // hide inactive players
@@ -2137,15 +2084,15 @@ s32 execute_mario_action(UNUSED struct Object *o) {
         }
 
         // If Mario is OOB, stop executing actions.
-        if (gMarioState->floor == NULL) {
+        if (gMarioState->floor == NULL && gMarioState->action != ACT_DEBUG_FREE_MOVE) {
             return 0;
         }
 
         // don't update mario when in a cutscene
         if (gMarioState->playerIndex == 0) {
-            extern s16 gDialogID;
+            extern s32 gDialogID;
             if (gMarioState->freeze > 0) { gMarioState->freeze--; }
-            if (gMarioState->freeze < 2 && gDialogID != -1) { gMarioState->freeze = 2; }
+            if (gMarioState->freeze < 2 && gDialogID != DIALOG_NONE) { gMarioState->freeze = 2; }
             if (gMarioState->freeze < 2 && sCurrPlayMode == PLAY_MODE_PAUSED) { gMarioState->freeze = 2; }
         }
 
@@ -2233,6 +2180,21 @@ s32 execute_mario_action(UNUSED struct Object *o) {
         gMarioState->marioObj->oInteractStatus = 0;
         queue_particle_rumble();
 
+        // Make remote players disappear when they enter a painting
+        // should use same logic as in get_painting_warp_node
+        if (gMarioState->playerIndex != 0 && gCurrentArea->paintingWarpNodes != NULL) {
+            s32 paintingIndex = gMarioState->floor->type - SURFACE_PAINTING_WARP_D3;
+            if (paintingIndex >= PAINTING_WARP_INDEX_START && paintingIndex < PAINTING_WARP_INDEX_END) {
+                if (paintingIndex < PAINTING_WARP_INDEX_FA || gMarioState->pos[1] - gMarioState->floorHeight < 80.0f) {
+                    struct WarpNode *warpNode = &gCurrentArea->paintingWarpNodes[paintingIndex];
+                    if (warpNode->id != 0) {
+                        set_mario_action(gMarioState, ACT_DISAPPEARED, 0);
+                        gMarioState->marioObj->header.gfx.node.flags &= ~GRAPH_RENDER_ACTIVE;
+                    }
+                }
+            }
+        }
+
         return gMarioState->particleFlags;
     }
 
@@ -2263,7 +2225,7 @@ void init_single_mario(struct MarioState* m) {
     m->framesSinceB = 0xFF;
 
     m->invincTimer = 0;
-    m->visibleToEnemies = TRUE;
+    m->visibleToObjects = true;
 
     if (m->cap & (SAVE_FLAG_CAP_ON_GROUND | SAVE_FLAG_CAP_ON_KLEPTO | SAVE_FLAG_CAP_ON_UKIKI | SAVE_FLAG_CAP_ON_MR_BLIZZARD)) {
         m->flags = 0;
@@ -2282,6 +2244,7 @@ void init_single_mario(struct MarioState* m) {
 
     m->heldObj = NULL;
     m->heldByObj = NULL;
+    m->interactObj = NULL;
     m->riddenObj = NULL;
     m->usedObj = NULL;
     m->bubbleObj = NULL;
@@ -2379,7 +2342,7 @@ void init_mario(void) {
     }
 }
 
-static void init_mario_single_from_save_file(struct MarioState* m, u16 index) {
+void init_mario_single_from_save_file(struct MarioState* m, u16 index) {
     if (!m) { return; }
     m->playerIndex = index;
     m->flags = 0;
@@ -2465,4 +2428,14 @@ void mario_update_wall(struct MarioState* m, struct WallCollisionData* wcd) {
                   m->wall->normal.y,
                   m->wall->normal.z);
     }
+}
+
+struct MarioState *get_mario_state_from_object(struct Object *o) {
+    if (!o) { return NULL; }
+    if (o->behavior != bhvMario) { return NULL; }
+    s32 stateIndex = o->oBehParams - 1;
+    if (stateIndex >= 0 && stateIndex < MAX_PLAYERS) {
+        return &gMarioStates[stateIndex];
+    }
+    return NULL;
 }

@@ -1,25 +1,50 @@
 struct ObjectHitbox sEyerokHitbox = {
-    /* interactType:      */ INTERACT_BOUNCE_TOP,
-    /* downOffset:        */ 0,
-    /* damageOrCoinValue: */ 0,
-    /* health:            */ 4,
-    /* numLootCoins:      */ 0,
-    /* radius:            */ 150,
-    /* height:            */ 100,
-    /* hurtboxRadius:     */ 1,
-    /* hurtboxHeight:     */ 1,
+    .interactType = INTERACT_BOUNCE_TOP,
+    .downOffset = 0,
+    .damageOrCoinValue = 0,
+    .health = 4,
+    .numLootCoins = 0,
+    .radius = 150,
+    .height = 100,
+    .hurtboxRadius = 1,
+    .hurtboxHeight = 1,
 };
 
 s8 D_80331BA4[] = { 0, 1, 3, 2, 1, 0 };
 static u8 eyerokBossImmediateUpdate = FALSE;
 
-static s32 eyerok_check_mario_relative_z(s32 arg0) {
-    struct Object* player = nearest_player_to_object(o);
-    if (player && player->oPosZ - o->oHomeZ < arg0) {
-        return TRUE;
-    } else {
-        return FALSE;
+static s32 eyerok_check_mario_relative_z(s32 zDist) {
+    for (s32 i = 0; i < MAX_PLAYERS; i++) {
+        struct MarioState* m = &gMarioStates[i];
+        if (m->marioObj == NULL) { continue; }
+        if (is_player_active(m) && m->marioObj->oPosZ - o->oHomeZ >= zDist) {
+            return FALSE;
+        }
     }
+    return TRUE;
+}
+
+static struct Object* eyerok_nearest_targetable_player_to_object(s32 zDist) {
+    if (!o) { return NULL; }
+    struct Object* nearest = NULL;
+    f32 nearestDist = 0;
+    for (s32 i = 0; i < MAX_PLAYERS; i++) {
+        struct MarioState *m = &gMarioStates[i];
+        if (!m->marioObj) { continue; }
+        if (m->marioObj == o) { continue; }
+        if (!m->visibleToObjects) { continue; }
+        if (!is_player_active(m)) { continue; }
+        f32 dist = dist_between_objects(o, m->marioObj);
+        if (m->marioObj->oPosZ - o->oHomeZ < zDist) {
+            dist += 10000; // always prefer players that are not past z position
+        }
+        if (nearest == NULL || dist < nearestDist) {
+            nearest = m->marioObj;
+            nearestDist = dist;
+        }
+    }
+
+    return nearest;
 }
 
 static struct Object* eyerok_spawn_hand(s16 side, s32 model, const BehaviorScript *behavior) {
@@ -54,34 +79,34 @@ void bhv_eyerok_boss_init(void) {
     so->minUpdateRate = 1.0f;
     so->maxUpdateRate = 1.0f;
     so->syncDeathEvent = FALSE;
-    sync_object_init_field(o, &o->oEyerokBossNumHands);
-    sync_object_init_field(o, &o->oEyerokBossUnkFC);
-    sync_object_init_field(o, &o->oEyerokBossActiveHand);
-    sync_object_init_field(o, &o->oEyerokBossUnk104);
-    sync_object_init_field(o, &o->oEyerokBossUnk108);
-    sync_object_init_field(o, &o->oEyerokBossUnk10C);
-    sync_object_init_field(o, &o->oEyerokBossUnk110);
-    sync_object_init_field(o, &o->oEyerokBossUnk1AC);
+    sync_object_init_field(o, o->oEyerokBossNumHands);
+    sync_object_init_field(o, o->oEyerokBossUnkFC);
+    sync_object_init_field(o, o->oEyerokBossActiveHand);
+    sync_object_init_field(o, o->oEyerokBossUnk104);
+    sync_object_init_field(o, o->oEyerokBossUnk108);
+    sync_object_init_field(o, o->oEyerokBossUnk10C);
+    sync_object_init_field(o, o->oEyerokBossUnk110);
+    sync_object_init_field(o, o->oEyerokBossUnk1AC);
     for (s32 i = 0; i < 2; i++) {
-        sync_object_init_field(o, &hands[i]->oPosX);
-        sync_object_init_field(o, &hands[i]->oPosY);
-        sync_object_init_field(o, &hands[i]->oPosZ);
-        sync_object_init_field(o, &hands[i]->oVelX);
-        sync_object_init_field(o, &hands[i]->oVelY);
-        sync_object_init_field(o, &hands[i]->oVelZ);
-        sync_object_init_field(o, &hands[i]->oForwardVel);
-        sync_object_init_field(o, &hands[i]->oAction);
-        sync_object_init_field(o, &hands[i]->oPrevAction);
-        sync_object_init_field(o, &hands[i]->oTimer);
-        sync_object_init_field(o, &hands[i]->oHealth);
-        sync_object_init_field(o, &hands[i]->oEyerokHandWakeUpTimer);
-        sync_object_init_field(o, &hands[i]->oEyerokReceivedAttack);
-        sync_object_init_field(o, &hands[i]->oEyerokHandUnkFC);
-        sync_object_init_field(o, &hands[i]->oEyerokHandUnk100);
-        sync_object_init_field(o, &hands[i]->oFaceAngleYaw);
-        sync_object_init_field(o, &hands[i]->oMoveAngleYaw);
-        sync_object_init_field(o, &hands[i]->oGravity);
-        sync_object_init_field(o, &hands[i]->oAnimState);
+        sync_object_init_field(o, hands[i]->oPosX);
+        sync_object_init_field(o, hands[i]->oPosY);
+        sync_object_init_field(o, hands[i]->oPosZ);
+        sync_object_init_field(o, hands[i]->oVelX);
+        sync_object_init_field(o, hands[i]->oVelY);
+        sync_object_init_field(o, hands[i]->oVelZ);
+        sync_object_init_field(o, hands[i]->oForwardVel);
+        sync_object_init_field(o, hands[i]->oAction);
+        sync_object_init_field(o, hands[i]->oPrevAction);
+        sync_object_init_field(o, hands[i]->oTimer);
+        sync_object_init_field(o, hands[i]->oHealth);
+        sync_object_init_field(o, hands[i]->oEyerokHandWakeUpTimer);
+        sync_object_init_field(o, hands[i]->oEyerokReceivedAttack);
+        sync_object_init_field(o, hands[i]->oEyerokHandUnkFC);
+        sync_object_init_field(o, hands[i]->oEyerokHandUnk100);
+        sync_object_init_field(o, hands[i]->oFaceAngleYaw);
+        sync_object_init_field(o, hands[i]->oMoveAngleYaw);
+        sync_object_init_field(o, hands[i]->oGravity);
+        sync_object_init_field(o, hands[i]->oAnimState);
     }
 }
 
@@ -118,10 +143,12 @@ static void eyerok_boss_act_wake_up(void) {
     }
 }
 
-u8 eyerok_boss_act_show_intro_text_continue_dialog(void) { return o->oAction == EYEROK_BOSS_ACT_SHOW_INTRO_TEXT; }
+UNUSED static u8 eyerok_boss_act_show_intro_text_continue_dialog(void) {
+    return o->oAction == EYEROK_BOSS_ACT_SHOW_INTRO_TEXT;
+}
 
 static void eyerok_boss_act_show_intro_text(void) {
-    // todo: get dialog working again
+    // todo: get dialog working properly again
     /*struct MarioState* marioState = nearest_mario_state_to_object(o);
     if (should_start_or_continue_dialog(marioState, o) && cur_obj_update_dialog_with_cutscene(&gMarioStates[0], 2, 0, CUTSCENE_DIALOG, gBehaviorValues.dialogs.EyerokIntroDialog, eyerok_boss_act_show_intro_text_continue_dialog)) {
         o->oAction = EYEROK_BOSS_ACT_FIGHT;
@@ -170,7 +197,7 @@ static void eyerok_boss_act_fight(void) {
                     o->oEyerokBossUnk108 = 1.0f;
                 }
 
-                struct Object* player = nearest_player_to_object(o);
+                struct Object* player = eyerok_nearest_targetable_player_to_object(400);
                 if (player) {
                     o->oEyerokBossUnk10C = player->oPosZ;
                 }
@@ -309,7 +336,7 @@ static void eyerok_hand_act_sleep(void) {
 
 static void eyerok_hand_act_idle(void) {
     if (!o->parentObj) { return; }
-    struct Object* player = nearest_player_to_object(o);
+    struct Object* player = eyerok_nearest_targetable_player_to_object(400);
     s32 angleToPlayer = player ? obj_angle_to_object(o, player) : 0;
     cur_obj_init_animation_with_sound(2);
 
@@ -500,7 +527,7 @@ static void eyerok_hand_act_retreat(void) {
 
 static void eyerok_hand_act_target_mario(void) {
     if (!o->parentObj) { return; }
-    struct Object* player = nearest_player_to_object(o);
+    struct Object* player = eyerok_nearest_targetable_player_to_object(400);
     s32 angleToPlayer = player ? obj_angle_to_object(o, player) : 0;
     if (eyerok_check_mario_relative_z(400) != 0 || (player && o->oPosZ - player->oPosZ > 0.0f)
         || o->oPosZ - o->parentObj->oPosZ > 1700.0f || absf(o->oPosX - o->parentObj->oPosX) > 900.0f
@@ -517,7 +544,7 @@ static void eyerok_hand_act_target_mario(void) {
 }
 
 static void eyerok_hand_act_smash(void) {
-    struct Object* player = nearest_player_to_object(o);
+    struct Object* player = eyerok_nearest_targetable_player_to_object(400);
     s32 distanceToPlayer = player ? dist_between_objects(o, player) : 10000;
     s32 angleToPlayer = player ? obj_angle_to_object(o, player) : 0;
     s16 sp1E;
@@ -547,7 +574,7 @@ static void eyerok_hand_act_smash(void) {
 }
 
 static void eyerok_hand_act_fist_push(void) {
-    struct Object* player = nearest_player_to_object(o);
+    struct Object* player = eyerok_nearest_targetable_player_to_object(400);
     if (o->oTimer > 5 && ((player && o->oPosZ - player->oPosZ > 0.0f) || (o->oMoveFlags & OBJ_MOVE_HIT_EDGE))) {
         o->oAction = EYEROK_HAND_ACT_FIST_SWEEP;
         o->oForwardVel = 0.0f;

@@ -12,8 +12,8 @@
 #include "pc/pc_main.h"
 #include "engine/math_util.h"
 #include "menu/file_select.h"
-#include "src/pc/djui/djui.h"
-#include "src/pc/djui/djui_panel_pause.h"
+#include "pc/djui/djui.h"
+#include "pc/djui/djui_panel_pause.h"
 
 static int keyboard_buttons_down;
 
@@ -66,6 +66,10 @@ void keyboard_on_text_input(char* text) {
     djui_interactable_on_text_input(text);
 }
 
+void keyboard_on_text_editing(char* text, int cursorPos) {
+    djui_interactable_on_text_editing(text, cursorPos);
+}
+
 static void keyboard_add_binds(int mask, unsigned int *scancode) {
     for (int i = 0; i < MAX_BINDS && num_keybinds < MAX_KEYBINDS; ++i) {
         if (scancode[i] < VK_BASE_KEYBOARD + VK_SIZE) {
@@ -99,7 +103,7 @@ static void keyboard_bindkeys(void) {
     keyboard_add_binds(U_JPAD,       configKeyDUp);
     keyboard_add_binds(D_JPAD,       configKeyDDown);
     keyboard_add_binds(L_JPAD,       configKeyDLeft);
-    keyboard_add_binds(R_JPAD,       configKeyDRight);    
+    keyboard_add_binds(R_JPAD,       configKeyDRight);
 }
 
 static void keyboard_init(void) {

@@ -10,8 +10,11 @@ struct DjuiPanel {
     struct DjuiPanel* parent;
     struct DjuiBase* defaultElementBase;
     bool temporary;
+    bool (*on_back)(struct DjuiBase*);
     void (*on_panel_destroy)(struct DjuiBase*);
 };
+
+extern bool gDjuiPanelDisableBack;
 
 bool djui_panel_is_active(void);
 struct DjuiPanel* djui_panel_add(struct DjuiBase* caller, struct DjuiThreePanel* threePanel, struct DjuiBase* defaultElementBase);

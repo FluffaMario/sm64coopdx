@@ -14,7 +14,6 @@
 #include "pc/debug_context.h"
 
 static void* sSoMap = NULL;
-static void* sSoIter = NULL;
 
 #define FORGET_TIMEOUT 10
 
@@ -26,27 +25,13 @@ struct SyncObjectForgetEntry {
 struct SyncObjectForgetEntry* sForgetList = NULL;
 
 static u32 sNextSyncId = SYNC_ID_BLOCK_SIZE / 2;
-static bool sFreeingAll = false;
 
   ////////////
  // system //
 ////////////
 
 void sync_objects_init_system(void) {
-    sSoMap = hmap_create();
-    sSoIter = hmap_iter(sSoMap);
-}
-
-static bool sync_objects_forget_list_contains(struct SyncObject* so) {
-    struct SyncObjectForgetEntry* entry = sForgetList;
-    while (entry) {
-        struct SyncObjectForgetEntry* next = entry->next;
-        if (entry->so == so) {
-            return true;
-        }
-        entry = next;
-    }
-    return false;
+    sSoMap = hmap_create(true);
 }
 
 void sync_objects_update(void) {
@@ -118,7 +103,6 @@ void sync_object_forget(u32 syncId) {
     so->forgetting = true;
 
     // add it to a list to free later
-    s32 forgetCount = 1;
     struct SyncObjectForgetEntry* newEntry = calloc(1, sizeof(struct SyncObjectForgetEntry));
     newEntry->so = so;
     newEntry->forgetTimer = FORGET_TIMEOUT;
@@ -128,7 +112,6 @@ void sync_object_forget(u32 syncId) {
         struct SyncObjectForgetEntry* entry = sForgetList;
         while (entry->next != NULL) {
             entry = entry->next;
-            forgetCount++;
         }
         entry->next = newEntry;
     }
@@ -199,8 +182,8 @@ struct SyncObject* sync_object_init(struct Object *o, float maxSyncDistance) {
         so->extendedModelId = 0xFFFF;
     }
     so->randomSeed = (u16)(o->oSyncID * 7951);
-    memset(so->extraFields, 0, sizeof(void*) * MAX_SYNC_OBJECT_FIELDS);
-    memset(so->extraFieldsSize, 0, sizeof(u8) * MAX_SYNC_OBJECT_FIELDS);
+    memset(so->extraFields, 0, sizeof(so->extraFields));
+    memset(so->extraFieldsSizeBytes, 0, sizeof(so->extraFieldsSizeBytes));
 
     so->lastReliablePacket.error = true;
     o->coopFlags |= COOP_OBJ_FLAG_INITIALIZED;
@@ -208,9 +191,11 @@ struct SyncObject* sync_object_init(struct Object *o, float maxSyncDistance) {
     return so;
 }
 
-void sync_object_init_field(struct Object *o, void* field) {
+void sync_object_init_field_with_size(struct Object *o, void *field, u8 sizeBytes) {
     if (o->coopFlags & COOP_OBJ_FLAG_NON_SYNC) { return; }
     if (o->oSyncID == 0) { return; }
+
+    SOFT_ASSERT(sizeBytes > 0);
 
     // remember to synchronize this extra field
     struct SyncObject* so = sync_object_get(o->oSyncID);
@@ -222,26 +207,7 @@ void sync_object_init_field(struct Object *o, void* field) {
         return;
     }
     so->extraFields[index] = field;
-    so->extraFieldsSize[index] = 32;
-}
-
-void sync_object_init_field_with_size(struct Object *o, void* field, u8 size) {
-    if (o->coopFlags & COOP_OBJ_FLAG_NON_SYNC) { return; }
-    if (o->oSyncID == 0) { return; }
-
-    SOFT_ASSERT(size == 8 || size == 16 || size == 32 || size == 64);
-
-    // remember to synchronize this extra field
-    struct SyncObject* so = sync_object_get(o->oSyncID);
-    if (!so) { return; }
-    u32 index = so->extraFieldCount++;
-    if (so->extraFieldCount >= MAX_SYNC_OBJECT_FIELDS) {
-        so->extraFieldCount = MAX_SYNC_OBJECT_FIELDS - 1;
-        LOG_ERROR("Sync Object %u tried to set too many extra fields!", o->oSyncID);
-        return;
-    }
-    so->extraFields[index] = field;
-    so->extraFieldsSize[index] = size;
+    so->extraFieldsSizeBytes[index] = sizeBytes;
 }
 
   /////////////
@@ -254,11 +220,11 @@ struct SyncObject* sync_object_get(u32 syncId) {
 }
 
 struct SyncObject* sync_object_get_first(void) {
-    return hmap_begin(sSoIter);
+    return hmap_begin(sSoMap);
 }
 
 struct SyncObject* sync_object_get_next(void) {
-    return hmap_next(sSoIter);
+    return hmap_next(sSoMap);
 }
 
 struct Object* sync_object_get_object(u32 syncId) {

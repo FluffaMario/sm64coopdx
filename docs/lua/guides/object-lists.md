@@ -1,3 +1,5 @@
+## [:rewind: Lua Reference](../lua.md)
+
 # Every Behavior's Object List
 
 | Behavior | Object List |
@@ -520,3 +522,5 @@
 |`bhvIntroScene`|`OBJ_LIST_DEFAULT`|
 |`RM_Scroll_Texture`|`OBJ_LIST_GENACTOR`|
 |`editor_Scroll_Texture`|`OBJ_LIST_GENACTOR`|
+|`bhvAmbientLight`|`OBJ_LIST_DEFAULT`|
+|`bhvPointLight`|`OBJ_LIST_DEFAULT`|

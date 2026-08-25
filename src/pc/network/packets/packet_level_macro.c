@@ -30,7 +30,7 @@ static struct Object* get_object_matching_respawn_info(s16* respawnInfo) {
 static void network_send_level_macro_area(struct NetworkPlayer* destNp, u8 areaIndex) {
     // check that the area is active
     struct Area* area = &gAreaData[areaIndex];
-    if (area->unk04 == NULL) { return; }
+    if (area->root == NULL) { return; }
 
     if (destNp == NULL || !destNp->connected) {
         LOG_ERROR("network_send_level_macro: dest np is invalid");
@@ -107,7 +107,6 @@ static void network_send_level_macro_area(struct NetworkPlayer* destNp, u8 areaI
 
 void network_send_level_macro(struct NetworkPlayer* destNp) {
     if (!gNetworkPlayerLocal->currLevelSyncValid) {
-        LOG_ERROR("my area is invalid");
         return;
     }
 
@@ -201,7 +200,10 @@ void network_receive_level_macro(struct Packet* p) {
                     struct Object* o2 = &gObjectPool[i];
                     if (o2->parentObj != o) { continue; }
                     if (o2 == o) { continue; }
-                    if (o2->behavior != smlua_override_behavior(bhvCoinFormationSpawn) && o2->behavior != smlua_override_behavior(bhvYellowCoin)) { continue; }
+                    if (o2->behavior != smlua_override_behavior(bhvCoinFormationSpawn) &&
+                        o2->behavior != smlua_override_behavior(bhvYellowCoin)) {
+                        continue;
+                    }
                     if (o->oCoinUnkF4 & (1 << childIndex++)) {
                         obj_mark_for_deletion(o2);
                     }

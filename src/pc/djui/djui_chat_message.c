@@ -5,6 +5,7 @@
 #include "audio/external.h"
 #include "game/mario_misc.h"
 #include "djui.h"
+#include "djui_hud_utils.h"
 #include "pc/debuglog.h"
 #include "pc/lua/smlua_hooks.h"
 
@@ -36,6 +37,8 @@ static bool djui_chat_message_render(struct DjuiBase* base) {
         djui_base_set_size(base, chatMessage->messageWidth, chatMessage->base.height.value);
     }
 
+    djui_text_set_font(chatMessage->message, gDjuiFonts[configDjuiThemeFont == 0 ? FONT_NORMAL : FONT_ALIASED]);
+
     djui_rect_render(base);
     return true;
 }
@@ -52,15 +55,15 @@ void djui_chat_message_create_from(u8 globalIndex, const char* message) {
         return;
     }
 
-    bool returnValue = true;
-    smlua_call_event_hooks_on_chat_message(HOOK_ON_CHAT_MESSAGE, &gMarioStates[np->localIndex], message, &returnValue);
-    if (!returnValue) {
+    bool allowMessage = true;
+    smlua_call_event_hooks(HOOK_ON_CHAT_MESSAGE, &gMarioStates[np->localIndex], message, &allowMessage);
+    if (!allowMessage) {
         return;
     }
 
     const char* playerColorString = network_get_player_text_color_string(np->localIndex);
-    char chatMsg[256] = { 0 };
-    snprintf(chatMsg, 256, "%s%s\\#dcdcdc\\: %s", playerColorString, (np != NULL) ? np->name : "Player", message);
+    char chatMsg[MAX_CHAT_PACKET_LENGTH] = { 0 };
+    snprintf(chatMsg, MAX_CHAT_PACKET_LENGTH, "%s%s\\#dcdcdc\\: %s", playerColorString, (np != NULL) ? np->name : "Player", message);
 
     play_sound((globalIndex == gNetworkPlayerLocal->globalIndex) ? SOUND_MENU_MESSAGE_DISAPPEAR : SOUND_MENU_MESSAGE_APPEAR, gGlobalSoundSource);
     djui_chat_message_create(chatMsg);
@@ -93,6 +96,9 @@ void djui_chat_message_create(const char* message) {
     chatText->base.comp.width = maxTextWidth;
     f32 messageHeight = djui_text_count_lines(chatText, 10) * (chatText->font->lineHeight * chatText->font->defaultFontScale) + 8;
     djui_base_set_size(base, 1.0f, messageHeight);
+    if (gDjuiChatBox->chatFlow->base.height.value == 0) {
+        gDjuiChatBox->chatFlow->base.height.value = 2;
+    }
     gDjuiChatBox->chatFlow->base.height.value += messageHeight + gDjuiChatBox->chatFlow->margin.value;
     if (!gDjuiChatBox->scrolling) {
         gDjuiChatBox->chatFlow->base.y.value = gDjuiChatBox->chatContainer->base.elem.height - gDjuiChatBox->chatFlow->base.height.value;

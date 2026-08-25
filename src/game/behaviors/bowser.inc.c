@@ -3,6 +3,7 @@ static u32 networkBowserAnimationIndex = 0;
 static u8 bowserIsDying = FALSE;
 static u8 bowserCutscenePlayed = FALSE;
 static u8 bowserIsCutscenePlayer = FALSE;
+static u8 bowserCutsceneGlobalIndex = UNKNOWN_GLOBAL_INDEX;
 
 void bowser_tail_anchor_act_0(void) {
     struct Object* bowser = o->parentObj;
@@ -38,10 +39,10 @@ s8 D_8032F4FC[] = { 7, 8, 9, 12, 13, 14, 15, 4, 3, 16, 17, 19, 3, 3, 3, 3 };
 s16 D_8032F50C[] = { 60, 0 };
 s16 D_8032F510[] = { 50, 0 };
 s8 D_8032F514[] = { 24, 42, 60, -1 };
-s16* sBowserDefeatedDialogText[3] = {
-    (s16*) &gBehaviorValues.dialogs.Bowser1DefeatedDialog,
-    (s16*) &gBehaviorValues.dialogs.Bowser2DefeatedDialog,
-    (s16*) &gBehaviorValues.dialogs.Bowser3DefeatedDialog
+enum DialogId* sBowserDefeatedDialogText[3] = {
+    &gBehaviorValues.dialogs.Bowser1DefeatedDialog,
+    &gBehaviorValues.dialogs.Bowser2DefeatedDialog,
+    &gBehaviorValues.dialogs.Bowser3DefeatedDialog
 };
 s16 D_8032F520[][3] = { { 1, 10, 40 },   { 0, 0, 74 },    { -1, -10, 114 },  { 1, -20, 134 },
                         { -1, 20, 154 }, { 1, 40, 164 },  { -1, -40, 174 },  { 1, -80, 179 },
@@ -49,14 +50,14 @@ s16 D_8032F520[][3] = { { 1, 10, 40 },   { 0, 0, 74 },    { -1, -10, 114 },  { 1
 
 void bhv_bowser_tail_anchor_init(void) {
     if (!o->parentObj) { mark_obj_for_deletion(o); return; }
-    sync_object_init_field(o->parentObj, &o->oAction);
-    sync_object_init_field(o->parentObj, &o->oPrevAction);
-    sync_object_init_field(o->parentObj, &o->oTimer);
-    sync_object_init_field(o->parentObj, &o->oIntangibleTimer);
-    sync_object_init_field(o->parentObj, &o->oInteractStatus);
-    sync_object_init_field(o->parentObj, &o->header.gfx.scale[0]);
-    sync_object_init_field(o->parentObj, &o->header.gfx.scale[1]);
-    sync_object_init_field(o->parentObj, &o->header.gfx.scale[2]);
+    sync_object_init_field(o->parentObj, o->oAction);
+    sync_object_init_field(o->parentObj, o->oPrevAction);
+    sync_object_init_field(o->parentObj, o->oTimer);
+    sync_object_init_field(o->parentObj, o->oIntangibleTimer);
+    sync_object_init_field(o->parentObj, o->oInteractStatus);
+    sync_object_init_field(o->parentObj, o->header.gfx.scale[0]);
+    sync_object_init_field(o->parentObj, o->header.gfx.scale[1]);
+    sync_object_init_field(o->parentObj, o->header.gfx.scale[2]);
 }
 
 void bhv_bowser_tail_anchor_loop(void) {
@@ -111,10 +112,10 @@ void bhv_bowser_flame_spawn_loop(void) {
 
 void bhv_bowser_body_anchor_init(void) {
     if (!o->parentObj) { mark_obj_for_deletion(o); return; }
-    sync_object_init_field(o->parentObj, &o->oInteractType);
-    sync_object_init_field(o->parentObj, &o->oInteractStatus);
-    sync_object_init_field(o->parentObj, &o->oIntangibleTimer);
-    sync_object_init_field(o->parentObj, &o->oDamageOrCoinValue);
+    sync_object_init_field(o->parentObj, o->oInteractType);
+    sync_object_init_field(o->parentObj, o->oInteractStatus);
+    sync_object_init_field(o->parentObj, o->oIntangibleTimer);
+    sync_object_init_field(o->parentObj, o->oDamageOrCoinValue);
 }
 
 void bhv_bowser_body_anchor_loop(void) {
@@ -244,7 +245,7 @@ void bowser_act_intro_walk(void) {
     }
 }
 
-static void bowser_debug_actions(void) // unused
+UNUSED static void bowser_debug_actions(void) // unused
 {
     if (gDebugInfo[5][1] != 0) {
         o->oAction = D_8032F4FC[gDebugInfo[5][2] & 0xf];
@@ -777,6 +778,10 @@ void bowser_act_thrown_dropped(void)
             o->oAction = 4;
         else
             o->oAction = 12;
+
+        if (is_nearest_mario_state_to_object(gMarioState, o)) {
+            network_send_object(o);
+        }
     }
 }
 
@@ -882,9 +887,9 @@ void bowser_spawn_grand_star_key(void) {
             reward->oHomeX = reward->oPosX;
             reward->oHomeY = reward->oPosY;
             reward->oHomeZ = reward->oPosZ;
-            
+
             sync_object_set_id(reward);
-            
+
             struct Object* spawn_objects[] = { reward };
             u32 models[] = { MODEL_STAR };
             network_send_spawn_objects(spawn_objects, models, 1);
@@ -998,7 +1003,7 @@ s32 bowser_dead_not_bits_end(void) {
         bowser_dead_hide();
         spawn_triangle_break_particles(20, 116, 1.0f, 0);
         bowser_spawn_grand_star_key();
-        if (gMarioStates[0].visibleToEnemies) {
+        if (gMarioStates[0].visibleToObjects) {
             set_mario_npc_dialog(&gMarioStates[0], 0, NULL);
         }
         return 1;
@@ -1010,7 +1015,7 @@ u8 bowser_dead_bits_end_continue_dialog(void) { return o->oAction == 4 && o->oBo
 
 s32 bowser_dead_bits_end(void) {
     struct MarioState *marioState = nearest_mario_state_to_object(o);
-    
+
     if (o->oBowserUnkF8 < 2) {
         s32 dialogID = gBehaviorValues.dialogs.Bowser3Defeated120StarsDialog;
         if (gHudDisplay.stars < 120) {
@@ -1072,12 +1077,12 @@ void bowser_act_dead(void) {
 
 void bhv_tilting_bowser_lava_platform_init(void) {
     sync_object_init(o, SYNC_DISTANCE_ONLY_EVENTS);
-    sync_object_init_field(o, &o->oAngleVelPitch);
-    sync_object_init_field(o, &o->oAngleVelRoll);
-    sync_object_init_field(o, &o->oFaceAnglePitch);
-    sync_object_init_field(o, &o->oFaceAngleRoll);
-    sync_object_init_field(o, &o->oMoveAnglePitch);
-    sync_object_init_field(o, &o->oMoveAngleRoll);
+    sync_object_init_field(o, o->oAngleVelPitch);
+    sync_object_init_field(o, o->oAngleVelRoll);
+    sync_object_init_field(o, o->oFaceAnglePitch);
+    sync_object_init_field(o, o->oFaceAngleRoll);
+    sync_object_init_field(o, o->oMoveAnglePitch);
+    sync_object_init_field(o, o->oMoveAngleRoll);
 }
 
 void bowser_tilt_platform(struct Object* platform, s16 a1) {
@@ -1125,8 +1130,17 @@ void bowser_act_ride_tilting_platform(void) {
     cur_obj_extend_animation_if_at_end();
 }
 
-void bowser_act_nothing(void) {
-    
+void bowser_act_nothing(void) { // start moving if cutscene player is inactive
+    if (bowserCutsceneGlobalIndex == UNKNOWN_GLOBAL_INDEX) {
+        return;
+    }
+
+    struct NetworkPlayer* np = network_player_from_global_index(bowserCutsceneGlobalIndex);
+    if (np == NULL || !is_player_active(&gMarioStates[np->localIndex])) {
+        bowserCutscenePlayed = TRUE;
+        bowser_initialize_action();
+        return;
+    }
 }
 
 s32 bowser_check_fallen_off_stage(void) // bowser off stage?
@@ -1206,7 +1220,7 @@ void bowser_free_update(void) {
     struct Object *platform;
     UNUSED f32 floorHeight;
     if ((platform = o->platform) != NULL)
-        apply_platform_displacement((u32)-1, platform);
+        apply_platform_displacement(o, platform);
     o->oBowserUnk10E = 0;
 
     cur_obj_update_floor_and_walls();
@@ -1232,6 +1246,7 @@ void bowser_held_update(void) {
         return;
     }
 
+    o->parentObj = player;
     o->oBowserUnkF4 &= ~0x20000;
     cur_obj_become_intangible();
 
@@ -1367,7 +1382,7 @@ void bhv_bowser_override_ownership(u8* shouldOverride, u8* shouldOwn) {
         *shouldOwn = FALSE;
         return;
     }
-    
+
     // tilting platform
     static u8 tiltingTimer = 0;
     if (o->oAction == 19) { tiltingTimer = 5; }
@@ -1383,6 +1398,13 @@ static u8 bhv_bowser_ignore_if_true(void) {
     if (o->oAction == 19) { return TRUE; } // let the platform get to a stable state
     if (bowserIsCutscenePlayer && (o->oAction == 5 || o->oAction == 6)) { return TRUE; } // Ignore updates till our cutscene is done.
     return FALSE;
+}
+
+static void bhv_bowser_on_received_post(UNUSED u8 localIndex) {
+    // prevent sync from putting bowser in text action instead of nothing action
+    if (!(bowserIsCutscenePlayer || bowserCutscenePlayed) && (o->oAction == 5 || o->oAction == 6)) {
+        o->oAction = 20;
+    }
 }
 
 void bhv_bowser_init(void) {
@@ -1404,28 +1426,32 @@ void bhv_bowser_init(void) {
     o->oBowserUnk1AE = 0;
     o->oBowserEyesShut = 0;
     bowserCutscenePlayed = FALSE;
-    
+
     // Make sure we're the first to trigger Bowser.
     if (!is_other_player_active()) {
         bowserIsCutscenePlayer = TRUE;
+        bowserCutsceneGlobalIndex = gNetworkPlayerLocal->globalIndex;
         o->oAction = 5; // bowser_act_text_wait
     } else { // If we aren't do nothing till we get our sync.
         bowserIsCutscenePlayer = FALSE;
+        bowserCutsceneGlobalIndex = UNKNOWN_GLOBAL_INDEX;
         o->oAction = 20; // bowser_act_nothing
     }
-    
+
     if (!sync_object_is_initialized(o->oSyncID)) {
         struct SyncObject* so = sync_object_init(o, 8000.0f);
         if (so) {
             so->override_ownership = bhv_bowser_override_ownership;
             so->ignore_if_true = bhv_bowser_ignore_if_true;
+            so->on_received_post = bhv_bowser_on_received_post;
             so->fullObjectSync = TRUE;
-            sync_object_init_field_with_size(o, &o->header.gfx.node.flags, 16);
-            sync_object_init_field_with_size(o, &o->header.gfx.animInfo.animFrame, 16);
-            sync_object_init_field(o, &networkBowserAnimationIndex);
-            sync_object_init_field(o, &o->header.gfx.scale[0]);
-            sync_object_init_field(o, &o->header.gfx.scale[1]);
-            sync_object_init_field(o, &o->header.gfx.scale[2]);
+            sync_object_init_field(o, o->header.gfx.node.flags);
+            sync_object_init_field(o, o->header.gfx.animInfo.animFrame);
+            sync_object_init_field(o, bowserCutsceneGlobalIndex);
+            sync_object_init_field(o, networkBowserAnimationIndex);
+            sync_object_init_field(o, o->header.gfx.scale[0]);
+            sync_object_init_field(o, o->header.gfx.scale[1]);
+            sync_object_init_field(o, o->header.gfx.scale[2]);
         }
     }
 }
@@ -1612,7 +1638,7 @@ void falling_bowser_plat_act_2(void) {
     if ((o->oTimer & 1) == 0 && o->oTimer < 14 && BHV_ARR_CHECK(D_8032F698, o->oBehParams2ndByte, struct Struct8032F698)) {
         sp22 = D_8032F698[o->oBehParams2ndByte].unk3 + (gDebugInfo[4][1] << 8);
         sp1C = -(o->oTimer / 2) * 290 + 1740;
-        vec3f_copy_2(sp24, &o->oPosX);
+        vec3f_copy(sp24, &o->oPosX);
         o->oPosX = D_8032F698[o->oBehParams2ndByte].unk1 + sins(sp22 + 5296) * sp1C;
         o->oPosZ = D_8032F698[o->oBehParams2ndByte].unk2 + coss(sp22 + 5296) * sp1C;
         o->oPosY = 307.0f;
@@ -1620,7 +1646,7 @@ void falling_bowser_plat_act_2(void) {
         o->oPosX = D_8032F698[o->oBehParams2ndByte].unk1 + sins(sp22 - 5296) * sp1C;
         o->oPosZ = D_8032F698[o->oBehParams2ndByte].unk2 + coss(sp22 - 5296) * sp1C;
         spawn_mist_particles_variable(4, 0, 100);
-        vec3f_copy_2(&o->oPosX, sp24);
+        vec3f_copy(&o->oPosX, sp24);
     }
     cur_obj_move_using_fvel_and_gravity();
     if (o->oTimer > 300)
@@ -1632,27 +1658,27 @@ void (*sFallingBowserPlatformActions[])(void) = { falling_bowser_plat_act_0,
                                                   falling_bowser_plat_act_2 };
 
 struct ObjectHitbox sGrowingBowserFlameHitbox = {
-    /* interactType: */ INTERACT_FLAME,
-    /* downOffset: */ 20,
-    /* damageOrCoinValue: */ 1,
-    /* health: */ 0,
-    /* numLootCoins: */ 0,
-    /* radius: */ 10,
-    /* height: */ 40,
-    /* hurtboxRadius: */ 0,
-    /* hurtboxHeight: */ 0,
+    .interactType = INTERACT_FLAME,
+    .downOffset = 20,
+    .damageOrCoinValue = 1,
+    .health = 0,
+    .numLootCoins = 0,
+    .radius = 10,
+    .height = 40,
+    .hurtboxRadius = 0,
+    .hurtboxHeight = 0,
 };
 
 struct ObjectHitbox sBowserFlameHitbox = {
-    /* interactType: */ INTERACT_FLAME,
-    /* downOffset: */ 0,
-    /* damageOrCoinValue: */ 1,
-    /* health: */ 0,
-    /* numLootCoins: */ 0,
-    /* radius: */ 10,
-    /* height: */ 40,
-    /* hurtboxRadius: */ 0,
-    /* hurtboxHeight: */ 0,
+    .interactType = INTERACT_FLAME,
+    .downOffset = 0,
+    .damageOrCoinValue = 1,
+    .health = 0,
+    .numLootCoins = 0,
+    .radius = 10,
+    .height = 40,
+    .hurtboxRadius = 0,
+    .hurtboxHeight = 0,
 };
 
 f32 D_8032F748[] = { -8.0f, -6.0f, -3.0f };
@@ -1666,9 +1692,9 @@ void bhv_falling_bowser_platform_loop(void) {
         struct SyncObject* so = sync_object_init(o, SYNC_DISTANCE_ONLY_EVENTS);
         if (so) {
             so->ignore_if_true = bhv_falling_bowser_platform_ignore_if_true;
-            sync_object_init_field(o, &o->oAction);
-            sync_object_init_field(o, &o->oPrevAction);
-            sync_object_init_field(o, &o->oTimer);
+            sync_object_init_field(o, o->oAction);
+            sync_object_init_field(o, o->oPrevAction);
+            sync_object_init_field(o, o->oTimer);
         }
     }
 

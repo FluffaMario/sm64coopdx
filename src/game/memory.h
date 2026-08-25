@@ -39,6 +39,18 @@ struct GrowingPoolNode
     struct GrowingPoolNode* prev;
 };
 
+typedef void *(*GrowingArrayAllocFunc)(size_t);
+typedef void (*GrowingArrayFreeFunc)(void *);
+
+struct GrowingArray
+{
+    void **buffer;
+    u32 count;
+    u32 capacity;
+    GrowingArrayAllocFunc alloc;
+    GrowingArrayFreeFunc free;
+};
+
 struct MarioAnimation;
 struct Animation;
 
@@ -63,10 +75,25 @@ struct GrowingPool* growing_pool_init(struct GrowingPool* pool, u32 nodeSize);
 void* growing_pool_alloc(struct GrowingPool *pool, u32 size);
 void growing_pool_free_pool(struct GrowingPool *pool);
 
+struct GrowingArray *growing_array_init(struct GrowingArray *array, u32 capacity, GrowingArrayAllocFunc alloc, GrowingArrayFreeFunc free);
+void *growing_array_alloc(struct GrowingArray *array, u32 size);
+void growing_array_move(struct GrowingArray *array, u32 from, u32 to, u32 count);
+bool growing_array_swap_and_pop_index(struct GrowingArray *array, u32 index);
+bool growing_array_swap_and_pop(struct GrowingArray *array, void *ptr);
+void growing_array_free(struct GrowingArray **array);
+void growing_array_debug_print(struct GrowingArray *array, const char *name, s32 x, s32 y);
+
+#define growing_array_for_each_(array, type, item) \
+    for (type **_head_ = (type **)((array) != NULL ? (array)->buffer : NULL), \
+              **_tail_ = _head_ + ((array) != NULL ? (array)->count : 0), \
+               * item  = NULL; \
+        _head_ != NULL && _head_ != _tail_ && (item = *_head_, TRUE); \
+        _head_++)
+
 void alloc_display_list_reset(void);
 void *alloc_display_list(u32 size);
 
 void alloc_anim_dma_table(struct MarioAnimation* marioAnim, void *b, struct Animation *targetAnim);
-s32 load_patchable_table(struct MarioAnimation *a, u32 b);
+s32 load_patchable_table(struct MarioAnimation *a, u32 b, bool isAnim);
 
 #endif // MEMORY_H

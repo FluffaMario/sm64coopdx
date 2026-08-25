@@ -1,5 +1,3 @@
-#if defined(RAPI_DUMMY) || defined(WAPI_DUMMY)
-
 #ifdef WIN32
 #include <windows.h>
 #elif _POSIX_C_SOURCE >= 199309L
@@ -26,9 +24,6 @@
 #else
 # define FRAMERATE 30
 #endif
-// time between consequtive game frames
-static const f64 sFrameTime = 1.0 / ((double)FRAMERATE);
-static f64 sFrameTargetTime = 0;
 
 static void sleep_ms(int milliseconds) { // cross-platform sleep function
     // from StackOverflow user Bernardo Ramos: https://stackoverflow.com/a/28827188
@@ -49,13 +44,14 @@ static void sleep_ms(int milliseconds) { // cross-platform sleep function
 static void gfx_dummy_wm_init(UNUSED const char *game_name) {
 }
 
-static void gfx_dummy_wm_set_keyboard_callbacks(UNUSED kb_callback_t on_key_down, UNUSED kb_callback_t on_key_up, UNUSED void (*on_all_keys_up)(void), UNUSED void (*on_text_input)(char*)) {
+static void gfx_dummy_wm_set_keyboard_callbacks(UNUSED kb_callback_t on_key_down, UNUSED kb_callback_t on_key_up, UNUSED void (*on_all_keys_up)(void),
+                                                UNUSED void (*on_text_input)(char*), UNUSED void (*on_text_editing)(char*, int)) {
 }
 
-static void gfx_dummy_wm_set_fullscreen_changed_callback(UNUSED void (*on_fullscreen_changed)(bool is_now_fullscreen)) {
+static void gfx_dummy_wm_set_scroll_callback(UNUSED void (*on_scroll)(float, float)) {
 }
 
-static void gfx_dummy_wm_set_fullscreen(UNUSED bool enable) {
+UNUSED static void gfx_dummy_wm_set_fullscreen(UNUSED bool enable) {
 }
 
 static void gfx_dummy_wm_main_loop(void (*run_one_game_iter)(void)) {
@@ -80,8 +76,14 @@ static void gfx_dummy_wm_delay(u32 ms) {
     sleep_ms(ms);
 }
 
-static int gfx_dummy_get_max_msaa(void) {
+static int gfx_dummy_wm_get_max_msaa(void) {
     return 0;
+}
+
+static void gfx_dummy_wm_set_window_title(UNUSED const char* title) {
+}
+
+static void gfx_dummy_wm_reset_window_title(void) {
 }
 
 static void gfx_dummy_wm_swap_buffers_begin(void) {
@@ -107,10 +109,14 @@ static void gfx_dummy_wm_start_text_input(void) {
 static void gfx_dummy_wm_stop_text_input(void) {
 }
 
-static void gfx_dummy_wm_set_clipboard_text(UNUSED char* text) {
+static void gfx_dummy_wm_set_clipboard_text(UNUSED const char* text) {
 }
 
 static void gfx_dummy_wm_set_cursor_visible(UNUSED bool visible) {
+}
+
+static bool gfx_dummy_wm_has_focus(void) {
+    return true;
 }
 
 static bool gfx_dummy_renderer_z_is_from_0_to_1(void) {
@@ -123,11 +129,11 @@ static void gfx_dummy_renderer_unload_shader(UNUSED struct ShaderProgram *old_pr
 static void gfx_dummy_renderer_load_shader(UNUSED struct ShaderProgram *new_prg) {
 }
 
-static struct ShaderProgram *gfx_dummy_renderer_create_and_load_new_shader(UNUSED uint32_t shader_id) {
+static struct ShaderProgram *gfx_dummy_renderer_create_and_load_new_shader(UNUSED struct ColorCombiner* cc) {
     return NULL;
 }
 
-static struct ShaderProgram *gfx_dummy_renderer_lookup_shader(UNUSED uint32_t shader_id) {
+static struct ShaderProgram *gfx_dummy_renderer_lookup_shader(UNUSED struct ColorCombiner* cc) {
     return NULL;
 }
 
@@ -186,12 +192,17 @@ static void gfx_dummy_renderer_end_frame(void) {
 static void gfx_dummy_renderer_finish_render(void) {
 }
 
+static const char* gfx_dummy_renderer_get_name(void) {
+    return "Headless";
+}
+
 static void gfx_dummy_renderer_shutdown(void) {
 }
 
 struct GfxWindowManagerAPI gfx_dummy_wm_api = {
     gfx_dummy_wm_init,
     gfx_dummy_wm_set_keyboard_callbacks,
+    gfx_dummy_wm_set_scroll_callback,
     gfx_dummy_wm_main_loop,
     gfx_dummy_wm_get_dimensions,
     gfx_dummy_wm_handle_events,
@@ -206,7 +217,10 @@ struct GfxWindowManagerAPI gfx_dummy_wm_api = {
     gfx_dummy_wm_set_clipboard_text,
     gfx_dummy_wm_set_cursor_visible,
     gfx_dummy_wm_delay,
-    gfx_dummy_get_max_msaa,
+    gfx_dummy_wm_get_max_msaa,
+    gfx_dummy_wm_set_window_title,
+    gfx_dummy_wm_reset_window_title,
+    gfx_dummy_wm_has_focus
 };
 
 struct GfxRenderingAPI gfx_dummy_renderer_api = {
@@ -232,6 +246,6 @@ struct GfxRenderingAPI gfx_dummy_renderer_api = {
     gfx_dummy_renderer_start_frame,
     gfx_dummy_renderer_end_frame,
     gfx_dummy_renderer_finish_render,
+    gfx_dummy_renderer_get_name,
     gfx_dummy_renderer_shutdown
 };
-#endif

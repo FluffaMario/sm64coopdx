@@ -543,14 +543,23 @@ enum BehaviorId {
     id_editor_Scroll_Texture,
     id_bhvBlueCoinNumber,
     id_bhvStarNumber,
+    id_bhvAmbientLight,
+    id_bhvPointLight,
 
     id_bhv_max_count // must be the last in the list
 };
 
+/* |description|Gets the behavior ID of the provided `behavior`|descriptionEnd| */
 enum BehaviorId get_id_from_behavior(const BehaviorScript* behavior);
+/* |description|Gets the behavior ID of the provided `behavior` if it's a vanilla behavior, `id_bhv_max_count` otherwise|descriptionEnd| */
 enum BehaviorId get_id_from_vanilla_behavior(const BehaviorScript* behavior);
+/* |description|Gets the behavior script corresponding to the provided `id`|descriptionEnd| */
 const BehaviorScript* get_behavior_from_id(enum BehaviorId id);
+/* |description|Gets the behavior script corresponding to the provided `id` if it's a vanilla behavior, `nil` otherwise|descriptionEnd| */
+const BehaviorScript* get_vanilla_behavior_from_id(enum BehaviorId id);
+/* |description|Gets the behavior name from the provided `id` (bhvMyGreatMODCustom004)|descriptionEnd| */
 const char* get_behavior_name_from_id(enum BehaviorId id);
+/* |description|Gets the behavior ID corresponding to the provided `name`|descriptionEnd| */
 enum BehaviorId get_id_from_behavior_name(const char* name);
 
 #endif

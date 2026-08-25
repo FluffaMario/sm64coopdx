@@ -15,14 +15,35 @@
 #ifdef DISCORD_SDK
 #include "pc/discord/discord.h"
 #endif
+#include "game/mario.h"
+#include "pc/djui/djui_unicode.h"
 
 struct NetworkPlayer gNetworkPlayers[MAX_PLAYERS] = { 0 };
 struct NetworkPlayer *gNetworkPlayerLocal = NULL;
 struct NetworkPlayer *gNetworkPlayerServer = NULL;
 static char sDefaultPlayerName[] = "Player";
+static char sDefaultDiscordId[] = "0";
+
+bool network_player_name_valid(char* buffer) {
+    if (buffer[0] == '\0') { return false; }
+    u16 numEscapeChars = 0;
+    bool isOnlyEscapeChars = true;
+    bool isInEscapedChar = false;
+    char* c = buffer;
+    while (*c != '\0') {
+        if (*c == ' ') { return false; }
+        if (!djui_unicode_valid_char(c)) { return false; }
+        if (*c == '\\') { numEscapeChars++; isInEscapedChar = !isInEscapedChar; }
+        else if (!isInEscapedChar) { isOnlyEscapeChars = false; }
+        c = djui_unicode_next_char(c);
+    }
+    if (isOnlyEscapeChars) { return false; }
+    if (numEscapeChars % 2 != 0) { return false; }
+    return true;
+}
 
 void network_player_init(void) {
-    gNetworkPlayers[0].modelIndex = (configPlayerModel < CT_MAX) ? configPlayerModel : 0;
+    gNetworkPlayers[0].modelIndex = (configPlayerModel < CT_MAX) ? configPlayerModel : CT_MARIO;
     gNetworkPlayers[0].palette = configPlayerPalette;
     gNetworkPlayers[0].overrideModelIndex = gNetworkPlayers[0].modelIndex;
     gNetworkPlayers[0].overridePalette = gNetworkPlayers[0].palette;
@@ -38,7 +59,7 @@ void network_player_update_model(u8 localIndex) {
     if (index >= CT_MAX) { index = 0; }
     m->character = &gCharacters[index];
 
-    if (m->marioObj == NULL) { return; }
+    if (m->marioObj == NULL || m->marioObj->behavior != bhvMario) { return; }
     obj_set_model(m->marioObj, m->character->modelId);
 }
 
@@ -70,6 +91,16 @@ void network_player_set_description(struct NetworkPlayer *np, const char *descri
     np->descriptionG = g;
     np->descriptionB = b;
     np->descriptionA = a;
+}
+
+void network_player_set_override_location(struct NetworkPlayer *np, const char *location) {
+    if (np == NULL) { return; }
+
+    if (location != NULL) {
+        snprintf(np->overrideLocation, 256, "%s", location);
+    } else {
+        np->overrideLocation[0] = '\0';
+    }
 }
 
 struct NetworkPlayer *network_player_from_global_index(u8 globalIndex) {
@@ -127,28 +158,36 @@ struct NetworkPlayer *get_network_player_smallest_global(void) {
     return smallest;
 }
 
-void network_player_color_to_palette(struct NetworkPlayer *np, enum PlayerPart part, Color color) {
-    if (np == NULL || !(part < PLAYER_PART_MAX && part >= 0)) { return; }
+u8 network_player_get_palette_color_channel(struct NetworkPlayer *np, enum PlayerPart part, u8 index) {
+    if (np == NULL || part < 0 || part >= PLAYER_PART_MAX || index > 2) { return 0; }
 
-    np->palette.parts[part][0] = color[0];
-    np->palette.parts[part][1] = color[1];
-    np->palette.parts[part][2] = color[2];
+    return np->palette.parts[part][index];
+}
+
+u8 network_player_get_override_palette_color_channel(struct NetworkPlayer *np, enum PlayerPart part, u8 index) {
+    if (np == NULL || part < 0 || part >= PLAYER_PART_MAX || index > 2) { return 0; }
+
+    return np->overridePalette.parts[part][index];
+}
+
+void network_player_set_override_palette_color(struct NetworkPlayer *np, enum PlayerPart part, Color color) {
+    if (part < 0 || part >= PLAYER_PART_MAX) { return; }
+
+    np->overridePalette.parts[part][0] = color[0];
+    np->overridePalette.parts[part][1] = color[1];
+    np->overridePalette.parts[part][2] = color[2];
+}
+
+void network_player_reset_override_palette(struct NetworkPlayer *np) {
+    if (np == NULL) { return; }
+
     np->overridePalette = np->palette;
 }
 
-void network_player_palette_to_color(struct NetworkPlayer *np, enum PlayerPart part, Color out) {
-    if (np == NULL || !(part < PLAYER_PART_MAX && part >= 0)) {
-        if (np == NULL) { // output config palette instead if np is NULL
-            out[0] = configPlayerPalette.parts[part][0];
-            out[1] = configPlayerPalette.parts[part][1];
-            out[2] = configPlayerPalette.parts[part][2];
-        }
-        return;
-    }
+bool network_player_is_override_palette_same(struct NetworkPlayer *np) {
+    if (np == NULL) { return false; }
 
-    out[0] = np->palette.parts[part][0];
-    out[1] = np->palette.parts[part][1];
-    out[2] = np->palette.parts[part][2];
+    return memcmp(&np->palette, &np->overridePalette, sizeof(struct PlayerPalette)) == 0;
 }
 
 void network_player_update(void) {
@@ -216,7 +255,7 @@ void network_player_update(void) {
 }
 
 extern bool gCurrentlyJoining;
-u8 network_player_connected(enum NetworkPlayerType type, u8 globalIndex, u8 modelIndex, const struct PlayerPalette* palette, const char *name) {
+u8 network_player_connected(enum NetworkPlayerType type, u8 globalIndex, u8 modelIndex, const struct PlayerPalette* palette, const char* name, const char* discordId) {
     // translate globalIndex to localIndex
     u8 localIndex = globalIndex;
     if (gNetworkType == NT_SERVER) {
@@ -232,9 +271,12 @@ u8 network_player_connected(enum NetworkPlayerType type, u8 globalIndex, u8 mode
     }
     struct NetworkPlayer *np = &gNetworkPlayers[localIndex];
 
-    // ensure that a name is given
-    if (name[0] == '\0') {
+    // ensure that a valid name is given
+    if (!network_player_name_valid((char*)name)) {
         name = sDefaultPlayerName;
+    }
+    if (discordId[0] == '\0') {
+        discordId = sDefaultDiscordId;
     }
     if (modelIndex >= CT_MAX) { modelIndex = 0; }
 
@@ -250,7 +292,7 @@ u8 network_player_connected(enum NetworkPlayerType type, u8 globalIndex, u8 mode
         np->palette = *palette;
         network_player_update_model(localIndex);
 
-        snprintf(np->name, MAX_PLAYER_STRING, "%s", name);
+        snprintf(np->name, MAX_CONFIG_STRING, "%s", name);
         return localIndex;
     }
 
@@ -262,7 +304,7 @@ u8 network_player_connected(enum NetworkPlayerType type, u8 globalIndex, u8 mode
     np->type = type;
     np->localIndex = localIndex;
     np->globalIndex = globalIndex;
-    np->ping = configCoopCompatibility ? 600 : 50;
+    np->ping = 50;
     if ((type != NPT_LOCAL) && (gNetworkType == NT_SERVER || type == NPT_SERVER)) { gNetworkSystem->save_id(localIndex, 0); }
     network_player_set_description(np, NULL, 0, 0, 0, 0);
 
@@ -280,12 +322,10 @@ u8 network_player_connected(enum NetworkPlayerType type, u8 globalIndex, u8 mode
     np->overrideModelIndex = modelIndex;
     np->overridePalette = *palette;
 
-    np->paletteIndex           = USE_REAL_PALETTE_VAR;
-    np->overridePaletteIndex   = USE_REAL_PALETTE_VAR;
-    np->overridePaletteIndexLp = USE_REAL_PALETTE_VAR;
-
-    snprintf(np->name, MAX_PLAYER_STRING, "%s", name);
+    snprintf(np->name, MAX_CONFIG_STRING, "%s", name);
     network_player_update_model(localIndex);
+
+    snprintf(np->discordId, 64, "%s", discordId);
 
     // clear networking fields
     np->lastReceived = clock_elapsed();
@@ -316,10 +356,12 @@ u8 network_player_connected(enum NetworkPlayerType type, u8 globalIndex, u8 mode
     }
     LOG_INFO("player connected, local %d, global %d", localIndex, np->globalIndex);
 
-    smlua_call_event_hooks_mario_param(HOOK_ON_PLAYER_CONNECTED, &gMarioStates[localIndex]);
+    smlua_call_event_hooks(HOOK_ON_PLAYER_CONNECTED, &gMarioStates[localIndex]);
 
 #ifdef DISCORD_SDK
-    discord_activity_update();
+    if (gDiscordInitialized) {
+        discord_activity_update();
+    }
 #endif
 
     return localIndex;
@@ -366,13 +408,18 @@ u8 network_player_disconnected(u8 globalIndex) {
 
         packet_ordered_clear(globalIndex);
 
-        smlua_call_event_hooks_mario_param(HOOK_ON_PLAYER_DISCONNECTED, &gMarioStates[i]);
+        smlua_call_event_hooks(HOOK_ON_PLAYER_DISCONNECTED, &gMarioStates[i]);
 
         memset(np, 0, sizeof(struct NetworkPlayer));
 
 #ifdef DISCORD_SDK
-        discord_activity_update();
+        if (gDiscordInitialized) {
+            discord_activity_update();
+        }
 #endif
+
+        // reset mario state
+        init_mario_single_from_save_file(&gMarioStates[i], i);
 
         return i;
     }

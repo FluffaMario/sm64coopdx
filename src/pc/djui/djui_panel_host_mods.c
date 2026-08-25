@@ -10,15 +10,41 @@
 #include "pc/mods/mods_utils.h"
 #include "djui_panel_main.h"
 #include "djui_panel_host.h"
+#include "djui_panel_host_mods.h"
 #include "djui_panel_pause.h"
+#include "pc/thread.h"
 
 #define DJUI_MOD_PANEL_WIDTH (410.0f + (16 * 2.0f))
+#define MOD_CATEGORY_ALL 0
+#define MOD_CATEGORY_MISC 1
+#define MOD_CATEGORY_START 2
 
 static struct DjuiFlowLayout* sModLayout = NULL;
 static struct DjuiThreePanel* sDescriptionPanel = NULL;
 static struct DjuiText* sTooltip = NULL;
-static s64 sTag = 0;
+static struct DjuiPaginated* sModPaginated = NULL;
+static struct DjuiButton* sBackButton = NULL;
+static struct DjuiButton* sRefreshButton = NULL;
+static struct DjuiInputbox* sSearchInputbox = NULL;
+static unsigned int sSelectedCategory = MOD_CATEGORY_ALL;
 static bool sWarned = false;
+
+struct ThreadHandle gModRefreshThread = { 0 };
+
+struct ModCategory sCategories[] = {
+    // lang key, mod category
+    { "ALL", NULL },
+    { "MISC", NULL },
+    { "ROMHACKS", "romhack" },
+    { "GAMEMODES", "gamemode" },
+    { "MOVESETS", "moveset" },
+    { "GRAPHICS", "graphics" },
+    { "QOL", "qol" },
+    { "UTILITY", "utility" },
+    { "AUDIO", "audio" },
+    { "CHARACTERS", "character" }
+};
+static const int numCategories = sizeof(sCategories) / sizeof(sCategories[0]);
 
 void djui_panel_host_mods_create(struct DjuiBase* caller);
 
@@ -74,7 +100,7 @@ static void djui_mod_checkbox_on_hover_end(UNUSED struct DjuiBase* base) {
 static void djui_mod_checkbox_on_value_change(UNUSED struct DjuiBase* base) {
     mods_update_selectable();
 
-    if (mods_get_enabled_count() - mods_get_character_select_count() >= 10) {
+    if (mods_get_enabled_count() >= 10) {
         if (!sWarned) {
             sWarned = true;
             djui_popup_create(DLANG(HOST_MODS, WARNING), 3);
@@ -97,16 +123,6 @@ static void djui_mod_checkbox_on_value_change(UNUSED struct DjuiBase* base) {
     }
 }
 
-static void djui_panel_menu_refresh(UNUSED struct DjuiBase* base) {
-    mods_refresh_local();
-
-    djui_panel_shutdown();
-    gDjuiInMainMenu = true;
-    djui_panel_main_create(NULL);
-    djui_panel_host_create(NULL);
-    djui_panel_host_mods_create(NULL);
-}
-
 static void djui_panel_host_mods_destroy(struct DjuiBase* base) {
     struct DjuiThreePanel* threePanel = (struct DjuiThreePanel*)base;
     free(threePanel);
@@ -115,53 +131,151 @@ static void djui_panel_host_mods_destroy(struct DjuiBase* base) {
         djui_base_destroy(&sDescriptionPanel->base);
         sDescriptionPanel = NULL;
     }
+    sModLayout = NULL;
+    sTooltip = NULL;
+}
+
+void djui_panel_host_mods_add_mods(struct DjuiBase* layoutBase) {
+    bool foundAny = false;
+    for (int i = 0; i < gLocalMods.entryCount; i++) {
+        struct Mod* mod = gLocalMods.entries[i];
+        char* category = mod->category != NULL ? mod->category : mod->incompatible;
+        if (category != NULL) {
+            category = !strcmp(category, "cs") ? "character" : category;
+        }
+
+        switch (sSelectedCategory) {
+            case MOD_CATEGORY_ALL: { break; }
+            case MOD_CATEGORY_MISC: {
+                bool doContinue = false;
+                if (category) {
+                    for (int i = MOD_CATEGORY_START; i < numCategories; i++) {
+                        if (strstr(category, sCategories[i].category)) {
+                            doContinue = true;
+                            break;
+                        }
+                    }
+                }
+                if (doContinue) { continue; }
+                break;
+            }
+            default: {
+                if (!category || !strstr(category, sCategories[sSelectedCategory].category)) {
+                    continue;
+                }
+                break;
+            }
+        }
+        // filter results
+        if (sSearchInputbox != NULL &&
+            sSearchInputbox->buffer != NULL &&
+            !strstr_lowercased(djui_text_get_uncolored_string(NULL, strlen(mod->name) + 1, mod->name), sSearchInputbox->buffer)
+        ) {
+            continue;
+        }
+        struct DjuiCheckbox* checkbox = djui_checkbox_create(layoutBase, mod->name, &mod->enabled, djui_mod_checkbox_on_value_change);
+        checkbox->base.tag = i;
+        djui_base_set_enabled(&checkbox->base, mod->selectable);
+        djui_interactable_hook_hover(&checkbox->base, djui_mod_checkbox_on_hover, djui_mod_checkbox_on_hover_end);
+        foundAny = true;
+    }
+    if (!foundAny) {
+        struct DjuiText* text = djui_text_create(layoutBase, DLANG(HOST_MODS, NO_MODS_FOUND));
+        djui_base_set_size_type(&text->base, DJUI_SVT_RELATIVE, DJUI_SVT_RELATIVE);
+        djui_base_set_size(&text->base, 1, 1);
+        djui_text_set_alignment(text, DJUI_HALIGN_CENTER, DJUI_VALIGN_CENTER);
+        djui_text_set_drop_shadow(text, 64, 64, 64, 100);
+    }
+}
+
+static void djui_panel_rebuild_mods_list(UNUSED struct DjuiBase* caller) {
+    if (gModRefreshThread.state == RUNNING) { return; }
+    djui_base_destroy_children(&sModLayout->base);
+    djui_panel_host_mods_add_mods(&sModLayout->base);
+    djui_paginated_calculate_height(sModPaginated);
+}
+
+static void* threaded_mod_refresh(UNUSED void* unused) {
+    mods_refresh_local();
+
+    if (gModRefreshThread.state == RUNNING) { join_thread(&gModRefreshThread); }
+
+    mods_update_selectable();
+    djui_panel_host_mods_add_mods(&sModLayout->base);
+    djui_paginated_calculate_height(sModPaginated);
+
+    djui_text_set_text(sRefreshButton->text, DLANG(LOBBIES, REFRESH));
+    djui_base_set_enabled(&sRefreshButton->base, true);
+    djui_base_set_enabled(&sBackButton->base, true);
+    gDjuiPanelDisableBack = false;
+
+    return NULL;
+}
+
+static void djui_panel_menu_refresh(UNUSED struct DjuiBase* base) {
+    djui_base_destroy_children(&sModLayout->base);
+    if (init_thread_handle(&gModRefreshThread, threaded_mod_refresh, NULL, NULL, 0) == 0) {
+        djui_text_set_text(sRefreshButton->text, DLANG(LOBBIES, REFRESHING));
+        djui_base_set_enabled(&sRefreshButton->base, false);
+        djui_base_set_enabled(&sBackButton->base, false);
+        gDjuiPanelDisableBack = true;
+    } else {
+        threaded_mod_refresh(NULL);
+    }
+}
+
+static void djui_mod_website_open(UNUSED struct DjuiBase* caller) {
+    open_url("https://mods.sm64coopdx.com/mods/");
+}
+
+static void djui_mod_folder_open(UNUSED struct DjuiBase* caller) {
+    open_folder(fs_get_write_path("/mods"));
 }
 
 void djui_panel_host_mods_create(struct DjuiBase* caller) {
-    if (caller != NULL) {
-        sTag = caller->tag;
-    }
-    bool isRomHacks = sTag;
 
     mods_update_selectable();
     djui_panel_host_mods_description_create();
 
-    struct DjuiThreePanel* panel = djui_panel_menu_create(isRomHacks
-        ? DLANG(HOST_MODS, ROMHACKS)
-        : DLANG(HOST_MODS, MODS)
-    );
+    struct DjuiThreePanel* panel = djui_panel_menu_create(DLANG(HOST_MODS, MODS), true);
 
     struct DjuiBase* body = djui_three_panel_get_body(panel);
     {
-        struct DjuiPaginated* paginated = djui_paginated_create(body, 8);
-        sModLayout = paginated->layout;
-        struct DjuiBase* layoutBase = &paginated->layout->base;
-        for (int i = 0; i < gLocalMods.entryCount; i++) {
-            struct Mod* mod = gLocalMods.entries[i];
-            if (mod_get_is_autoexec(mod)) {
-                continue;
-            }
-            if (isRomHacks != (mod->incompatible && strstr(mod->incompatible, "romhack"))) {
-                continue;
-            }
-            struct DjuiCheckbox* checkbox = djui_checkbox_create(layoutBase, mod->name, &mod->enabled, djui_mod_checkbox_on_value_change);
-            checkbox->base.tag = i;
-            djui_base_set_enabled(&checkbox->base, mod->selectable);
-            djui_interactable_hook_hover(&checkbox->base, djui_mod_checkbox_on_hover, djui_mod_checkbox_on_hover_end);
+        struct DjuiSearchbox* searchbox = djui_searchbox_create(body, djui_panel_rebuild_mods_list);
+        sSearchInputbox = searchbox->inputbox;
+
+        char* categoryChoices[sizeof(sCategories)];
+        for (int i = 0; i < numCategories; i++) {
+            categoryChoices[i] = djui_language_get("HOST_MOD_CATEGORIES", sCategories[i].langKey);
         }
+        djui_selectionbox_create(body, DLANG(HOST_MODS, CATEGORIES), categoryChoices, numCategories, &sSelectedCategory, djui_panel_rebuild_mods_list);
+
+        struct DjuiPaginated* paginated = djui_paginated_create(body, 8);
+        paginated->showMaxCount = true;
+        sModLayout = paginated->layout;
+        djui_panel_host_mods_add_mods(&paginated->layout->base);
         djui_paginated_calculate_height(paginated);
+        sModPaginated = paginated;
 
         if (gNetworkType == NT_NONE) {
-            struct DjuiRect* rect1 = djui_rect_container_create(body, 64);
+            struct DjuiRect* rect1 = djui_rect_container_create(body, 45);
+            struct DjuiRect* rect2 = djui_rect_container_create(body, 45);
             {
-                djui_button_left_create(&rect1->base, DLANG(MENU, BACK), DJUI_BUTTON_STYLE_BACK, djui_panel_menu_back);
-                djui_button_right_create(&rect1->base, DLANG(LOBBIES, REFRESH), DJUI_BUTTON_STYLE_NORMAL, djui_panel_menu_refresh);
+                sBackButton = djui_button_left_create(&rect1->base, DLANG(MENU, BACK), DJUI_BUTTON_STYLE_BACK, djui_panel_menu_back);
+                sRefreshButton = djui_button_right_create(&rect1->base, DLANG(LOBBIES, REFRESH), DJUI_BUTTON_STYLE_NORMAL, djui_panel_menu_refresh);
+                djui_base_set_size(&sBackButton->base, 0.485f, 45);
+                djui_base_set_size(&sRefreshButton->base, 0.485f, 45);
+
+                struct DjuiButton* button1 = djui_button_left_create(&rect2->base, DLANG(HOST_MODS, BROWSE_MODS), DJUI_BUTTON_STYLE_NORMAL, djui_mod_website_open);
+                struct DjuiButton* button2 = djui_button_right_create(&rect2->base, DLANG(HOST_MODS, OPEN_MOD_FOLDER), DJUI_BUTTON_STYLE_NORMAL, djui_mod_folder_open);
+                djui_base_set_size(&button1->base, 0.485f, 45);
+                djui_base_set_size(&button2->base, 0.485f, 45);
             }
         } else {
             djui_button_create(body, DLANG(MENU, BACK), DJUI_BUTTON_STYLE_BACK, djui_panel_menu_back);
         }
 
-        panel->bodySize.value = paginated->base.height.value + 16 + 64;
+        djui_three_panel_recalculate_body_size(panel);
     }
 
     panel->base.destroy = djui_panel_host_mods_destroy;

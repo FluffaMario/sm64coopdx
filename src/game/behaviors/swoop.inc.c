@@ -8,15 +8,15 @@
  * Hitbox for swoop.
  */
 static struct ObjectHitbox sSwoopHitbox = {
-    /* interactType:      */ INTERACT_HIT_FROM_BELOW,
-    /* downOffset:        */ 0,
-    /* damageOrCoinValue: */ 1,
-    /* health:            */ 0,
-    /* numLootCoins:      */ 1,
-    /* radius:            */ 100,
-    /* height:            */ 80,
-    /* hurtboxRadius:     */ 70,
-    /* hurtboxHeight:     */ 70,
+    .interactType = INTERACT_HIT_FROM_BELOW,
+    .downOffset = 0,
+    .damageOrCoinValue = 1,
+    .health = 0,
+    .numLootCoins = 1,
+    .radius = 100,
+    .height = 80,
+    .hurtboxRadius = 70,
+    .hurtboxHeight = 70,
 };
 
 /**
@@ -107,12 +107,12 @@ static void swoop_act_move(void) {
 void bhv_swoop_update(void) {
     if (!sync_object_is_initialized(o->oSyncID)) {
         sync_object_init(o, 4000.0f);
-        sync_object_init_field(o, &o->oFaceAngleRoll);
-        sync_object_init_field(o, &o->header.gfx.scale[0]);
-        sync_object_init_field(o, &o->oSwoopBonkCountdown);
-        sync_object_init_field(o, &o->oSwoopTargetPitch);
-        sync_object_init_field(o, &o->oSwoopTargetYaw);
-        sync_object_init_field(o, &o->oDeathSound);
+        sync_object_init_field(o, o->oFaceAngleRoll);
+        sync_object_init_field(o, o->header.gfx.scale[0]);
+        sync_object_init_field(o, o->oSwoopBonkCountdown);
+        sync_object_init_field(o, o->oSwoopTargetPitch);
+        sync_object_init_field(o, o->oSwoopTargetYaw);
+        sync_object_init_field(o, o->oDeathSound);
     }
 
     // No partial update (only appears in roomed levels)

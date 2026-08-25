@@ -4,9 +4,8 @@
 
 #define PAD_BUTTON_A     ((u16)(1 << 15))
 #define PAD_BUTTON_B     ((u16)(1 << 14))
+#define PAD_BUTTON_Z     ((u16)(1 << 13))
 #define PAD_BUTTON_START ((u16)(1 << 12))
-
-#define MOUSE_BUTTON_1  ((u16)(1 << 0))
 
 #define SCANCODE_UP        328
 #define SCANCODE_DOWN      336
@@ -41,6 +40,8 @@ struct DjuiInteractable {
     bool (*on_key_down)(struct DjuiBase*, int scancode);
     void (*on_key_up)(struct DjuiBase*, int scancode);
     void (*on_text_input)(struct DjuiBase*, char* text);
+    void (*on_text_editing)(struct DjuiBase*, char* text, int cursorPos);
+    void (*on_scroll)(struct DjuiBase*, float x, float y);
     void (*on_enabled_change)(struct DjuiBase*);
 };
 
@@ -61,6 +62,8 @@ bool djui_interactable_is_input_focus(struct DjuiBase* base);
 bool djui_interactable_on_key_down(int scancode);
 void djui_interactable_on_key_up(int scancode);
 void djui_interactable_on_text_input(char *text);
+void djui_interactable_on_text_editing(char* text, int cursorPos);
+void djui_interactable_on_scroll(float x, float y);
 
 void djui_interactable_update(void);
 
@@ -88,11 +91,17 @@ void djui_interactable_hook_bind(struct DjuiBase* base,
                                  void (*on_bind)(struct DjuiBase*));
 
 void djui_interactable_hook_key(struct DjuiBase* base,
-                                 bool (*on_key_down)(struct DjuiBase*, int),
-                                 void (*on_key_up)(struct DjuiBase*, int));
+                                bool (*on_key_down)(struct DjuiBase*, int),
+                                void (*on_key_up)(struct DjuiBase*, int));
 
 void djui_interactable_hook_text_input(struct DjuiBase* base,
                                        void (*on_text_input)(struct DjuiBase*, char*));
+
+void djui_interactable_hook_text_editing(struct DjuiBase* base,
+                                         void (*on_text_editing)(struct DjuiBase*, char*, int));
+
+void djui_interactable_hook_scroll(struct DjuiBase* base,
+                                   void (*on_scroll)(struct DjuiBase*, float, float));
 
 void djui_interactable_hook_enabled_change(struct DjuiBase *base,
                                            void (*on_enabled_change)(struct DjuiBase*));

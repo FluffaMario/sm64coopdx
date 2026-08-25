@@ -69,12 +69,12 @@ void bhv_mips_init(void) {
 
     struct SyncObject* so = sync_object_init(o, 4000.0f);
     if (so) {
-        sync_object_init_field(o, &o->oMipsStartWaypointIndex);
-        sync_object_init_field(o, &o->oForwardVel);
-        sync_object_init_field(o, &o->oMipsStarStatus);
-        sync_object_init_field(o, &o->oBehParams2ndByte);
-        sync_object_init_field(o, &o->oHeldState);
-        sync_object_init_field(o, &o->oFlags);
+        sync_object_init_field(o, o->oMipsStartWaypointIndex);
+        sync_object_init_field(o, o->oForwardVel);
+        sync_object_init_field(o, o->oMipsStarStatus);
+        sync_object_init_field(o, o->oBehParams2ndByte);
+        sync_object_init_field(o, o->oHeldState);
+        sync_object_init_field(o, o->oFlags);
         so->on_received_pre = bhv_mips_on_received_pre;
         so->on_received_post = bhv_mips_on_received_post;
     }
@@ -265,7 +265,7 @@ static u8 bhv_mips_held_continue_dialog(void) {
  * Handles MIPS being held by Mario.
  */
 void bhv_mips_held(void) {
-    s16 dialogID;
+    s32 dialogID;
 
     if (o->heldByPlayerIndex >= MAX_PLAYERS) { return; }
     struct Object* player = gMarioStates[o->heldByPlayerIndex].marioObj;

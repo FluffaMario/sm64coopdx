@@ -268,7 +268,7 @@ struct Drum *get_drum(s32 bankId, s32 drumId) {
         gAudioErrorFlags = ((bankId << 8) + drumId) + 0x4000000;
         return NULL;
     }
-    
+
     drum = gCtlEntries[bankId].drums[drumId];
     if (drum == NULL) {
         stubbed_printf("Audio: voiceman: Percpointer NULL %d,%d\n", bankId, drumId);
@@ -1370,9 +1370,12 @@ void reclaim_notes(void) {
     s32 i;
     s32 cond;
 
+    MUTEX_LOCK(gAudioThread);
+
     for (i = 0; i < gMaxSimultaneousNotes; i++) {
         note = &gNotes[i];
-        if (note->parentLayer != NO_LAYER) {
+        if (note == NULL) { continue; }
+        if (note->parentLayer != NULL && note->parentLayer != NO_LAYER) {
             cond = FALSE;
             if (!note->parentLayer->enabled && note->priority >= NOTE_PRIORITY_MIN) {
                 cond = TRUE;
@@ -1400,6 +1403,8 @@ void reclaim_notes(void) {
             }
         }
     }
+
+    MUTEX_UNLOCK(gAudioThread);
 }
 #endif
 

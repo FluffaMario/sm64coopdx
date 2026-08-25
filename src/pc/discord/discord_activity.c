@@ -51,7 +51,7 @@ static void on_activity_join(UNUSED void* data, const char* secret) {
 #endif
 }
 
-static void on_activity_join_request_callback(UNUSED void* data, enum EDiscordResult result) {
+UNUSED static void on_activity_join_request_callback(UNUSED void* data, enum EDiscordResult result) {
     LOG_INFO("> on_activity_join_request_callback returned %d", (int)result);
     DISCORD_REQUIRE(result);
 }
@@ -60,7 +60,7 @@ static void on_activity_join_request(UNUSED void* data, struct DiscordUser* user
     LOG_INFO("> on_activity_join_request from " DISCORD_ID_FORMAT, user->id);
 }
 
-static void strncat_len(char* destination, char* source, size_t destinationLength, size_t sourceLength) {
+UNUSED static void strncat_len(char* destination, char* source, size_t destinationLength, size_t sourceLength) {
     char altered[128] = { 0 };
     snprintf(altered, (sourceLength < 127) ? sourceLength : 127, "%s", source);
     strncat(destination, altered, destinationLength);
@@ -75,13 +75,10 @@ static void discord_populate_details(char* buffer, int bufferLength) {
     bufferLength -= versionLength;
 
     // get mod strings
-    u8 autoexecMod = mods_has_autoexec_mod();
-    if (gActiveMods.entryCount - autoexecMod <= 0) { return; }
-    char* strings[gActiveMods.entryCount - autoexecMod];
+    if (gActiveMods.entryCount <= 0) { return; }
+    char* strings[gActiveMods.entryCount];
     for (int i = 0; i < gActiveMods.entryCount; i++) {
-        struct Mod* mod = gActiveMods.entries[i];
-        if (mod_get_is_autoexec(mod)) { continue; }
-        strings[i] = mod->name;
+        strings[i] = gActiveMods.entries[i]->name;
     }
 
     // add seperator
@@ -90,16 +87,16 @@ static void discord_populate_details(char* buffer, int bufferLength) {
     bufferLength -= 3;
 
     // concat mod strings
-    str_seperator_concat(buffer, bufferLength, strings, gActiveMods.entryCount - autoexecMod, ", ");
+    str_seperator_concat(buffer, bufferLength, strings, gActiveMods.entryCount, ", ");
 }
 
 void discord_activity_update(void) {
     sCurActivity.type = DiscordActivityType_Playing;
 
-    strncpy(sCurActivity.assets.large_image, "characters", 128);
-    strncpy(sCurActivity.assets.large_text, "sm64coopdx Characters", 128);
-    strncpy(sCurActivity.assets.small_image, "icon", 128);
-    strncpy(sCurActivity.assets.small_text, "sm64coopdx Icon", 128);
+    snprintf(sCurActivity.assets.large_image, 128, "characters");
+    snprintf(sCurActivity.assets.large_text, 128, "sm64coopdx Characters");
+    snprintf(sCurActivity.assets.small_image, 128, "icon");
+    snprintf(sCurActivity.assets.small_text, 128, "sm64coopdx Icon");
 
     if (gNetworkType != NT_NONE && gNetworkSystem) {
         gNetworkSystem->get_lobby_id(sCurActivity.party.id, 128);
@@ -113,7 +110,7 @@ void discord_activity_update(void) {
         sCurActivity.party.size.max_size = 1;
     }
 
-    if (sCurActivity.party.size.current_size > 1) {
+    if ((sCurActivity.party.size.current_size > 1 || configAmountOfPlayers == 1) && !gDjuiInMainMenu) {
         strcpy(sCurActivity.state, "Playing!");
     } else if (gNetworkType == NT_SERVER) {
         strcpy(sCurActivity.state, "Waiting for players...");
@@ -123,12 +120,11 @@ void discord_activity_update(void) {
         if (sCurActivity.party.size.max_size < 1) { sCurActivity.party.size.max_size = 1; }
     }
 
-    char details[128] = { 0 };
-    discord_populate_details(details, 128);
-
-    if (snprintf(sCurActivity.details, 128, "%s", details) < 0) {
-        LOG_INFO("truncating details");
-    }
+    // HACK: give the detail population more space than the Discord details can fit so it gets truncated without cutting off the largest strings
+    char details[512] = { 0 };
+    discord_populate_details(details, ARRAY_COUNT(details));
+    djui_text_remove_colors(details);
+    snprintf(sCurActivity.details, 128, "%s", details);
 
     if (!app.activities) {
         LOG_INFO("no activities");

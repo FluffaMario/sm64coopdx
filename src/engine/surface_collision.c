@@ -12,14 +12,21 @@
 #include "game/hardcoded.h"
 #include "pc/utils/misc.h"
 #include "pc/network/network.h"
+#include "pc/lua/smlua_hooks.h"
 
 Vec3f gFindWallDirection = { 0 };
 u8 gFindWallDirectionActive = false;
 u8 gFindWallDirectionAirborne = false;
 
-#define CLAMP(_val, _min, _max) MAX(MIN((_val), _max), _min)
+void set_find_wall_direction(Vec3f dir, bool active, bool airborne) {
+    if (active) {
+        vec3f_copy(gFindWallDirection, dir);
+    }
+    gFindWallDirectionActive = active;
+    gFindWallDirectionAirborne = airborne;
+}
 
-static void closest_point_to_triangle(struct Surface* surf, Vec3f src, Vec3f out) {
+void closest_point_to_triangle(struct Surface* surf, Vec3f src, VEC_OUT Vec3f out) {
     Vec3f v1; vec3s_to_vec3f(v1, surf->vertex1);
     Vec3f v2; vec3s_to_vec3f(v2, surf->vertex2);
     Vec3f v3; vec3s_to_vec3f(v3, surf->vertex3);
@@ -42,18 +49,18 @@ static void closest_point_to_triangle(struct Surface* surf, Vec3f src, Vec3f out
         if (s < 0) {
             if (t < 0) {
                 if (d < 0) {
-                    s = CLAMP(-d/a, 0, 1);
+                    s = clamp(-d/a, 0, 1);
                     t = 0;
                 } else {
                     s = 0;
-                    t = CLAMP(-e/c, 0, 1);
+                    t = clamp(-e/c, 0, 1);
                 }
             } else {
                 s = 0;
-                t = CLAMP(-e/c, 0, 1);
+                t = clamp(-e/c, 0, 1);
             }
         } else if (t < 0) {
-            s = CLAMP(-d/a, 0, 1);
+            s = clamp(-d/a, 0, 1);
             t = 0;
         } else {
             f32 invDet = 1 / det;
@@ -67,26 +74,26 @@ static void closest_point_to_triangle(struct Surface* surf, Vec3f src, Vec3f out
             if (tmp1 > tmp0) {
                 f32 numer = tmp1 - tmp0;
                 f32 denom = a-2*b+c;
-                s = CLAMP(numer/denom, 0, 1);
+                s = clamp(numer/denom, 0, 1);
                 t = (1 - s);
             } else {
-                t = CLAMP(-e/c, 0, 1);
+                t = clamp(-e/c, 0, 1);
                 s = 0;
             }
         } else if (t < 0.f) {
             if ((a + d) > (b + e)) {
                 f32 numer = c+e-b-d;
                 f32 denom = a-2*b+c;
-                s = CLAMP(numer/denom, 0, 1);
+                s = clamp(numer/denom, 0, 1);
                 t = (1 - s);
             } else {
-                s = CLAMP(-e/c, 0, 1);
+                s = clamp(-e/c, 0, 1);
                 t = 0;
             }
         } else {
             f32 numer = c+e-b-d;
             f32 denom = a-2*b+c;
-            s = CLAMP(numer/denom, 0, 1);
+            s = clamp(numer/denom, 0, 1);
             t = 1 - s;
         }
     }
@@ -120,9 +127,9 @@ static s32 find_wall_collisions_from_list(struct SurfaceNode *surfaceNode,
     Vec3f cPos = { 0 };
     Vec3f cNorm = { 0 };
 
-    // Max collision radius = 200
-    if (radius > 200.0f) {
-        radius = 200.0f;
+    // Default max collision radius = 200
+    if (radius > gLevelValues.wallMaxRadius) {
+        radius = gLevelValues.wallMaxRadius;
     }
 
     // Stay in this loop until out of walls.
@@ -131,9 +138,8 @@ static s32 find_wall_collisions_from_list(struct SurfaceNode *surfaceNode,
         surfaceNode = surfaceNode->next;
 
         // Exclude a large number of walls immediately to optimize.
-        if (y < surf->lowerY || y > surf->upperY) {
-            continue;
-        }
+        if (y < surf->lowerY || y > surf->upperY) { continue; }
+        if (surf->flags & SURFACE_FLAG_INTANGIBLE) { continue; }
 
         if (gLevelValues.fixCollisionBugs && gLevelValues.fixCollisionBugsRoundedCorners && !gFindWallDirectionAirborne) {
             // Check AABB to exclude walls before doing expensive triangle check
@@ -338,6 +344,9 @@ s32 find_wall_collisions(struct WallCollisionData *colData) {
     s32 numCollisions = 0;
     s16 x = colData->x;
     s16 z = colData->z;
+    f32 posX = colData->x;
+    f32 posY = colData->y;
+    f32 posZ = colData->z;
 
     colData->numWalls = 0;
 
@@ -366,6 +375,8 @@ s32 find_wall_collisions(struct WallCollisionData *colData) {
     // Increment the debug tracker.
     gNumCalls.wall += 1;
 
+    smlua_call_event_hooks(HOOK_ON_FIND_WALL_COLLISION, posX, posY, posZ, colData, &numCollisions);
+
     return numCollisions;
 }
 
@@ -392,6 +403,8 @@ static struct Surface *find_ceil_from_list(struct SurfaceNode *surfaceNode, s32 
     while (surfaceNode != NULL) {
         surf = surfaceNode->surface;
         surfaceNode = surfaceNode->next;
+
+        if (surf->flags & SURFACE_FLAG_INTANGIBLE) { continue; }
 
         x1 = surf->vertex1[0];
         z1 = surf->vertex1[2];
@@ -490,7 +503,7 @@ static struct Surface *find_ceil_from_list(struct SurfaceNode *surfaceNode, s32 
 /**
  * Find the lowest ceiling above a given position and return the height.
  */
-f32 find_ceil(f32 posX, f32 posY, f32 posZ, struct Surface **pceil) {
+f32 find_ceil(f32 posX, f32 posY, f32 posZ, RET struct Surface **pceil) {
     s16 cellZ, cellX;
     struct Surface *ceil, *dynamicCeil;
     struct SurfaceNode *surfaceList;
@@ -537,6 +550,8 @@ f32 find_ceil(f32 posX, f32 posY, f32 posZ, struct Surface **pceil) {
     // Increment the debug tracker.
     gNumCalls.ceil += 1;
 
+    smlua_call_event_hooks(HOOK_ON_FIND_CEIL, posX, posY, posZ, pceil, &height);
+
     return height;
 }
 
@@ -565,8 +580,6 @@ f32 unused_obj_find_floor_height(struct Object *obj) {
  * Basically a local variable that passes through floor geo info.
  */
 struct FloorGeometry sFloorGeo;
-
-static u8 unused8038BE50[0x40];
 
 /**
  * Return the floor height underneath (xPos, yPos, zPos) and populate `floorGeo`
@@ -617,6 +630,7 @@ static struct Surface *find_floor_from_list(struct SurfaceNode *surfaceNode, s32
         surfaceNode = surfaceNode->next;
         interpolate = gInterpolatingSurfaces;
 
+        if (surf->flags & SURFACE_FLAG_INTANGIBLE) { continue; }
         if (gCheckingSurfaceCollisionsForObject != NULL) {
             if (surf->object != gCheckingSurfaceCollisionsForObject) {
                 continue;
@@ -631,7 +645,6 @@ static struct Surface *find_floor_from_list(struct SurfaceNode *surfaceNode, s32
             f32 diff = (surf->prevVertex1[0] - x1) * (surf->prevVertex1[0] - x1);
             diff += (surf->prevVertex1[1] - surf->vertex1[1]) * (surf->prevVertex1[1] - surf->vertex1[1]);
             diff += (surf->prevVertex1[2] - z1) * (surf->prevVertex1[2] - z1);
-            //printf("%f\n", sqrtf(diff));
             if (diff > 10000) {
                 interpolate = FALSE;
             } else {
@@ -804,7 +817,7 @@ f32 unused_find_dynamic_floor(f32 xPos, f32 yPos, f32 zPos, struct Surface **pfl
 /**
  * Find the highest floor under a given position and return the height.
  */
-f32 find_floor(f32 xPos, f32 yPos, f32 zPos, struct Surface **pfloor) {
+f32 find_floor(f32 xPos, f32 yPos, f32 zPos, RET struct Surface **pfloor) {
     s16 cellZ, cellX;
 
     struct Surface *floor, *dynamicFloor;
@@ -874,6 +887,8 @@ f32 find_floor(f32 xPos, f32 yPos, f32 zPos, struct Surface **pfloor) {
     // Increment the debug tracker.
     gNumCalls.floor += 1;
 
+    smlua_call_event_hooks(HOOK_ON_FIND_FLOOR, xPos, yPos, zPos, pfloor, &height);
+
     return height;
 }
 
@@ -913,6 +928,8 @@ f32 find_water_level(f32 x, f32 z) {
             p++;
         }
     }
+
+    smlua_call_event_hooks(HOOK_ON_FIND_WATER_LEVEL, x, z, &waterLevel);
 
     return waterLevel;
 }
@@ -954,6 +971,8 @@ f32 find_poison_gas_level(f32 x, f32 z) {
             p += 6;
         }
     }
+
+    smlua_call_event_hooks(HOOK_ON_FIND_POISON_GAS_LEVEL, x, z, &gasLevel);
 
     return gasLevel;
 }
@@ -1190,8 +1209,7 @@ void find_surface_on_ray_cell(s16 cellX, s16 cellZ, Vec3f orig, Vec3f normalized
     }
 }
 
-void find_surface_on_ray(Vec3f orig, Vec3f dir, struct Surface **hit_surface, Vec3f hit_pos)
-{
+void find_surface_on_ray(Vec3f orig, Vec3f dir, struct Surface **hit_surface, Vec3f hit_pos, f32 precision) {
     f32 max_length;
     s16 cellZ, cellX;
     f32 fCellZ, fCellX;
@@ -1220,11 +1238,9 @@ void find_surface_on_ray(Vec3f orig, Vec3f dir, struct Surface **hit_surface, Ve
     if (normalized_dir[1] >= 1.0f || normalized_dir[1] <= -1.0f)
     {
         find_surface_on_ray_cell(cellX, cellZ, orig, normalized_dir, dir_length, hit_surface, hit_pos, &max_length);
+        smlua_call_event_hooks(HOOK_ON_FIND_SURFACE_ON_RAY, orig, dir, hit_surface, hit_pos);
         return;
     }
-
-    // increase collision checking precision (normally 1)
-    f32 precision = 3;
 
     // Get cells we cross using DDA
     if (absx(dir[0]) >= absx(dir[2]))
@@ -1245,4 +1261,6 @@ void find_surface_on_ray(Vec3f orig, Vec3f dir, struct Surface **hit_surface, Ve
         cellX = (s16)fCellX;
         cellZ = (s16)fCellZ;
     }
+
+    smlua_call_event_hooks(HOOK_ON_FIND_SURFACE_ON_RAY, orig, dir, hit_surface, hit_pos);
 }

@@ -19,11 +19,13 @@
 #include "obj_behaviors.h"
 #include "platform_displacement.h"
 #include "profiler.h"
+#include "rendering_graph_node.h"
 #include "spawn_object.h"
 #include "first_person_cam.h"
 #include "engine/math_util.h"
 #include "pc/network/network.h"
 #include "pc/lua/smlua.h"
+#include "pc/djui/djui_hud_utils.h"
 
 /**
  * Flags controlling what debug info is displayed.
@@ -121,27 +123,6 @@ const BehaviorScript *gCurBhvCommand;
  */
 s16 gPrevFrameObjectCount;
 
-/**
- * The total number of surface nodes allocated (a node is allocated for each
- * spatial partition cell that a surface intersects).
- */
-s32 gSurfaceNodesAllocated;
-
-/**
- * The total number of surfaces allocated.
- */
-s32 gSurfacesAllocated;
-
-/**
- * The number of nodes that have been created for surfaces.
- */
-s32 gNumStaticSurfaceNodes;
-
-/**
- * The number of surfaces in the pool.
- */
-s32 gNumStaticSurfaces;
-
 struct Object* gCheckingSurfaceCollisionsForObject = NULL;
 s16 gCheckingSurfaceCollisionsForCamera;
 s16 gFindFloorIncludeSurfaceIntangible;
@@ -180,6 +161,7 @@ s8 sObjectListUpdateOrder[] = { OBJ_LIST_SPAWNER,
                                 OBJ_LIST_LEVEL,
                                 OBJ_LIST_DEFAULT,
                                 OBJ_LIST_UNIMPORTANT,
+                                OBJ_LIST_EXT,
                                 -1 };
 
 /**
@@ -276,57 +258,33 @@ void bhv_mario_update(void) {
 
     // sanity check torsoPos, it isn't updated off-screen otherwise
     extern u32 gGlobalTimer;
-    if (gMarioState->marioBodyState && gMarioState->marioBodyState->updateTorsoTime != (gGlobalTimer - 1)) {
+    if (gMarioState->marioBodyState && !gMarioState->marioBodyState->mirrorMario && gMarioState->marioBodyState->updateTorsoTime != (gGlobalTimer - 1)) {
         vec3f_copy(gMarioState->marioBodyState->torsoPos, gMarioState->pos);
     }
 
     if ((stateIndex == 0) || (!is_player_active(gMarioState))) {
         gMarioState->particleFlags = 0;
     }
-    
-    smlua_call_event_hooks_mario_param(HOOK_BEFORE_MARIO_UPDATE, gMarioState);
 
-    u32 particleFlags = 0;
-    s32 i;
+    gMarioState->visibleToObjects = true;
 
-    particleFlags = execute_mario_action(gCurrentObject);
-    smlua_call_event_hooks_mario_param(HOOK_MARIO_UPDATE, gMarioState);
+    smlua_call_event_hooks(HOOK_BEFORE_MARIO_UPDATE, gMarioState);
+
+    u32 particleFlags = execute_mario_action(gCurrentObject);
+    smlua_call_event_hooks(HOOK_MARIO_UPDATE, gMarioState);
     particleFlags |= gMarioState->particleFlags;
     gCurrentObject->oMarioParticleFlags = particleFlags;
 
     if (stateIndex == 0) { first_person_update(); }
 
-    // This code is meant to preserve old Lua mods' ability to set overridePaletteIndex and paletteIndex and still work
-    // as they expected. USE_REAL_PALETTE_VAR is meant to help support cases where mods will do:
-    //     np.overridePaletteIndex = np.paletteIndex
-    // to undo the palette override and have it still go back to the new REAL palette stored in `palette`.
-    {
-        struct NetworkPlayer *np = &gNetworkPlayers[gMarioState->playerIndex];
-
-        if (np->overridePaletteIndex != np->overridePaletteIndexLp) {
-            np->overridePaletteIndexLp = np->overridePaletteIndex;
-
-            if (np->overridePaletteIndex == USE_REAL_PALETTE_VAR) {
-                np->overridePalette = np->palette;
-            }
-            else {
-                np->overridePalette = gPalettePresets[np->overridePaletteIndex];
-            }
-        }
-    }
-
     // Mario code updates MarioState's versions of position etc, so we need
     // to sync it with the Mario object
     copy_mario_state_to_object(gMarioState);
 
-    i = 0;
-    while (sParticleTypes[i].particleFlag != 0) {
+    for (s32 i = 0; sParticleTypes[i].particleFlag != 0; i++) {
         if (particleFlags & sParticleTypes[i].particleFlag) {
-            spawn_particle(sParticleTypes[i].activeParticleFlag, sParticleTypes[i].model,
-                           sParticleTypes[i].behavior);
+            spawn_particle(sParticleTypes[i].activeParticleFlag, sParticleTypes[i].model, sParticleTypes[i].behavior);
         }
-
-        i++;
     }
 
     update_character_anim_offset(gMarioState);
@@ -583,7 +541,7 @@ void spawn_objects_from_info(UNUSED s32 unused, struct SpawnInfo *spawnInfo) {
                 object->respawnInfo = &spawnInfo->behaviorArg;
 
                 // found a player
-                if (spawnInfo->behaviorArg & ((u32)1 << 31) && object->behavior == smlua_override_behavior(bhvMario)) {
+                if (spawnInfo->behaviorArg & ((u32)1 << 31) && object->behavior == bhvMario) {
                     u16 playerIndex = (spawnInfo->behaviorArg & ~(1 << 31));
                     object->oBehParams = playerIndex + 1;
                     gMarioObjects[playerIndex] = object;
@@ -611,9 +569,6 @@ void spawn_objects_from_info(UNUSED s32 unused, struct SpawnInfo *spawnInfo) {
 
         spawnInfo = spawnInfo->next;
     }
-}
-
-void stub_obj_list_processor_1(void) {
 }
 
 /**
@@ -644,9 +599,6 @@ void clear_objects(void) {
     init_free_object_list();
     clear_object_lists(gObjectListArray);
 
-    stub_behavior_script_2();
-    stub_obj_list_processor_1();
-
     for (i = 0; i < OBJECT_POOL_CAPACITY; i++) {
         gObjectPool[i].activeFlags = ACTIVE_FLAG_DEACTIVATED;
         geo_reset_object_node(&gObjectPool[i].header.gfx);
@@ -655,6 +607,8 @@ void clear_objects(void) {
     gObjectLists = gObjectListArray;
 
     clear_dynamic_surfaces();
+    geo_clear_interp_data();
+    djui_hud_clear_interp_data();
 }
 
 /**
@@ -702,7 +656,7 @@ void unload_deactivated_objects(void) {
 /**
  * Unused profiling function.
  */
-static u16 unused_get_elapsed_time(u64 *cycleCounts, s32 index) {
+UNUSED static u16 unused_get_elapsed_time(u64 *cycleCounts, s32 index) {
     u16 time;
     f64 cycles;
 

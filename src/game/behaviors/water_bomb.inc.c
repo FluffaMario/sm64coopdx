@@ -13,15 +13,15 @@
  * bombs that are shot from cannons are intangible.
  */
 static struct ObjectHitbox sWaterBombHitbox = {
-    /* interactType:      */ INTERACT_MR_BLIZZARD,
-    /* downOffset:        */ 25,
-    /* damageOrCoinValue: */ 1,
-    /* health:            */ 99,
-    /* numLootCoins:      */ 0,
-    /* radius:            */ 80,
-    /* height:            */ 50,
-    /* hurtboxRadius:     */ 60,
-    /* hurtboxHeight:     */ 50,
+    .interactType = INTERACT_MR_BLIZZARD,
+    .downOffset = 25,
+    .damageOrCoinValue = 1,
+    .health = 99,
+    .numLootCoins = 0,
+    .radius = 80,
+    .height = 50,
+    .hurtboxRadius = 60,
+    .hurtboxHeight = 50,
 };
 
 /**
@@ -34,8 +34,8 @@ void bhv_water_bomb_spawner_update(void) {
         if (so) {
             so->fullObjectSync = TRUE;
             so->maxUpdateRate = 5.0f;
-            sync_object_init_field(o, &o->oWaterBombSpawnerBombActive);
-            sync_object_init_field(o, &o->oWaterBombSpawnerTimeToSpawn);
+            sync_object_init_field(o, o->oWaterBombSpawnerBombActive);
+            sync_object_init_field(o, o->oWaterBombSpawnerTimeToSpawn);
         }
     }
 
@@ -46,7 +46,7 @@ void bhv_water_bomb_spawner_update(void) {
 
     for (s32 i = 0; i < MAX_PLAYERS; i++) {
         if (!is_player_active(&gMarioStates[i])) { continue; }
-        if (!gMarioStates[0].visibleToEnemies) { continue; }
+        if (!gMarioStates[i].visibleToObjects) { continue; }
         f32 latDist = lateral_dist_between_objects(o, gMarioStates[i].marioObj);
         if (latDist < latDistToMario) {
             latDistToMario = latDist;

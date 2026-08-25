@@ -10,8 +10,8 @@ static void djui_lobby_entry_update_style(struct DjuiBase* base) {
     struct DjuiTheme* theme = gDjuiThemes[configDjuiTheme];
 
     if (!entry->base.enabled) {
-        struct DjuiColor bc = djui_theme_shade_color(theme->interactables.defaultBorderColor);
-        struct DjuiColor rc = djui_theme_shade_color(theme->interactables.defaultRectColor);
+        struct DjuiColor bc = djui_theme_shade_color(theme->interactables.defaultBorderColor, 0.3f);
+        struct DjuiColor rc = djui_theme_shade_color(theme->interactables.defaultRectColor, 0.3f);
 
         djui_base_set_border_color(base, bc.r, bc.g, bc.b, bc.a);
         djui_base_set_color(&entry->base, rc.r, rc.g, rc.b, rc.a);
@@ -46,7 +46,7 @@ static void djui_lobby_entry_destroy(struct DjuiBase* base) {
     free(lobbyEntry);
 }
 
-struct DjuiLobbyEntry* djui_lobby_entry_create(struct DjuiBase* parent, char* host, char* mode, char* players, char* description, void (*on_click)(struct DjuiBase*), void (*on_hover)(struct DjuiBase*), void (*on_hover_end)(struct DjuiBase*)) {
+struct DjuiLobbyEntry* djui_lobby_entry_create(struct DjuiBase* parent, char* host, char* mode, char* players, char* description, bool disabled, void (*on_click)(struct DjuiBase*), void (*on_hover)(struct DjuiBase*), void (*on_hover_end)(struct DjuiBase*)) {
     struct DjuiLobbyEntry* lobbyEntry = calloc(1, sizeof(struct DjuiLobbyEntry));
     struct DjuiBase* base = &lobbyEntry->base;
 
@@ -59,6 +59,7 @@ struct DjuiLobbyEntry* djui_lobby_entry_create(struct DjuiBase* parent, char* ho
     djui_base_set_border_color(&lobbyEntry->base, 128, 128, 128, 255);
     djui_base_set_border_width(&lobbyEntry->base, 2);
     djui_base_set_border_width_type(&lobbyEntry->base, DJUI_SVT_ABSOLUTE);
+    djui_base_set_enabled(&lobbyEntry->base, !disabled);
     djui_interactable_create(base, djui_lobby_entry_update_style);
     djui_interactable_hook_click(base, on_click);
     djui_interactable_hook_hover(base, on_hover, on_hover_end);

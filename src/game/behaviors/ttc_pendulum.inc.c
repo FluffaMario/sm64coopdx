@@ -7,7 +7,7 @@
 /**
  * Initial angle acceleration.
  */
-static f32 sTTCPendulumInitialAccels[] = {
+f32 gTTCPendulumInitialAccels[] = {
     /* TTC_SPEED_SLOW    */ 13.0f,
     /* TTC_SPEED_FAST    */ 22.0f,
     /* TTC_SPEED_RANDOM  */ 13.0f,
@@ -19,7 +19,7 @@ static f32 sTTCPendulumInitialAccels[] = {
  */
 void bhv_ttc_pendulum_init(void) {
     if (gTTCSpeedSetting != TTC_SPEED_STOPPED && gTTCSpeedSetting > 0 && gTTCSpeedSetting < 4) {
-        o->oTTCPendulumAngleAccel = sTTCPendulumInitialAccels[gTTCSpeedSetting];
+        o->oTTCPendulumAngleAccel = gTTCPendulumInitialAccels[gTTCSpeedSetting];
         o->oTTCPendulumAngle = 6500.0f;
     } else {
         o->oTTCPendulumAngle = 6371.5557f;
@@ -28,12 +28,12 @@ void bhv_ttc_pendulum_init(void) {
     struct SyncObject* so = sync_object_init(o, 4000.0f);
     if (so) {
         so->minUpdateRate = 5.0f;
-        sync_object_init_field(o, &o->oTTCPendulumAccelDir);
-        sync_object_init_field(o, &o->oTTCPendulumAngle);
-        sync_object_init_field(o, &o->oTTCPendulumAngleVel);
-        sync_object_init_field(o, &o->oTTCPendulumAngleAccel);
-        sync_object_init_field(o, &o->oTTCPendulumDelay);
-        sync_object_init_field(o, &o->oTTCPendulumSoundTimer);
+        sync_object_init_field(o, o->oTTCPendulumAccelDir);
+        sync_object_init_field(o, o->oTTCPendulumAngle);
+        sync_object_init_field(o, o->oTTCPendulumAngleVel);
+        sync_object_init_field(o, o->oTTCPendulumAngleAccel);
+        sync_object_init_field(o, o->oTTCPendulumDelay);
+        sync_object_init_field(o, o->oTTCPendulumSoundTimer);
     }
 }
 

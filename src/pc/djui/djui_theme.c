@@ -7,6 +7,9 @@ static struct DjuiTheme sDjuiThemeLight = {
         .textColor = {
             11, 11, 11, 255
         },
+        .disabledTextColor = {
+            60, 60, 60, 255
+        },
 
         .defaultRectColor = {
             222, 222, 222, 255
@@ -30,7 +33,7 @@ static struct DjuiTheme sDjuiThemeLight = {
     },
     .threePanels = {
         .rectColor = {
-            0, 0, 0, 235
+            0, 0, 0, 230
         },
         .borderColor = {
             0, 0, 0, 200
@@ -47,6 +50,9 @@ static struct DjuiTheme sDjuiThemeDark = {
     .interactables = {
         .textColor = {
             220, 220, 220, 255
+        },
+        .disabledTextColor = {
+            140, 140, 140, 255
         },
 
         .defaultRectColor = {
@@ -71,7 +77,7 @@ static struct DjuiTheme sDjuiThemeDark = {
     },
     .threePanels = {
         .rectColor = {
-            0, 0, 0, 235
+            0, 0, 0, 230
         },
         .borderColor = {
             0, 0, 0, 200
@@ -88,6 +94,9 @@ static struct DjuiTheme sDjuiThemeFileSelect = {
     .interactables = {
         .textColor = {
             11, 11, 11, 255
+        },
+        .disabledTextColor = {
+            60, 60, 60, 255
         },
 
         .defaultRectColor = {
@@ -130,6 +139,9 @@ static struct DjuiTheme sDjuiThemeMario = {
         .textColor = {
             11, 11, 11, 255
         },
+        .disabledTextColor = {
+            60, 60, 60, 255
+        },
 
         .defaultRectColor = {
             255, 227, 0, 255
@@ -164,17 +176,62 @@ static struct DjuiTheme sDjuiThemeMario = {
     }
 };
 
+static struct DjuiTheme sDjuiThemeOdyssey = {
+    .id = "ODYSSEY_THEME",
+    .name = "ODYSSEY_THEME",
+    .interactables = {
+        .textColor = {
+            11, 11, 11, 255
+        },
+        .disabledTextColor = {
+            60, 60, 60, 255
+        },
+
+        .defaultRectColor = {
+            255, 255, 255, 255
+        },
+        .cursorDownRectColor = {
+            204, 228, 247, 255
+        },
+        .hoveredRectColor = {
+            229, 241, 251, 255
+        },
+
+        .defaultBorderColor = {
+            200, 200, 200, 255
+        },
+        .cursorDownBorderColor = {
+            0, 84, 153, 255
+        },
+        .hoveredBorderColor = {
+            0, 120, 215, 255
+        }
+    },
+    .threePanels = {
+        .rectColor = {
+            247, 0, 37, 200
+        },
+        .borderColor = {
+            255, 255, 255, 200
+        }
+    },
+    .panels = {
+        .hudFontHeader = false
+    }
+};
+
 struct DjuiTheme* gDjuiThemes[] = {
     &sDjuiThemeLight,
     &sDjuiThemeDark,
     &sDjuiThemeFileSelect,
-    &sDjuiThemeMario
+    &sDjuiThemeMario,
+    &sDjuiThemeOdyssey
 };
 
-struct DjuiColor djui_theme_shade_color(struct DjuiColor color) {
-    color.r *= 0.6f;
-    color.g *= 0.6f;
-    color.b *= 0.6f;
+struct DjuiColor djui_theme_shade_color(struct DjuiColor color, f32 mult) {
+    color.r *= mult;
+    color.g *= mult;
+    color.b *= mult;
     return color;
 }
 

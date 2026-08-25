@@ -1,21 +1,21 @@
 // spindrift.c.inc
 
 struct ObjectHitbox sSpindriftHitbox = {
-    /* interactType: */ INTERACT_BOUNCE_TOP,
-    /* downOffset: */ 0,
-    /* damageOrCoinValue: */ 2,
-    /* health: */ 1,
-    /* numLootCoins: */ 3,
-    /* radius: */ 90,
-    /* height: */ 80,
-    /* hurtboxRadius: */ 80,
-    /* hurtboxHeight: */ 70,
+    .interactType = INTERACT_BOUNCE_TOP,
+    .downOffset = 0,
+    .damageOrCoinValue = 2,
+    .health = 1,
+    .numLootCoins = 3,
+    .radius = 90,
+    .height = 80,
+    .hurtboxRadius = 80,
+    .hurtboxHeight = 70,
 };
 
 void bhv_spindrift_loop(void) {
     if (!sync_object_is_initialized(o->oSyncID)) {
         sync_object_init(o, 4000.0f);
-        sync_object_init_field(o, &o->oFlags);
+        sync_object_init_field(o, o->oFlags);
     }
 
     struct Object* player = nearest_player_to_object(o);

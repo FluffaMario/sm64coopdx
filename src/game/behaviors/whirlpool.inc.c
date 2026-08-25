@@ -1,15 +1,15 @@
 // whirlpool.c.inc
 
 static struct ObjectHitbox sWhirlpoolHitbox = {
-    /* interactType:      */ INTERACT_WHIRLPOOL,
-    /* downOffset:        */ 0,
-    /* damageOrCoinValue: */ 0,
-    /* health:            */ 0,
-    /* numLootCoins:      */ 0,
-    /* radius:            */ 200,
-    /* height:            */ 500,
-    /* hurtboxRadius:     */ 0,
-    /* hurtboxHeight:     */ 0,
+    .interactType = INTERACT_WHIRLPOOL,
+    .downOffset = 0,
+    .damageOrCoinValue = 0,
+    .health = 0,
+    .numLootCoins = 0,
+    .radius = 200,
+    .height = 500,
+    .hurtboxRadius = 0,
+    .hurtboxHeight = 0,
 };
 
 void bhv_whirlpool_init(void) {
@@ -44,11 +44,15 @@ void bhv_whirlpool_loop(void) {
         o->oWhirlpoolTimeout = 30;
     }
 
-    f32 marioDist = dist_between_objects(o, gMarioStates[0].marioObj);
-    if (marioDist < 5000.0f * draw_distance_scalar()) {
+    if (draw_distance_scalar_is_infinite()) {
         o->header.gfx.node.flags &= ~GRAPH_RENDER_INVISIBLE;
     } else {
-        o->header.gfx.node.flags |= GRAPH_RENDER_INVISIBLE;
+        f32 marioDist = dist_between_objects(o, gMarioStates[0].marioObj);
+        if (marioDist < 5000.0f * draw_distance_scalar()) {
+            o->header.gfx.node.flags &= ~GRAPH_RENDER_INVISIBLE;
+        } else {
+            o->header.gfx.node.flags |= GRAPH_RENDER_INVISIBLE;
+        }
     }
 
     // not sure if actually an array

@@ -13,8 +13,8 @@ static void djui_selectionbox_update_style(struct DjuiBase* base) {
 
     if (!selectionbox->base.enabled) {
         struct DjuiSelectionbox* selectionbox = (struct DjuiSelectionbox*)base;
-        struct DjuiColor bc = djui_theme_shade_color(theme->interactables.defaultBorderColor);
-        struct DjuiColor rc = djui_theme_shade_color(theme->interactables.defaultRectColor);
+        struct DjuiColor bc = djui_theme_shade_color(theme->interactables.defaultBorderColor, 0.6f);
+        struct DjuiColor rc = djui_theme_shade_color(theme->interactables.defaultRectColor, 0.6f);
         struct DjuiColor tc = theme->interactables.textColor;
 
         djui_base_set_border_color(&selectionbox->rect->base, bc.r, bc.g, bc.b, bc.a);
@@ -145,13 +145,13 @@ struct DjuiSelectionbox* djui_selectionbox_create(struct DjuiBase* parent, const
     djui_text_set_drop_shadow(rectText, 64, 64, 64, 100);
     selectionbox->rectText = rectText;
 
-    struct DjuiImage* rectImage = djui_image_create(&rect->base, texture_selectionbox_back_icon, 16, 16, 16);
+    struct DjuiImage* rectImage = djui_image_create(&rect->base, texture_selectionbox_back_icon, 16, 16, G_IM_FMT_RGBA, G_IM_SIZ_16b);
     djui_base_set_location(&rectImage->base, 0, 0);
     djui_base_set_size(&rectImage->base, 16, 16);
     djui_base_set_alignment(&rectImage->base, DJUI_HALIGN_LEFT, DJUI_VALIGN_CENTER);
     selectionbox->rectImage = rectImage;
 
-    struct DjuiImage* rectImage2 = djui_image_create(&rect->base, texture_selectionbox_forward_icon, 16, 16, 16);
+    struct DjuiImage* rectImage2 = djui_image_create(&rect->base, texture_selectionbox_forward_icon, 16, 16, G_IM_FMT_RGBA, G_IM_SIZ_16b);
     djui_base_set_location(&rectImage2->base, 0, 0);
     djui_base_set_size(&rectImage2->base, 16, 16);
     djui_base_set_alignment(&rectImage2->base, DJUI_HALIGN_RIGHT, DJUI_VALIGN_CENTER);

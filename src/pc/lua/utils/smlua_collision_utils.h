@@ -114,16 +114,56 @@ struct GlobalObjectCollisionData {
 
 extern struct GlobalObjectCollisionData gGlobalObjectCollisionData;
 
-struct RayIntersectionInfo* collision_find_surface_on_ray(f32 startX, f32 startY, f32 startZ, f32 dirX, f32 dirY, f32 dirZ);
-
+struct RayIntersectionInfo* collision_find_surface_on_ray(f32 startX, f32 startY, f32 startZ, f32 dirX, f32 dirY, f32 dirZ, f32 precision);
+/* |description|Finds a potential floor at the given `x`, `y`, and `z` values|descriptionEnd| */
 struct Surface* collision_find_floor(f32 x, f32 y, f32 z);
 
+/* |description|Finds a potential ceiling at the given `x`, `y`, and `z` values|descriptionEnd| */
 struct Surface* collision_find_ceil(f32 x, f32 y, f32 z);
 
+/* |description|Gets the generated water floor surface used when riding a shell|descriptionEnd| */
 struct Surface* get_water_surface_pseudo_floor(void);
 
+/* |description|Gets the `Collision` with `name`|descriptionEnd| */
 Collision* smlua_collision_util_get(const char* name);
 
+/* |description|Returns a temporary wall collision data pointer|descriptionEnd| */
 struct WallCollisionData* collision_get_temp_wall_collision_data(void);
+
+/* |description|Gets the surface corresponding to `index` from `wcd`|descriptionEnd| */
+struct Surface* get_surface_from_wcd_index(struct WallCollisionData* wcd, s8 index);
+
+/* |description|Gets the current level terrain collision|descriptionEnd| */
+Collision* smlua_collision_util_get_current_terrain_collision(void);
+
+/* |description|Gets the `level` terrain collision from `area`|descriptionEnd| */
+Collision *smlua_collision_util_get_level_collision(u32 level, u16 area);
+
+/* |description|Gets a table of the surface types from `data`|descriptionEnd| */
+void smlua_collision_util_find_surface_types(Collision* data);
+
+/* |description|
+Allocates a new collision surface with the given vertices, computes the surface normal and other fields, and inserts it into the spatial partition.
+Returns the new surface, or `nil` if the triangle is degenerate (zero area).
+Set `dynamic` to `true` for surfaces that are cleared each frame, or `false` for persistent static surfaces
+|descriptionEnd| */
+struct Surface* smlua_collision_add_surface(bool dynamic, s16 surfaceType, Vec3s vertex1, Vec3s vertex2, Vec3s vertex3);
+
+/* |description|
+Moves an existing collision surface to new vertex positions.
+Recalculates the surface normal, origin offset, and Y bounds, removes the surface from its old spatial partition cells, and re-adds it to the correct cells.
+The previous vertices are preserved for interpolation
+|descriptionEnd| */
+void smlua_collision_move_surface(struct Surface *surface, Vec3s vertex1, Vec3s vertex2, Vec3s vertex3);
+
+/* |description|Fully deletes a collision surface: removes it from the spatial partitions and frees its pool slot.|descriptionEnd| */
+void smlua_collision_delete_surface(struct Surface *surface);
+
+/* |description|Checks if the surface is quicksand|descriptionEnd| */
+bool surface_is_quicksand(struct Surface* surf);
+/* |description|Checks if the surface is not a hard surface|descriptionEnd| */
+bool surface_is_not_hard(struct Surface* surf);
+/* |description|Checks if the surface is a painting warp|descriptionEnd| */
+bool surface_is_painting_warp(struct Surface* surf);
 
 #endif

@@ -1,15 +1,15 @@
 // coin.c.inc
 
 struct ObjectHitbox sYellowCoinHitbox = {
-    /* interactType: */ INTERACT_COIN,
-    /* downOffset: */ 0,
-    /* damageOrCoinValue: */ 1,
-    /* health: */ 0,
-    /* numLootCoins: */ 0,
-    /* radius: */ 100,
-    /* height: */ 64,
-    /* hurtboxRadius: */ 0,
-    /* hurtboxHeight: */ 0,
+    .interactType = INTERACT_COIN,
+    .downOffset = 0,
+    .damageOrCoinValue = 1,
+    .health = 0,
+    .numLootCoins = 0,
+    .radius = 100,
+    .height = 64,
+    .hurtboxRadius = 0,
+    .hurtboxHeight = 0,
 };
 
 s16 D_8032F2A4[][2] = { { 0, -150 },  { 0, -50 },   { 0, 50 },   { 0, 150 },
@@ -228,15 +228,15 @@ void coin_inside_boo_act_1(void) {
 
 void coin_inside_boo_act_0(void) {
     struct Object *parent = o->parentObj;
-    
+
     cur_obj_become_intangible();
-    
+
     if (parent == NULL || (parent->behavior != smlua_override_behavior(bhvMerryGoRoundBoo) && parent->behavior != smlua_override_behavior(bhvGhostHuntBoo) && parent->behavior != smlua_override_behavior(bhvBoo))) {
         o->parentObj = NULL;
         obj_mark_for_deletion(o);
         return;
     }
-    
+
     if (o->oTimer == 0 && gCurrLevelNum == LEVEL_BBH) {
         cur_obj_set_model(smlua_model_util_load(E_MODEL_BLUE_COIN));
         cur_obj_scale(0.7);

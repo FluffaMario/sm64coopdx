@@ -2,7 +2,10 @@
 extern "C" {
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb/stb_image_write.h"
+#include "pc/mods/mod_fs.h"
 }
+
+#define PNG_SIGNATURE 0x0A1A0A0D474E5089llu
 
   ///////////
  // Utils //
@@ -253,16 +256,14 @@ DataNode<TexData>* DynOS_Tex_Load(BinFile *aFile, GfxData *aGfxData) {
 
         // That's a duplicate, find the original node and copy its content
         String _NodeName; _NodeName.Read(aFile);
-        for (const auto& _LoadedNode : aGfxData->mTextures) {
-            if (_LoadedNode->mName == _NodeName) {
-                _Node->mData->mPngData   = _LoadedNode->mData->mPngData;
-                _Node->mData->mRawData   = _LoadedNode->mData->mRawData;
-                _Node->mData->mRawWidth  = _LoadedNode->mData->mRawWidth;
-                _Node->mData->mRawHeight = _LoadedNode->mData->mRawHeight;
-                _Node->mData->mRawFormat = _LoadedNode->mData->mRawFormat;
-                _Node->mData->mRawSize   = _LoadedNode->mData->mRawSize;
-                break;
-            }
+        auto _LoadedNode = aGfxData->mTextures.Find(_NodeName);
+        if (_LoadedNode) {
+            _Node->mData->mPngData   = _LoadedNode->mData->mPngData;
+            _Node->mData->mRawData   = _LoadedNode->mData->mRawData;
+            _Node->mData->mRawWidth  = _LoadedNode->mData->mRawWidth;
+            _Node->mData->mRawHeight = _LoadedNode->mData->mRawHeight;
+            _Node->mData->mRawFormat = _LoadedNode->mData->mRawFormat;
+            _Node->mData->mRawSize   = _LoadedNode->mData->mRawSize;
         }
     } else {
         aFile->SetOffset(_FileOffset);
@@ -304,46 +305,67 @@ DataNode<TexData>* DynOS_Tex_LoadFromBinary(const SysPath &aPackFolder, const Sy
 
     // Load data from binary file
     DataNode<TexData>* _TexNode = NULL;
-    BinFile *_File = BinFile::OpenR(aFilename.c_str());
+    BinFile *_File = NULL;
+    if (is_mod_fs_file(aFilename.c_str())) {
+        void *_Buffer = NULL;
+        u32 _Size = 0;
+        if (mod_fs_read_file_from_uri(aFilename.c_str(), &_Buffer, &_Size)) {
+            _File = BinFile::OpenB((const u8 *) _Buffer, _Size);
+            free(_Buffer);
+        }
+    } else {
+        _File = BinFile::OpenR(aFilename.c_str());
+    }
     if (!_File) { return NULL; }
 
     u8 type = _File->Read<u8>();
     if (type == DATA_TYPE_TEXTURE) {
+
         // load png-texture
         _TexNode = New<DataNode<TexData>>();
-        _TexNode->mData = New<TexData>();
-
         _TexNode->mName.Read(_File);
+        _TexNode->mData = New<TexData>();
         _TexNode->mData->mPngData.Read(_File);
-        BinFile::Close(_File);
+
+    } else if (type == DATA_TYPE_TEXTURE_RAW) {
+
+        // load raw-texture
+        _TexNode = New<DataNode<TexData>>();
+        _TexNode->mName.Read(_File);
+        _TexNode->mData = New<TexData>();
+        _TexNode->mData->mRawFormat = _File->Read<s32>();
+        _TexNode->mData->mRawSize = _File->Read<s32>();
+        _TexNode->mData->mRawWidth = _File->Read<s32>();
+        _TexNode->mData->mRawHeight = _File->Read<s32>();
+        _TexNode->mData->mRawData.Read(_File);
+
+    } else if ((_File->SetOffset(0), _File->Read<u64>() == PNG_SIGNATURE)) {
+        _File->SetOffset(0);
+
+        // load PNG file
+        _TexNode = New<DataNode<TexData>>();
+        _TexNode->mName = aFilename.c_str();
+        _TexNode->mData = New<TexData>();
+        _TexNode->mData->mPngData.Resize(_File->Size());
+        _File->Read<u8>(_TexNode->mData->mPngData.begin(), _File->Size());
+    }
+
+    BinFile::Close(_File);
+
+    if (_TexNode) {
+
+        // For some reason texture nodes are indexed to DynosCustomTexs by their node name,
+        // and not by `aTexName`, but DynOS_Tex_Get searches for `aTexName`...
+        // Normally, this doesn't cause any issue, but things go wrong when `aTexName`
+        // is not the same as the texture node name (which is the case for modfs files).
+        if (is_mod_fs_file(aFilename.c_str())) {
+            _TexNode->mName = aTexName;
+        }
 
         if (aAddToPack) {
             if (!_Pack) { _Pack = DynOS_Pack_Add(aPackFolder); }
             DynOS_Pack_AddTex(_Pack, _TexNode);
         }
-
-        return _TexNode;
-    } else if (type != DATA_TYPE_TEXTURE_RAW) {
-        BinFile::Close(_File);
-        return NULL;
-    }
-
-    // load raw-texture
-    _TexNode = New<DataNode<TexData>>();
-    _TexNode->mData = New<TexData>();
-
-    _TexNode->mName.Read(_File);
-    _TexNode->mData->mRawFormat = _File->Read<s32>();
-    _TexNode->mData->mRawSize = _File->Read<s32>();
-    _TexNode->mData->mRawWidth = _File->Read<s32>();
-    _TexNode->mData->mRawHeight = _File->Read<s32>();
-    _TexNode->mData->mRawData.Read(_File);
-
-    BinFile::Close(_File);
-
-    if (aAddToPack) {
-        if (!_Pack) { _Pack = DynOS_Pack_Add(aPackFolder); }
-        DynOS_Pack_AddTex(_Pack, _TexNode);
     }
 
     return _TexNode;
@@ -409,15 +431,16 @@ static void DynOS_Tex_GeneratePack_Recursive(const SysPath &aPackFolder, SysPath
             continue;
         }
 
-        // skip files that don't end in '.png'
         size_t nameLen = strlen(_PackEnt->d_name);
         if (nameLen < 4) continue;
+
+        // skip files that don't end in '.png'
         if (strcmp(&_PackEnt->d_name[nameLen - 4], ".png")) {
             continue;
         }
 
         // read the file
-        aGfxData->mModelIdentifier++;
+        aGfxData->mDataIdentifier = DynOS_NewDataIdentifier();
         TexData* _TexData = LoadTextureFromFile(aGfxData, _Path.c_str());
         if (_TexData == NULL) {
             PrintDataError("Error reading texture from file: %s", _Path.c_str());
@@ -451,13 +474,19 @@ static void DynOS_Tex_GeneratePack_Recursive(const SysPath &aPackFolder, SysPath
 
         SysPath _OutputPath = fstring("%s/%s.tex", aOutputFolder.c_str(), _BaseName.begin());
 
+        // skip files that have already been generated
+        if (DynOS_GenFileExistsAndIsNewerThanFile(_OutputPath, _Path)) {
+            Delete<TexData>(_TexData);
+            continue;
+        }
+
         // create output dir if it doesn't exist
         if (!fs_sys_dir_exists(aOutputFolder.c_str())) {
             fs_sys_mkdir(aOutputFolder.c_str());
         }
 
         DynOS_Tex_WriteBinary(aGfxData, _OutputPath, _BaseName, _TexData, (_OverrideName != NULL));
-        
+
         // Don't forgot to free the texture data we've read.
         Delete<TexData>(_TexData);
     }
@@ -466,15 +495,14 @@ static void DynOS_Tex_GeneratePack_Recursive(const SysPath &aPackFolder, SysPath
 }
 
 void DynOS_Tex_GeneratePack(const SysPath &aPackFolder, SysPath &aOutputFolder, bool aAllowCustomTextures) {
-    Print("Processing Textures: \"%s\"", aPackFolder.c_str());
+    Print("Processing textures: \"%s\"", aPackFolder.c_str());
 
-    // skip generation if any .tex files exist
-    if (FileTypeExists(aOutputFolder, ".tex")) {
+    if (!DynOS_ShouldGeneratePack2Ext(aPackFolder, ".tex", ".png")) {
         return;
     }
 
     GfxData *_GfxData = New<GfxData>();
-    _GfxData->mModelIdentifier = 0;
+    _GfxData->mDataIdentifier = 0;
     SysPath _Empty = "";
     DynOS_Tex_GeneratePack_Recursive(aPackFolder, aOutputFolder, _Empty, _Empty, _GfxData, aAllowCustomTextures);
     DynOS_Gfx_Free(_GfxData);

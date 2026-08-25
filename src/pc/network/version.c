@@ -2,75 +2,30 @@
 #include "version.h"
 #include "types.h"
 
-#undef VERSION_TEXT
-#define VERSION_TEXT "v"
-
 static char sVersionString[MAX_VERSION_LENGTH] = { 0 };
-static char sLocalVersionString[MAX_LOCAL_VERSION_LENGTH] = { 0 };
 
 const char* get_version(void) {
-    if (configCoopCompatibility) {
+    snprintf(
+        sVersionString, MAX_VERSION_LENGTH,
 #if defined(VERSION_US)
-        if (MINOR_VERSION_NUMBER > 0) {
-            snprintf(sVersionString, MAX_VERSION_LENGTH, "%s%d.%d", VERSION_TEXT, VERSION_NUMBER, MINOR_VERSION_NUMBER);
-        } else {
-            snprintf(sVersionString, MAX_VERSION_LENGTH, "%s%d", VERSION_TEXT, VERSION_NUMBER);
-        }
+        "%s", SM64COOPDX_VERSION
 #else
-        if (MINOR_VERSION_NUMBER > 0) {
-            snprintf(sVersionString, MAX_VERSION_LENGTH, "%s%d.%d %s", VERSION_TEXT, VERSION_NUMBER, MINOR_VERSION_NUMBER, VERSION_REGION);
-        } else {
-            snprintf(sVersionString, MAX_VERSION_LENGTH, "%s%d %s", VERSION_TEXT, VERSION_NUMBER, VERSION_REGION);
-        }
-#endif
-    } else {
-#if defined(VERSION_US)
-        snprintf(sVersionString, MAX_VERSION_LENGTH, "%s", SM64COOPDX_VERSION);
-#else
-        snprintf(sVersionString, MAX_VERSION_LENGTH, "%s %s", SM64COOPDX_VERSION, VERSION_REGION);
-#endif
-    }
+        "%s %s", SM64COOPDX_VERSION, VERSION_REGION
+#endif // VERSION_US
+    );
     return sVersionString;
 }
 
-const char* get_version_local(void) {
-    if (PATCH_VERSION_NUMBER <= 0) {
-        return get_version();
-    }
-
-    if (configCoopCompatibility) {
+#ifdef COMPILE_TIME
+const char* get_version_with_build_date(void) {
+    snprintf(
+        sVersionString, MAX_VERSION_LENGTH,
 #if defined(VERSION_US)
-        snprintf(sLocalVersionString, MAX_LOCAL_VERSION_LENGTH, "%s%d.%d.%d", VERSION_TEXT, VERSION_NUMBER, MINOR_VERSION_NUMBER, PATCH_VERSION_NUMBER);
+        "%s, %s", SM64COOPDX_VERSION, COMPILE_TIME
 #else
-        snprintf(sLocalVersionString, MAX_LOCAL_VERSION_LENGTH, "%s%d.%d.%d %s", VERSION_TEXT, VERSION_NUMBER, MINOR_VERSION_NUMBER, PATCH_VERSION_NUMBER, VERSION_REGION);
-#endif
-    } else {
-#if defined(VERSION_US)
-        snprintf(sLocalVersionString, MAX_LOCAL_VERSION_LENGTH, "%s", SM64COOPDX_VERSION);
-#else
-        snprintf(sLocalVersionString, MAX_LOCAL_VERSION_LENGTH, "%s %s", VERSION_TEXT, SM64COOPDX_VERSION, VERSION_REGION);
-#endif
-    }
-
-    return sLocalVersionString;
+        "%s %s, %s", SM64COOPDX_VERSION, VERSION_REGION, COMPILE_TIME
+#endif // VERSION_US
+    );
+    return sVersionString;
 }
-
-const char* get_game_name(void) {
-    if (configCoopCompatibility) {
-#ifdef DEVELOPMENT
-        return "sm64ex-coop-dev";
-#elif !defined(VERSION_US)
-        return "sm64ex-coop-intl";
-#else
-        return "sm64ex-coop";
 #endif
-    } else {
-#ifdef DEVELOPMENT
-        return "sm64coopdx-dev";
-#elif !defined(VERSION_US)
-        return "sm64coopdx-intl";
-#else
-        return "sm64coopdx";
-#endif
-    }
-}

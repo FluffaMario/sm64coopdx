@@ -22,6 +22,10 @@
 #include "pc/lua/smlua.h"
 #include "hardcoded.h"
 
+/* |description|
+Plays a spinning sound at specific animation frames for flips (usually side flips or certain jump flips).
+If the current animation frame matches any of the specified frames, it triggers `SOUND_ACTION_SPIN`
+|descriptionEnd| */
 void play_flip_sounds(struct MarioState *m, s16 frame1, s16 frame2, s16 frame3) {
     if (!m) { return; }
     s32 animFrame = m->marioObj->header.gfx.animInfo.animFrame;
@@ -30,6 +34,10 @@ void play_flip_sounds(struct MarioState *m, s16 frame1, s16 frame2, s16 frame3) 
     }
 }
 
+/* |description|
+Plays a unique sound when Mario has fallen a significant distance without being invulnerable, twirling, or flying.
+If the fall exceeds a threshold, triggers a "long fall" exclamation. Also sets a flag to prevent repeated triggering
+|descriptionEnd| */
 void play_far_fall_sound(struct MarioState *m) {
     if (!m) { return; }
     u32 action = m->action;
@@ -43,9 +51,13 @@ void play_far_fall_sound(struct MarioState *m) {
 }
 
 #ifndef VERSION_JP
+/* |description|
+Plays a knockback sound effect if Mario is hit or knocked back with significant velocity. The specific sound differs
+depending on whether Mario's forward velocity is high enough to be considered a strong knockback
+|descriptionEnd| */
 void play_knockback_sound(struct MarioState *m) {
     if (!m) { return; }
-    if (m->actionArg == 0 && (m->forwardVel <= -28.0f || m->forwardVel >= 28.0f)) {
+    if ((m->actionArg & ~PVP_ATTACK_KNOCKBACK_ACTION_ARG) == 0 && (m->forwardVel <= -28.0f || m->forwardVel >= 28.0f)) {
         play_character_sound_if_no_flag(m, CHAR_SOUND_DOH, MARIO_MARIO_SOUND_PLAYED);
     } else {
         play_character_sound_if_no_flag(m, CHAR_SOUND_UH, MARIO_MARIO_SOUND_PLAYED);
@@ -53,11 +65,16 @@ void play_knockback_sound(struct MarioState *m) {
 }
 #endif
 
+/* |description|
+Allows Mario to 'lava boost' off a lava wall, reorienting him to face away from the wall and adjusting forward velocity.
+Increases Mario's hurt counter if he's not metal, plays a burning sound, and transitions his action to `ACT_LAVA_BOOST`.
+Useful for handling collisions with lava walls, giving Mario a strong upward/forward boost at the cost of health
+|descriptionEnd| */
 s32 lava_boost_on_wall(struct MarioState *m) {
     if (!m) { return 0; }
-    bool allow = true;
-    smlua_call_event_hooks_mario_param_and_int_ret_bool(HOOK_ALLOW_HAZARD_SURFACE, m, HAZARD_TYPE_LAVA_WALL, &allow);
-    if ((!allow) || gDjuiInMainMenu) { return FALSE; }
+    bool allowHazard = true;
+    smlua_call_event_hooks(HOOK_ALLOW_HAZARD_SURFACE, m, HAZARD_TYPE_LAVA_WALL, &allowHazard);
+    if ((!allowHazard) || gDjuiInMainMenu) { return FALSE; }
     m->faceAngle[1] = atan2s(m->wallNormal[2], m->wallNormal[0]);
 
     if (m->forwardVel < 24.0f) {
@@ -73,9 +90,15 @@ s32 lava_boost_on_wall(struct MarioState *m) {
     return drop_and_set_mario_action(m, ACT_LAVA_BOOST, 1);
 }
 
+/* |description|
+Evaluates whether Mario should take fall damage based on the height difference between his peak and current position.
+If the fall is large enough and does not occur over burning surfaces or while twirling, Mario may get hurt or enter
+a hard fall action. If the fall is significant but not extreme, minimal damage and a squish effect may be applied.
+Useful for determining if Mario's fall warrants a health penalty or a special landing action
+|descriptionEnd| */
 s32 check_fall_damage(struct MarioState *m, u32 hardFallAction) {
     if (!m) { return 0; }
-    
+
     f32 fallHeight;
     f32 damageHeight;
 
@@ -115,6 +138,10 @@ s32 check_fall_damage(struct MarioState *m, u32 hardFallAction) {
     return FALSE;
 }
 
+/* |description|
+Checks if Mario should perform a kick or a dive while in mid-air, depending on his current forward velocity.
+Pressing the B button in the air can trigger a jump kick (at lower speeds) or a dive (at higher speeds)
+|descriptionEnd| */
 s32 check_kick_or_dive_in_air(struct MarioState *m) {
     if (!m) { return 0; }
     if (m->input & INPUT_B_PRESSED) {
@@ -123,6 +150,11 @@ s32 check_kick_or_dive_in_air(struct MarioState *m) {
     return FALSE;
 }
 
+/* |description|
+Determines whether Mario should become stuck in the ground after landing, specifically for soft terrain such as snow
+or sand, provided certain conditions are met (height of the fall, normal of the floor, etc.).
+Returns true if Mario should be stuck, false otherwise
+|descriptionEnd| */
 s32 should_get_stuck_in_ground(struct MarioState *m) {
     if (!m) { return 0; }
     if (m->floor == NULL) { return FALSE; }
@@ -142,6 +174,11 @@ s32 should_get_stuck_in_ground(struct MarioState *m) {
     return FALSE;
 }
 
+/* |description|
+Checks if Mario should get stuck in the ground after a large fall onto soft terrain (like snow or sand) or if he
+should just proceed with regular fall damage calculations. If the terrain and height conditions are met, Mario's
+action changes to being stuck in the ground. Otherwise, normal fall damage logic applies
+|descriptionEnd| */
 s32 check_fall_damage_or_get_stuck(struct MarioState *m, u32 hardFallAction) {
     if (!m) { return 0; }
     if (should_get_stuck_in_ground(m)) {
@@ -160,6 +197,10 @@ s32 check_fall_damage_or_get_stuck(struct MarioState *m, u32 hardFallAction) {
     return check_fall_damage(m, hardFallAction);
 }
 
+/* |description|
+Checks for the presence of a horizontal wind surface under Mario. If found, applies a push force to Mario's horizontal
+velocity. Caps speed at certain thresholds, updates Mario's forward velocity and yaw for sliding/wind movement
+|descriptionEnd| */
 s32 check_horizontal_wind(struct MarioState *m) {
     if (!m) { return 0; }
     struct Surface *floor;
@@ -169,6 +210,12 @@ s32 check_horizontal_wind(struct MarioState *m) {
     floor = m->floor;
 
     if (floor && floor->type == SURFACE_HORIZONTAL_WIND) {
+        bool allowHazard = true;
+        smlua_call_event_hooks(HOOK_ALLOW_HAZARD_SURFACE, m, HAZARD_TYPE_HORIZONTAL_WIND, &allowHazard);
+        if (!allowHazard) {
+            return FALSE;
+        }
+
         pushAngle = floor->force << 8;
 
         m->slideVelX += 1.2f * sins(pushAngle);
@@ -198,6 +245,10 @@ s32 check_horizontal_wind(struct MarioState *m) {
     return FALSE;
 }
 
+/* |description|
+Updates Mario's air movement while allowing him to turn. Checks horizontal wind and applies a moderate amount of drag,
+approaches the forward velocity toward zero if no input is pressed, and modifies forward velocity/angle based on stick input
+|descriptionEnd| */
 void update_air_with_turn(struct MarioState *m) {
     if (!m) { return; }
     f32 dragThreshold;
@@ -229,6 +280,10 @@ void update_air_with_turn(struct MarioState *m) {
     }
 }
 
+/* |description|
+Updates Mario's air movement without directly turning his facing angle to match his intended yaw. Instead, Mario can
+move sideways relative to his current facing direction. Also checks horizontal wind and applies drag
+|descriptionEnd| */
 void update_air_without_turn(struct MarioState *m) {
     if (!m) { return; }
     f32 sidewaysSpeed = 0.0f;
@@ -267,6 +322,11 @@ void update_air_without_turn(struct MarioState *m) {
     }
 }
 
+
+/* |description|
+Updates Mario's movement when in actions like lava boost or twirling in mid-air. Applies player input to adjust forward velocity
+and facing angle, but in a more restricted manner compared to standard jump movement. Used by `ACT_LAVA_BOOST` and `ACT_TWIRLING`
+|descriptionEnd| */
 void update_lava_boost_or_twirling(struct MarioState *m) {
     if (!m) { return; }
     s16 intendedDYaw;
@@ -293,6 +353,10 @@ void update_lava_boost_or_twirling(struct MarioState *m) {
     m->vel[2] = m->slideVelZ = m->forwardVel * coss(m->faceAngle[1]);
 }
 
+/* |description|
+Calculates and applies a change in Mario's yaw while flying, based on horizontal stick input. Approaches a target yaw velocity
+and sets Mario's roll angle to simulate banking turns. This results in a more natural, curved flight path
+|descriptionEnd| */
 void update_flying_yaw(struct MarioState *m) {
     if (!m) { return; }
     s16 targetYawVel = -(s16)(m->controller->stickX * (m->forwardVel / 4.0f));
@@ -323,6 +387,10 @@ void update_flying_yaw(struct MarioState *m) {
     m->faceAngle[2] = 20 * -m->angleVel[1];
 }
 
+/* |description|
+Calculates and applies a change in Mario's pitch while flying, based on vertical stick input. Approaches a target pitch velocity
+and clamps the final pitch angle to a certain range, simulating a smooth flight control
+|descriptionEnd| */
 void update_flying_pitch(struct MarioState *m) {
     if (!m) { return; }
     s16 targetPitchVel = -(s16)(m->controller->stickY * (m->forwardVel / 5.0f));
@@ -350,6 +418,10 @@ void update_flying_pitch(struct MarioState *m) {
     }
 }
 
+/* |description|
+Handles the complete flying logic for Mario (usually with the wing cap). Continuously updates pitch and yaw based on controller input,
+applies drag, and adjusts forward velocity. Also updates Mario's model angles for flight animations
+|descriptionEnd| */
 void update_flying(struct MarioState *m) {
     if (!m) { return; }
     UNUSED u32 unused;
@@ -389,6 +461,11 @@ void update_flying(struct MarioState *m) {
     m->slideVelZ = m->vel[2];
 }
 
+/* |description|
+Performs a standard step update for air actions without knockback, typically used for jumps or freefalls.
+Updates Mario's velocity (and possibly checks horizontal wind), then calls `perform_air_step` with given `stepArg`.
+Handles how Mario lands, hits walls, grabs ledges, or grabs ceilings. Optionally sets an animation
+|descriptionEnd| */
 u32 common_air_action_step(struct MarioState *m, u32 landAction, s32 animation, u32 stepArg) {
     if (!m) { return 0; }
     u32 stepResult;
@@ -1151,17 +1228,17 @@ s32 act_crazy_box_bounce(struct MarioState *m) {
     return FALSE;
 }
 
-u32 common_air_knockback_step(struct MarioState *m, u32 landAction, u32 hardFallAction, s32 animation,
-                              f32 speed) {
+/* |description|
+A shared step update used for airborne knockback states (both forward and backward). Updates velocity, calls `perform_air_step`,
+and handles wall collisions or landing transitions to appropriate ground knockback actions. Also sets animation and speed
+|descriptionEnd| */
+u32 common_air_knockback_step(struct MarioState *m, u32 landAction, u32 hardFallAction, s32 animation, f32 speed) {
     if (!m) { return 0; }
     u32 stepResult;
 
-    if (m->knockbackTimer == 0) {
-        if (m->interactObj == NULL || !(m->interactObj->oInteractType & INTERACT_PLAYER)) {
-            mario_set_forward_vel(m, speed);
-        }
-    } else {
-        m->knockbackTimer = 10;
+    // Refresh knockbackTimer
+    if (m->knockbackTimer > 0) {
+        m->knockbackTimer = PVP_ATTACK_KNOCKBACK_TIMER_DEFAULT;
     }
 
     stepResult = perform_air_step(m, 0);
@@ -1208,6 +1285,10 @@ u32 common_air_knockback_step(struct MarioState *m, u32 landAction, u32 hardFall
     return stepResult;
 }
 
+/* |description|
+Checks if Mario should wall kick after performing an air hit against a wall. If the input conditions (e.g., pressing A)
+and the `wallKickTimer` allow, Mario transitions to `ACT_WALL_KICK_AIR`
+|descriptionEnd| */
 s32 check_wall_kick(struct MarioState *m) {
     if (!m) { return 0; }
     if ((m->input & INPUT_A_PRESSED) && m->wallKickTimer != 0 && m->prevAction == ACT_AIR_HIT_WALL) {
@@ -1270,7 +1351,7 @@ s32 act_hard_forward_air_kb(struct MarioState *m) {
 s32 act_thrown_backward(struct MarioState *m) {
     if (!m) { return 0; }
     u32 landAction;
-    if (m->actionArg != 0) {
+    if ((m->actionArg & ~PVP_ATTACK_KNOCKBACK_ACTION_ARG) != 0) {
         landAction = ACT_HARD_BACKWARD_GROUND_KB;
     } else {
         landAction = ACT_BACKWARD_GROUND_KB;
@@ -1289,7 +1370,7 @@ s32 act_thrown_forward(struct MarioState *m) {
     s16 pitch;
 
     u32 landAction;
-    if (m->actionArg != 0) {
+    if ((m->actionArg & ~PVP_ATTACK_KNOCKBACK_ACTION_ARG) != 0) {
         landAction = ACT_HARD_FORWARD_GROUND_KB;
     } else {
         landAction = ACT_FORWARD_GROUND_KB;
@@ -1647,13 +1728,13 @@ s32 act_lava_boost(struct MarioState *m) {
             m->health = 0x100;
         } else {
             bool allowDeath = true;
-            smlua_call_event_hooks_mario_param_ret_bool(HOOK_ON_DEATH, m, &allowDeath);
+            smlua_call_event_hooks(HOOK_ON_DEATH, m, &allowDeath);
             if (!allowDeath) {
                 reset_rumble_timers(m);
                 return FALSE;
             }
 
-            if (mario_can_bubble(m)) {
+            if ((mario_can_bubble(m) && m->numLives > 0)) {
                 m->health = 0xFF;
                 mario_set_bubbled(m);
             } else {
@@ -1783,7 +1864,7 @@ s32 act_shot_from_cannon(struct MarioState *m) {
             set_mario_action(m, ACT_DIVE_SLIDE, 0);
             m->faceAngle[0] = 0;
             if (allowCameraChange) {
-                if (newcam_active == 0) {
+                if (!gNewCamera.isActive) {
                     set_camera_mode(m->area->camera, m->area->camera->defMode, 1);
                 } else {
                     m->area->camera->mode = CAMERA_MODE_NEWCAM;
@@ -1804,7 +1885,7 @@ s32 act_shot_from_cannon(struct MarioState *m) {
             set_mario_particle_flags(m, PARTICLE_VERTICAL_STAR, FALSE);
             set_mario_action(m, ACT_BACKWARD_AIR_KB, 0);
             if (allowCameraChange) {
-                if (newcam_active == 0) {
+                if (!gNewCamera.isActive) {
                     set_camera_mode(m->area->camera, m->area->camera->defMode, 1);
                 } else {
                     m->area->camera->mode = CAMERA_MODE_NEWCAM;
@@ -1841,7 +1922,7 @@ s32 act_flying(struct MarioState *m) {
     if (m->input & INPUT_Z_PRESSED) {
         if (m->area->camera->mode == CAMERA_MODE_BEHIND_MARIO) {
             if (m->playerIndex == 0) {
-                if (newcam_active == 0) {
+                if (!gNewCamera.isActive) {
                     set_camera_mode(m->area->camera, m->area->camera->defMode, 1);
                 } else {
                     m->area->camera->mode = CAMERA_MODE_NEWCAM;
@@ -1855,7 +1936,7 @@ s32 act_flying(struct MarioState *m) {
     if (!(m->flags & MARIO_WING_CAP)) {
         if (m->area->camera->mode == CAMERA_MODE_BEHIND_MARIO) {
             if (m->playerIndex == 0) {
-                if (newcam_active == 0) {
+                if (!gNewCamera.isActive) {
                     set_camera_mode(m->area->camera, m->area->camera->defMode, 1);
                 } else {
                     m->area->camera->mode = CAMERA_MODE_NEWCAM;
@@ -1868,7 +1949,7 @@ s32 act_flying(struct MarioState *m) {
 
     if (m->area->camera->mode != CAMERA_MODE_BEHIND_MARIO) {
         if (m->playerIndex == 0) {
-            if (newcam_active == 0) {
+            if (!gNewCamera.isActive) {
                 set_camera_mode(m->area->camera, CAMERA_MODE_BEHIND_MARIO, 1);
                 // note: EX sets it to the following line instead, but I have
                 //       no idea why... possibly copy/paste error?
@@ -1921,7 +2002,7 @@ s32 act_flying(struct MarioState *m) {
             m->faceAngle[0] = 0;
 
             if (m->playerIndex == 0) {
-                if (newcam_active == 0) {
+                if (!gNewCamera.isActive) {
                     set_camera_mode(m->area->camera, m->area->camera->defMode, 1);
                 } else {
                     m->area->camera->mode = CAMERA_MODE_NEWCAM;
@@ -1948,7 +2029,7 @@ s32 act_flying(struct MarioState *m) {
                 set_mario_action(m, ACT_BACKWARD_AIR_KB, 0);
 
                 if (m->playerIndex == 0) {
-                    if (newcam_active == 0) {
+                    if (!gNewCamera.isActive) {
                         set_camera_mode(m->area->camera, m->area->camera->defMode, 1);
                     } else {
                         m->area->camera->mode = CAMERA_MODE_NEWCAM;
@@ -2040,7 +2121,7 @@ s32 act_flying_triple_jump(struct MarioState *m) {
 #ifndef VERSION_JP
     if (m->input & (INPUT_B_PRESSED | INPUT_Z_PRESSED)) {
         if (m->playerIndex == 0 && m->area->camera->mode == CAMERA_MODE_BEHIND_MARIO) {
-            if (newcam_active == 0) {
+            if (!gNewCamera.isActive) {
                 set_camera_mode(m->area->camera, m->area->camera->defMode, 1);
             } else {
                 m->area->camera->mode = CAMERA_MODE_NEWCAM;
@@ -2084,7 +2165,7 @@ s32 act_flying_triple_jump(struct MarioState *m) {
 
     if (m->vel[1] < 4.0f) {
         if (m->playerIndex == 0 && m->area->camera->mode != CAMERA_MODE_BEHIND_MARIO) {
-            if (newcam_active == 0) {
+            if (!gNewCamera.isActive) {
                 set_camera_mode(m->area->camera, m->area->camera->defMode, 1);
             } else {
                 m->area->camera->mode = CAMERA_MODE_NEWCAM;
@@ -2204,10 +2285,20 @@ s32 act_special_triple_jump(struct MarioState *m) {
     return FALSE;
 }
 
+/* |description|
+Checks for and handles common conditions that would cancel Mario's current air action. This includes transitioning
+to a water plunge if below the water level, becoming squished if appropriate, or switching to vertical wind action
+if on certain wind surfaces. Also resets `m.quicksandDepth`
+|descriptionEnd| */
 s32 check_common_airborne_cancels(struct MarioState *m) {
     if (!m) { return 0; }
+
     if (m->pos[1] < m->waterLevel - 100) {
-        return set_water_plunge_action(m);
+        bool allowForceAction = true;
+        smlua_call_event_hooks(HOOK_ALLOW_FORCE_WATER_ACTION, m, false, &allowForceAction);
+        if (allowForceAction) {
+            return set_water_plunge_action(m);
+        }
     }
 
     if (m->input & INPUT_SQUISHED) {
@@ -2215,16 +2306,24 @@ s32 check_common_airborne_cancels(struct MarioState *m) {
     }
 
     if (m->floor && m->floor->type == SURFACE_VERTICAL_WIND && (m->action & ACT_FLAG_ALLOW_VERTICAL_WIND_ACTION)) {
-        return drop_and_set_mario_action(m, ACT_VERTICAL_WIND, 0);
+        bool allowHazard = true;
+        smlua_call_event_hooks(HOOK_ALLOW_HAZARD_SURFACE, m, HAZARD_TYPE_VERTICAL_WIND, &allowHazard);
+        if (allowHazard) {
+            return drop_and_set_mario_action(m, ACT_VERTICAL_WIND, 0);
+        }
     }
 
     m->quicksandDepth = 0.0f;
     return FALSE;
 }
 
+/* |description|
+Executes Mario's current airborne action by first checking common airborne cancels, then playing a far-fall sound if needed.
+Dispatches to the appropriate action function, such as jump, double jump, freefall, etc
+|descriptionEnd| */
 s32 mario_execute_airborne_action(struct MarioState *m) {
     if (!m) { return FALSE; }
-    u32 cancel;
+    s32 cancel;
 
     if (check_common_airborne_cancels(m)) {
         return TRUE;
@@ -2232,7 +2331,7 @@ s32 mario_execute_airborne_action(struct MarioState *m) {
 
     play_far_fall_sound(m);
 
-    if (!smlua_call_action_hook(ACTION_HOOK_EVERY_FRAME, m, (s32*)&cancel)) {
+    if (!smlua_call_action_hook(ACTION_HOOK_EVERY_FRAME, m, &cancel)) {
         /* clang-format off */
         switch (m->action) {
             case ACT_JUMP:                 cancel = act_jump(m);                 break;
@@ -2281,9 +2380,9 @@ s32 mario_execute_airborne_action(struct MarioState *m) {
             case ACT_TOP_OF_POLE_JUMP:     cancel = act_top_of_pole_jump(m);     break;
             case ACT_VERTICAL_WIND:        cancel = act_vertical_wind(m);        break;
             default:
-                LOG_ERROR("Attempted to execute unimplemented action '%04X'", m->action);
+                LOG_ERROR("Attempted to execute unimplemented action '%08X'", m->action);
                 set_mario_action(m, ACT_FREEFALL, 0);
-                return false;
+                return FALSE;
         }
         /* clang-format on */
     }

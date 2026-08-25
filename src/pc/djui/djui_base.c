@@ -7,6 +7,7 @@
 ////////////////
 
 void djui_base_set_visible(struct DjuiBase* base, bool visible) {
+    if (!base) { return; }
     base->visible = visible;
 }
 
@@ -79,6 +80,10 @@ void djui_base_set_padding_type(struct DjuiBase* base, enum DjuiScreenValueType 
 void djui_base_set_alignment(struct DjuiBase* base, enum DjuiHAlign hAlign, enum DjuiVAlign vAlign) {
     base->hAlign = hAlign;
     base->vAlign = vAlign;
+}
+
+void djui_base_set_gradient(struct DjuiBase* base, bool gradient) {
+    base->gradient = gradient;
 }
 
   /////////////
@@ -440,6 +445,7 @@ void djui_base_init(struct DjuiBase* parent, struct DjuiBase* base, bool (*rende
     djui_base_set_enabled(base, true);
     djui_base_set_size(base, 64, 64);
     djui_base_set_color(base, 255, 255, 255, 255);
+    djui_base_set_gradient(base, configDjuiThemeGradients);
     base->get_cursor_hover_location = djui_base_get_cursor_hover_location;
     base->render = render;
     base->destroy = destroy;

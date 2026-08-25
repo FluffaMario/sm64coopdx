@@ -5,6 +5,7 @@
 
 #include "macros.h"
 #include "types.h"
+#include "pc/lua/utils/smlua_model_utils.h"
 
 // used for chain chomp and wiggler
 struct ChainSegment
@@ -40,16 +41,6 @@ struct WaterDropletParams
     f32 randSizeScale;
 };
 
-struct struct802A1230 {
-    /*0x00*/ s16 unk00;
-    /*0x02*/ s16 unk02;
-};
-
-struct Struct802A272C {
-    Vec3f vecF;
-    Vec3s vecS;
-};
-
 // TODO: Field names
 struct SpawnParticlesInfo
 {
@@ -69,6 +60,7 @@ struct SpawnParticlesInfo
 
 extern u8 (*gContinueDialogFunction)(void);
 extern struct Object* gContinueDialogFunctionObject;
+extern s16 gRoomOverride;
 
 Gfx *geo_update_projectile_pos_from_parent(s32 callContext, UNUSED struct GraphNode *node, Mat4 mtx);
 Gfx *geo_update_layer_transparency(s32 callContext, struct GraphNode *node, UNUSED void *context);
@@ -81,14 +73,14 @@ Gfx *geo_switch_area(s32 callContext, struct GraphNode *node);
 #endif
 Gfx *geo_choose_area_ext(s32 callContext, UNUSED struct GraphNode *node, Mat4 mtx);
 void obj_update_pos_from_parent_transformation(Mat4 a0, struct Object *a1);
-void obj_apply_scale_to_matrix(struct Object *obj, Mat4 dst, Mat4 src);
-void create_transformation_from_matrices(Mat4 a0, Mat4 a1, Mat4 a2);
+void obj_apply_scale_to_matrix(struct Object *obj, VEC_OUT Mat4 dst, Mat4 src);
+void create_transformation_from_matrices(VEC_OUT Mat4 a0, Mat4 a1, Mat4 a2);
 void obj_set_held_state(struct Object *obj, const BehaviorScript *heldBehavior);
 f32 lateral_dist_between_objects(struct Object *obj1, struct Object *obj2);
 f32 dist_between_objects(struct Object *obj1, struct Object *obj2);
 f32 dist_between_object_and_point(struct Object *obj, f32 pointX, f32 pointY, f32 pointZ);
 void cur_obj_forward_vel_approach_upward(f32 target, f32 increment);
-s32 approach_f32_signed(f32 *value, f32 target, f32 increment);
+s32 approach_f32_signed(INOUT f32 *value, f32 target, f32 increment);
 f32 approach_f32_symmetric(f32 value, f32 target, f32 increment);
 s16 approach_s16_symmetric(s16 value, s16 target, s16 increment);
 s32 cur_obj_rotate_yaw_toward(s16 target, s16 increment);
@@ -127,8 +119,8 @@ void obj_copy_pos_and_angle(struct Object *dst, struct Object *src);
 void obj_copy_pos(struct Object *dst, struct Object *src);
 void obj_copy_angle(struct Object *dst, struct Object *src);
 void obj_set_gfx_pos_from_pos(struct Object *obj);
-void linear_mtxf_mul_vec3f(Mat4 m, Vec3f dst, Vec3f v);
-void linear_mtxf_transpose_mul_vec3f(Mat4 m, Vec3f dst, Vec3f v);
+void linear_mtxf_mul_vec3f(Mat4 m, VEC_OUT Vec3f dst, Vec3f v);
+void linear_mtxf_transpose_mul_vec3f(Mat4 m, VEC_OUT Vec3f dst, Vec3f v);
 void obj_apply_scale_to_transform(struct Object *obj);
 void obj_copy_scale(struct Object *dst, struct Object *src);
 void obj_scale_xyz(struct Object* obj, f32 xScale, f32 yScale, f32 zScale);
@@ -151,7 +143,7 @@ u32 get_object_list_from_behavior(const BehaviorScript *behavior);
 struct Object *cur_obj_nearest_object_with_behavior(const BehaviorScript *behavior);
 f32 cur_obj_dist_to_nearest_object_with_behavior(const BehaviorScript* behavior);
 struct Object* cur_obj_find_nearest_pole(void);
-struct Object *cur_obj_find_nearest_object_with_behavior(const BehaviorScript * behavior, f32 *dist);
+struct Object *cur_obj_find_nearest_object_with_behavior(const BehaviorScript * behavior, RET f32 *dist);
 u16 cur_obj_count_objects_with_behavior(const BehaviorScript* behavior, f32 dist);
 struct Object *find_object_with_behavior(const BehaviorScript *behavior);
 struct Object *find_unimportant_object(void);
@@ -160,13 +152,12 @@ s32 count_objects_with_behavior(const BehaviorScript *behavior);
 struct Object *cur_obj_find_nearby_held_actor(const BehaviorScript *behavior, f32 maxDist);
 void cur_obj_change_action(s32 action);
 void cur_obj_set_vel_from_mario_vel(struct MarioState* m, f32 f12,f32 f14);
-BAD_RETURN(s16) cur_obj_reverse_animation(void);
-BAD_RETURN(s32) cur_obj_extend_animation_if_at_end(void);
+void cur_obj_reverse_animation(void);
+void cur_obj_extend_animation_if_at_end(void);
 s32 cur_obj_check_if_near_animation_end(void);
 s32 cur_obj_check_if_at_animation_end(void);
 s32 cur_obj_check_anim_frame(s32 frame);
 s32 cur_obj_check_anim_frame_in_range(s32 startFrame, s32 rangeLength);
-s32 cur_obj_check_frame_prior_current_frame(s16 *a0);
 s32 mario_is_in_air_action(struct MarioState* m);
 s32 mario_is_dive_sliding(struct MarioState* m);
 void cur_obj_set_y_vel_and_animation(f32 sp18, s32 sp1C);
@@ -265,6 +256,7 @@ f32 absf(f32 x);
 s32 absi(s32 a0);
 s32 cur_obj_wait_then_blink(s32 timeUntilBlinking, s32 numBlinks);
 s32 cur_obj_is_mario_ground_pounding_platform(void);
+s32 obj_is_mario_ground_pounding_platform(struct MarioState *m, struct Object *obj);
 void spawn_mist_particles(void);
 void spawn_mist_particles_with_sound(u32 sp18);
 void cur_obj_push_mario_away(f32 radius);

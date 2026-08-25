@@ -7,18 +7,18 @@
 
 /**
  * Hitbox for spiny both while thrown and walking. The interaction type is
- * changed to INTERACT_UNKNOWN_08 while walking.
+ * changed to INTERACT_SPINY_WALKING while walking.
  */
 static struct ObjectHitbox sSpinyHitbox = {
-    /* interactType:      */ INTERACT_MR_BLIZZARD,
-    /* downOffset:        */ 0,
-    /* damageOrCoinValue: */ 2,
-    /* health:            */ 0,
-    /* numLootCoins:      */ 0,
-    /* radius:            */ 80,
-    /* height:            */ 50,
-    /* hurtboxRadius:     */ 40,
-    /* hurtboxHeight:     */ 40,
+    .interactType = INTERACT_MR_BLIZZARD,
+    .downOffset = 0,
+    .damageOrCoinValue = 2,
+    .health = 0,
+    .numLootCoins = 0,
+    .radius = 80,
+    .height = 50,
+    .hurtboxRadius = 40,
+    .hurtboxHeight = 40,
 };
 
 /**
@@ -158,7 +158,7 @@ static void spiny_act_walk(void) {
             // Don't allow mario to punch the spiny two frames in a row?
             o->oInteractType = INTERACT_MR_BLIZZARD;
         } else {
-            o->oInteractType = INTERACT_UNKNOWN_08;
+            o->oInteractType = INTERACT_SPINY_WALKING;
         }
     }
 }
@@ -241,15 +241,15 @@ void bhv_spiny_update(void) {
             so->on_sent_pre = bhv_spiny_on_sent_pre;
             so->override_ownership = bhv_spiny_override_ownership;
 
-            sync_object_init_field(o, &o->oGraphYOffset);
-            sync_object_init_field(o, &o->oFaceAngleYaw);
-            sync_object_init_field(o, &o->oSpinyTimeUntilTurn);
-            sync_object_init_field(o, &o->oSpinyTargetYaw);
-            sync_object_init_field(o, &o->oSpinyTurningAwayFromWall);
-            sync_object_init_field(o, &o->oMoveFlags);
-            sync_object_init_field(o, &o->oInteractType);
-            sync_object_init_field(o, &o->oFaceAnglePitch);
-            sync_object_init_field(o, &spinyAnimCache);
+            sync_object_init_field(o, o->oGraphYOffset);
+            sync_object_init_field(o, o->oFaceAngleYaw);
+            sync_object_init_field(o, o->oSpinyTimeUntilTurn);
+            sync_object_init_field(o, o->oSpinyTargetYaw);
+            sync_object_init_field(o, o->oSpinyTurningAwayFromWall);
+            sync_object_init_field(o, o->oMoveFlags);
+            sync_object_init_field(o, o->oInteractType);
+            sync_object_init_field(o, o->oFaceAnglePitch);
+            sync_object_init_field(o, spinyAnimCache);
         }
 
 

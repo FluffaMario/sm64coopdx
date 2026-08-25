@@ -38,24 +38,32 @@
 #define SPECIAL_WARP_TITLE -8
 #define SPECIAL_WARP_LEVEL_SELECT -9
 
-#define MARIO_SPAWN_DOOR_WARP             0x01
+enum MarioSpawnType {
+    MARIO_SPAWN_NONE,
+    MARIO_SPAWN_DOOR_WARP,
+    MARIO_SPAWN_IDLE,
+    MARIO_SPAWN_PIPE,
+    MARIO_SPAWN_TELEPORT,
+    MARIO_SPAWN_INSTANT_ACTIVE = 0x10,
+    MARIO_SPAWN_SWIMMING,
+    MARIO_SPAWN_AIRBORNE,
+    MARIO_SPAWN_HARD_AIR_KNOCKBACK,
+    MARIO_SPAWN_SPIN_AIRBORNE_CIRCLE,
+    MARIO_SPAWN_DEATH,
+    MARIO_SPAWN_SPIN_AIRBORNE,
+    MARIO_SPAWN_FLYING,
+    MARIO_SPAWN_PAINTING_STAR_COLLECT = 0x20,
+    MARIO_SPAWN_PAINTING_DEATH,
+    MARIO_SPAWN_AIRBORNE_STAR_COLLECT,
+    MARIO_SPAWN_AIRBORNE_DEATH,
+    MARIO_SPAWN_LAUNCH_STAR_COLLECT,
+    MARIO_SPAWN_LAUNCH_DEATH,
+    MARIO_SPAWN_UNUSED_38,
+    MARIO_SPAWN_FADE_FROM_BLACK
+};
+
 #define MARIO_SPAWN_UNKNOWN_02            0x02
 #define MARIO_SPAWN_UNKNOWN_03            0x03
-#define MARIO_SPAWN_TELEPORT              0x04
-#define MARIO_SPAWN_INSTANT_ACTIVE        0x10
-#define MARIO_SPAWN_SWIMMING              0x11
-#define MARIO_SPAWN_AIRBORNE              0x12
-#define MARIO_SPAWN_HARD_AIR_KNOCKBACK    0x13
-#define MARIO_SPAWN_SPIN_AIRBORNE_CIRCLE  0x14
-#define MARIO_SPAWN_DEATH                 0x15
-#define MARIO_SPAWN_SPIN_AIRBORNE         0x16
-#define MARIO_SPAWN_FLYING                0x17
-#define MARIO_SPAWN_PAINTING_STAR_COLLECT 0x20
-#define MARIO_SPAWN_PAINTING_DEATH        0x21
-#define MARIO_SPAWN_AIRBORNE_STAR_COLLECT 0x22
-#define MARIO_SPAWN_AIRBORNE_DEATH        0x23
-#define MARIO_SPAWN_LAUNCH_STAR_COLLECT   0x24
-#define MARIO_SPAWN_LAUNCH_DEATH          0x25
 #define MARIO_SPAWN_UNKNOWN_27            0x27
 
 #define WARP_NODE_F0 0xF0
@@ -72,7 +80,14 @@
 #define WARP_TYPE_CHANGE_AREA 2
 #define WARP_TYPE_SAME_AREA 3
 
+#define WARP_ARG_EXIT_COURSE -1
+
 #define PRESS_START_DEMO_TIMER 800
+
+// From Surface 0xD3 to 0xFC
+#define PAINTING_WARP_INDEX_START 0x00 // Value greater than or equal to Surface 0xD3
+#define PAINTING_WARP_INDEX_FA 0x2A    // THI Huge Painting index left
+#define PAINTING_WARP_INDEX_END 0x2D   // Value less than Surface 0xFD
 
 struct CreditsEntry
 {
@@ -97,10 +112,11 @@ extern u8 unused3[4];
 
 extern s16 gChangeLevel;
 extern s16 gChangeActNum;
+extern s16 gDelayedInitSound;
 
 struct WarpDest {
     u8 type;
-    u8 levelNum;
+    s16 levelNum;
     u8 areaIdx;
     u8 nodeId;
     u32 arg;
@@ -117,7 +133,6 @@ struct SavedWarpValues {
 
 extern struct WarpDest sWarpDest;
 extern s8 sWarpCheckpointActive;
-extern u8 gRejectInstantWarp;
 extern u16 gFanFareDebounce;
 
 extern s16 D_80339EE0;
@@ -144,8 +159,6 @@ extern bool gNeverEnteredCastle;
 extern u32 gControlTimerStartNat;
 extern u32 gControlTimerStopNat;
 
-extern bool gInPlayerMenu;
-
 enum HUDDisplayFlag {
     HUD_DISPLAY_FLAG_LIVES = 0x0001,
     HUD_DISPLAY_FLAG_COIN_COUNT = 0x0002,
@@ -162,21 +175,34 @@ enum HUDDisplayFlag {
     HUD_DISPLAY_DEFAULT = HUD_DISPLAY_FLAG_LIVES | HUD_DISPLAY_FLAG_COIN_COUNT | HUD_DISPLAY_FLAG_STAR_COUNT | HUD_DISPLAY_FLAG_CAMERA_AND_POWER | HUD_DISPLAY_FLAG_CAMERA | HUD_DISPLAY_FLAG_POWER | HUD_DISPLAY_FLAG_KEYS | HUD_DISPLAY_FLAG_UNKNOWN_0020
 };
 
+/* |description|Returns if the level timer is running|descriptionEnd| */
 u8 level_control_timer_running(void);
 u16 level_control_timer(s32 timerOp);
+/* |description|Checks if the start button has been pressed as well as some other conditions for opening the pause menu depending on if pause anywhere is enabled|descriptionEnd|*/
+bool pressed_pause(void);
+/* |description|Fades into a special warp with `arg` and using `color`|descriptionEnd| */
 void fade_into_special_warp(u32 arg, u32 color);
 void load_level_init_text(u32 arg);
 void warp_credits(void);
+/* |description|Gets an instant warp from the current area's instant warp array (0-3)|descriptionEnd| */
+struct InstantWarp *get_instant_warp(u8 index);
+/* |description|Gets a painting warp node from the local mario's floor type|descriptionEnd| */
 struct WarpNode *get_painting_warp_node(void);
+/* |description|Initiates a painting warp of `paintingIndex`|descriptionEnd| */
 void initiate_painting_warp(s16 paintingIndex);
+/* |description|Triggers a warp (WARP_OP_*) for the level. Pass in `gMarioStates[0]` for `m`|descriptionEnd| */
 s16 level_trigger_warp(struct MarioState *m, s32 warpOp);
 void level_set_transition(s16 length, void (*updateFunction)(s16 *));
+void set_play_mode(s16 playMode);
+/* |description|Special warps to arg (`SPECIAL_WARP_*`)|descriptionEnd| */
 void warp_special(s32 arg);
-void initiate_warp(s16 destLevel, s16 destArea, s16 destWarpNode, s32 arg3);
+/* |description|Initiates a warp to `destLevel` in `destArea` at `destWarpNode` with `arg`. This function is unstable and it's generally recommended to use `warp_to_level` instead|descriptionEnd| */
+void initiate_warp(s16 destLevel, s16 destArea, s16 destWarpNode, s32 arg);
 
 s32 lvl_init_or_update(s16 initOrUpdate, UNUSED s32 unused);
-s32 lvl_init_from_save_file(UNUSED s16 arg0, s32 levelNum);
-s32 lvl_set_current_level(UNUSED s16 arg0, s32 levelNum);
+s32 lvl_init_from_save_file(UNUSED s16 arg0, s16 levelNum);
+/* |description|Sets the level number and handles the act select screen. `param` is used for overriding the level ID in level scripts, set to 0 in Lua|descriptionEnd| */
+s32 lvl_set_current_level(s16 param, s16 levelNum);
 s32 lvl_play_the_end_screen_sound(UNUSED s16 arg0, UNUSED s32 arg1);
 void basic_update(UNUSED s16 *arg);
 

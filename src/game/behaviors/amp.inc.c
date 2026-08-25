@@ -6,15 +6,15 @@
  */
 
 static struct ObjectHitbox sAmpHitbox = {
-    /* interactType:      */ INTERACT_SHOCK,
-    /* downOffset:        */ 40,
-    /* damageOrCoinValue: */ 1,
-    /* health:            */ 0,
-    /* numLootCoins:      */ 0,
-    /* radius:            */ 40,
-    /* height:            */ 50,
-    /* hurtboxRadius:     */ 50,
-    /* hurtboxHeight:     */ 60,
+    .interactType = INTERACT_SHOCK,
+    .downOffset = 40,
+    .damageOrCoinValue = 1,
+    .health = 0,
+    .numLootCoins = 0,
+    .radius = 40,
+    .height = 50,
+    .hurtboxRadius = 50,
+    .hurtboxHeight = 60,
 };
 
 /**
@@ -207,14 +207,14 @@ void bhv_homing_amp_loop(void) {
     if (!sync_object_is_initialized(o->oSyncID)) {
         struct SyncObject *so = sync_object_init(o, 4000.0f);
         if (so) {
-            sync_object_init_field(o, &o->oAmpYPhase);
-            sync_object_init_field(o, &o->oAnimState);
-            sync_object_init_field(o, &o->oFaceAnglePitch);
-            sync_object_init_field(o, &o->oFaceAngleYaw);
-            sync_object_init_field(o, &o->oForwardVel);
-            sync_object_init_field(o, &o->oFriction);
-            sync_object_init_field(o, &o->oHomingAmpAvgY);
-            sync_object_init_field(o, &o->oHomingAmpLockedOn);
+            sync_object_init_field(o, o->oAmpYPhase);
+            sync_object_init_field(o, o->oAnimState);
+            sync_object_init_field(o, o->oFaceAnglePitch);
+            sync_object_init_field(o, o->oFaceAngleYaw);
+            sync_object_init_field(o, o->oForwardVel);
+            sync_object_init_field(o, o->oFriction);
+            sync_object_init_field(o, o->oHomingAmpAvgY);
+            sync_object_init_field(o, o->oHomingAmpLockedOn);
         }
     }
 
@@ -354,12 +354,12 @@ void bhv_circling_amp_loop(void) {
     if (!sync_object_is_initialized(o->oSyncID)) {
         struct SyncObject *so = sync_object_init(o, 4000.0f);
         if (so) {
-            sync_object_init_field(o, &o->oAmpYPhase);
-            sync_object_init_field(o, &o->oAnimState);
-            sync_object_init_field(o, &o->oFaceAnglePitch);
-            sync_object_init_field(o, &o->oFaceAngleYaw);
-            sync_object_init_field(o, &o->oForwardVel);
-            sync_object_init_field(o, &o->oFriction);
+            sync_object_init_field(o, o->oAmpYPhase);
+            sync_object_init_field(o, o->oAnimState);
+            sync_object_init_field(o, o->oFaceAnglePitch);
+            sync_object_init_field(o, o->oFaceAngleYaw);
+            sync_object_init_field(o, o->oForwardVel);
+            sync_object_init_field(o, o->oFriction);
         }
     }
 

@@ -19,7 +19,8 @@
 #include "pc/utils/misc.h"
 #include "obj_behaviors.h"
 #include "level_update.h"
-#include "src/pc/network/network_player.h"
+#include "pc/network/network_player.h"
+#include "pc/lua/utils/smlua_gfx_utils.h"
 #include "print.h"
 #include "hardcoded.h"
 
@@ -213,13 +214,13 @@ struct Painting_List_Item paintingZero = {
 // } Vtx_Interp;
 
 static Vtx_Interp sVertexBuffers[2][2 * 264 * 3];
-static u8 sVerticesCurIndex = 0;
-static u8 sVertexSwaps = 0;
-static Vtx_Interp* sVerticesCur  = sVertexBuffers[0];
-static Vtx_Interp* sVerticesPrev = NULL;
-static u32 sVerticesPrevTimestamp;
-static Vtx *sVerticesPtr[2];
-static s32 sVerticesCount;
+UNUSED static u8 sVerticesCurIndex = 0;
+UNUSED static u8 sVertexSwaps = 0;
+UNUSED static Vtx_Interp* sVerticesCur  = sVertexBuffers[0];
+UNUSED static Vtx_Interp* sVerticesPrev = NULL;
+UNUSED static u32 sVerticesPrevTimestamp;
+UNUSED static Vtx *sVerticesPtr[2];
+UNUSED static s32 sVerticesCount;
 
 void patch_paintings_init(struct Painting *painting) {
     painting->ripples.sVerticesCurIndex = 0;
@@ -1537,6 +1538,31 @@ Gfx *display_painting_rippling(struct Painting *painting) {
     return dlist;
 }
 
+static Gfx *get_painting_normal_display_list(struct Painting *painting) {
+    const Gfx *normalDisplayList = painting->normalDisplayList;
+    if (!normalDisplayList) {
+        return NULL;
+    }
+
+    u32 dlistLength = gfx_get_length_no_sentinel(normalDisplayList);
+    Gfx *dlist = alloc_display_list(dlistLength * sizeof(Gfx));
+    if (!dlist) {
+        return NULL;
+    }
+
+    Gfx *gfx = dlist;
+    s8 textureIndex = 0;
+    for (u32 i = 0; i < dlistLength; ++i, gfx++, normalDisplayList++) {
+        *gfx = *normalDisplayList;
+
+        // Replace the texture pointer by the painting's corresponding texture
+        if (GFX_OP(normalDisplayList) == G_SETTIMG && textureIndex < painting->imageCount) {
+            gfx->words.w1 = (uintptr_t) painting->textureArray[textureIndex++];
+        }
+    }
+    return dlist;
+}
+
 /**
  * Render a normal painting.
  */
@@ -1547,8 +1573,14 @@ Gfx *display_painting_not_rippling(struct Painting *painting) {
     if (dlist == NULL) {
         return dlist;
     }
+
+    Gfx *normalDisplayList = get_painting_normal_display_list(painting);
+    if (!normalDisplayList) {
+        return NULL;
+    }
+
     gSPDisplayList(gfx++, painting_model_view_transform(painting));
-    gSPDisplayList(gfx++, painting->normalDisplayList);
+    gSPDisplayList(gfx++, normalDisplayList);
     gSPPopMatrix(gfx++, G_MTX_MODELVIEW);
     gSPEndDisplayList(gfx);
     return dlist;

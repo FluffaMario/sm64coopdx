@@ -1,15 +1,15 @@
 // haunted_chair.inc.c
 
 struct ObjectHitbox sHauntedChairHitbox = {
-    /* interactType:      */ INTERACT_MR_BLIZZARD,
-    /* downOffset:        */ 0,
-    /* damageOrCoinValue: */ 2,
-    /* health:            */ 0,
-    /* numLootCoins:      */ 0,
-    /* radius:            */ 50,
-    /* height:            */ 50,
-    /* hurtboxRadius:     */ 50,
-    /* hurtboxHeight:     */ 50,
+    .interactType = INTERACT_MR_BLIZZARD,
+    .downOffset = 0,
+    .damageOrCoinValue = 2,
+    .health = 0,
+    .numLootCoins = 0,
+    .radius = 50,
+    .height = 50,
+    .hurtboxRadius = 50,
+    .hurtboxHeight = 50,
 };
 
 void bhv_haunted_chair_init(void) {
@@ -24,15 +24,15 @@ void bhv_haunted_chair_init(void) {
     }
 
     sync_object_init(o, 4000.0f);
-    sync_object_init_field(o, &o->oFaceAnglePitch);
-    sync_object_init_field(o, &o->oFaceAngleRoll);
-    sync_object_init_field(o, &o->oFaceAngleYaw);
-    sync_object_init_field(o, &o->oHauntedChairUnk104);
-    sync_object_init_field(o, &o->oHauntedChairUnkF4);
-    sync_object_init_field(o, &o->oHauntedChairUnkF8);
-    sync_object_init_field(o, &o->oHauntedChairUnkFC);
-    sync_object_init_field(o, &o->oMoveAnglePitch);
-    sync_object_init_field(o, &o->oMoveAngleYaw);
+    sync_object_init_field(o, o->oFaceAnglePitch);
+    sync_object_init_field(o, o->oFaceAngleRoll);
+    sync_object_init_field(o, o->oFaceAngleYaw);
+    sync_object_init_field(o, o->oHauntedChairUnk104);
+    sync_object_init_field(o, o->oHauntedChairUnkF4);
+    sync_object_init_field(o, o->oHauntedChairUnkF8);
+    sync_object_init_field(o, o->oHauntedChairUnkFC);
+    sync_object_init_field(o, o->oMoveAnglePitch);
+    sync_object_init_field(o, o->oMoveAngleYaw);
 }
 
 void haunted_chair_act_0(void) {

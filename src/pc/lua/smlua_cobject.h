@@ -1,6 +1,8 @@
 #ifndef SMLUA_COBJECT_H
 #define SMLUA_COBJECT_H
 
+#include "lua.h"
+
 enum LuaValueType {
     LVT_BOOL,
     LVT_BOOL_P,
@@ -24,39 +26,37 @@ enum LuaValueType {
     LVT_COBJECT_P,
     LVT_STRING,
     LVT_STRING_P,
-    LVT_BEHAVIORSCRIPT,
     LVT_BEHAVIORSCRIPT_P,
-    LVT_OBJECTANIMPOINTER,
     LVT_OBJECTANIMPOINTER_P,
-    LVT_COLLISION,
     LVT_COLLISION_P,
-    LVT_LEVELSCRIPT,
     LVT_LEVELSCRIPT_P,
-    LVT_TRAJECTORY,
     LVT_TRAJECTORY_P,
+    LVT_TEXTURE_P,
     LVT_LUAFUNCTION,
+    LVT_LUATABLE,
     LVT_POINTER,
+    LVT_FUNCTION,
+    LVT_PROPERTY,
     LVT_MAX,
-};
-
-enum LuaObjectType {
-    LOT_NONE = 0,
-    LOT_VEC3S,
-    LOT_VEC3F,
-    LOT_VEC4S,
-    LOT_VEC4F,
-    LOT_MAT4,
-    LOT_COLOR,
-    LOT_POINTER,
-    LOT_MAX,
 };
 
 struct LuaObjectField {
     const char* key;
     enum LuaValueType valueType;
-    size_t valueOffset;
-    bool immutable;
-    u16 lot;
+    union {
+        struct {
+            size_t valueOffset;
+            bool immutable;
+            u16 lot;
+            u16 count;
+            u32 size;
+        };
+        const char* function;
+        struct {
+            const char* get;
+            const char* set;
+        };
+    };
 };
 
 struct LuaObjectTable {
@@ -65,8 +65,28 @@ struct LuaObjectTable {
     u16 fieldCount;
 };
 
+typedef struct {
+    void *pointer;
+    u16 lot;
+    bool freed;
+    void *info;
+} CObject;
+
+typedef struct {
+    void *pointer;
+    u16 lvt;
+    bool freed;
+    void *info;
+} CPointer;
+
+extern int gSmLuaCObjects;
+extern int gSmLuaCPointers;
+extern int gSmLuaCObjectMetatable;
+extern int gSmLuaCPointerMetatable;
+
 bool smlua_valid_lot(u16 lot);
 bool smlua_valid_lvt(u16 lvt);
+const char *smlua_get_lvt_name(u16 lvt);
 struct LuaObjectField* smlua_get_object_field_from_ot(struct LuaObjectTable* ot, const char* key);
 struct LuaObjectField* smlua_get_object_field(u16 lot, const char* key);
 struct LuaObjectField* smlua_get_custom_field(lua_State* L, u32 lot, int keyIndex);

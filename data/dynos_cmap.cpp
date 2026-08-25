@@ -1,84 +1,166 @@
 #include <map>
+#include <unordered_map>
 #include <cstdint>
 #include <cstddef>
+#include <memory>
+#include <string>
 
-typedef std::map<int64_t, void*> Map;
+// Ordered maps can be iterated by key order
+// Unordered maps have the fastest lookup times (also called a hash map)
 
-struct MapIter {
-    Map* map;
-    Map::iterator itr;
+template <typename KeyType>
+class IHMap {
+public:
+    virtual ~IHMap() = default;
+
+    virtual void* get(const KeyType& key) = 0;
+    virtual void put(const KeyType& key, void* value) = 0;
+    virtual void erase(const KeyType& key) = 0;
+    virtual void clear() = 0;
+    virtual size_t size() const = 0;
+    virtual void* begin() = 0;
+    virtual void* next() = 0;
+};
+
+template <typename KeyType, bool UseUnordered>
+class HMap final : public IHMap<KeyType> {
+private:
+    using MapType = typename std::conditional<
+        UseUnordered,
+        std::unordered_map<KeyType, void*>,
+        std::map<KeyType, void*>
+    >::type;
+
+public:
+    void* get(const KeyType& key) override {
+        auto it = mMap.find(key);
+        return (it != mMap.end()) ? it->second : nullptr;
+    }
+
+    void put(const KeyType& key, void* value) override {
+        mMap.insert_or_assign(key, value);
+    }
+
+    void erase(const KeyType& key) override {
+        mMap.erase(key);
+    }
+
+    void clear() override {
+        mMap.clear();
+    }
+
+    size_t size() const override {
+        return mMap.size();
+    }
+
+    void* begin() override {
+        if (mMap.empty()) return nullptr;
+        mIterator = mMap.begin();
+        return mIterator->second;
+    }
+
+    void* next() override {
+        if (++mIterator != mMap.end()) {
+            return mIterator->second;
+        }
+        return nullptr;
+    }
+
+private:
+    MapType mMap;
+    typename MapType::iterator mIterator;
 };
 
 extern "C" {
-
-void* hmap_create() {
-    return reinterpret_cast<void*> (new Map());
+void* hmap_create(bool useUnordered) {
+    if (useUnordered) {
+        return new HMap<int64_t, true>();
+    }
+    return new HMap<int64_t, false>();
 }
 
-void* hmap_get(void* map, int64_t k) {
+void* hmap_get(void* map, int64_t key) {
     if (!map) { return NULL; }
-    Map* m = reinterpret_cast<Map*> (map);
-    Map::iterator pos = m->find(k);
-    if (pos == m->end()) {
-        return NULL;
-    } else {
-        return pos->second;
-    }
+    IHMap<int64_t>* hmap = static_cast<IHMap<int64_t>*>(map);
+    return hmap->get(key);
 }
 
-void hmap_put(void* map, int64_t k, void* v) {
+void hmap_put(void* map, int64_t key, void* value) {
     if (!map) { return; }
-    Map* m = reinterpret_cast<Map*> (map);
-    if (m->count(k) > 0) {
-        m->erase(k);
-    }
-    m->insert(std::pair<int64_t, void*>(k, v));
+    IHMap<int64_t>* hmap = static_cast<IHMap<int64_t>*>(map);
+    hmap->put(key, value);
 }
 
-void hmap_del(void* map, int64_t k) {
+void hmap_del(void* map, int64_t key) {
     if (!map) { return; }
-    Map* m = reinterpret_cast<Map*> (map);
-    m->erase(k);
+    IHMap<int64_t>* hmap = static_cast<IHMap<int64_t>*>(map);
+    hmap->erase(key);
 }
 
 void hmap_clear(void* map) {
     if (!map) { return; }
-    Map* m = reinterpret_cast<Map*> (map);
-    m->clear();
+    IHMap<int64_t>* hmap = static_cast<IHMap<int64_t>*>(map);
+    hmap->clear();
+}
+
+void hmap_destroy(void* map) {
+    if (!map) { return; }
+    delete static_cast<IHMap<int64_t>*>(map);
 }
 
 size_t hmap_len(void* map) {
     if (!map) { return 0; }
-    Map* m = reinterpret_cast<Map*> (map);
-    return m->size();
+    IHMap<int64_t>* hmap = static_cast<IHMap<int64_t>*>(map);
+    return hmap->size();
 }
 
-void* hmap_iter(void* map) {
-    if (!map) { return nullptr; }
-    auto iter = new MapIter();
-    Map* m = reinterpret_cast<Map*> (map);
-    iter->map = m;
-    return reinterpret_cast<void*> (iter);
+void* hmap_begin(void* map) {
+    if (!map) { return NULL; }
+    IHMap<int64_t>* hmap = static_cast<IHMap<int64_t>*>(map);
+    return hmap->begin();
 }
 
-void* hmap_begin(void* iter) {
-    if (!iter) { return nullptr; }
-    MapIter* i = reinterpret_cast<MapIter*> (iter);
-    i->itr = i->map->begin();
-    if (i->itr == i->map->end()) {
-        return NULL;
-    }
-    return i->itr->second;
+void* hmap_next(void* map) {
+    if (!map) { return NULL; }
+    IHMap<int64_t>* hmap = static_cast<IHMap<int64_t>*>(map);
+    return hmap->next();
 }
 
-void* hmap_next(void* iter) {
-    if (!iter) { return nullptr; }
-    MapIter* i = reinterpret_cast<MapIter*> (iter);
-    i->itr++;
-    if (i->itr == i->map->end()) {
-        return NULL;
-    }
-    return i->itr->second;
+// Data/String map (for larger keys)
+void* hmap_data_create(void) {
+    return new HMap<std::string, true>();
 }
 
-} // extern "C"
+void* hmap_data_get(void* map, const char* key, size_t len) {
+    if (!map) { return NULL; }
+    std::string keyString(key, len);
+    return static_cast<IHMap<std::string>*>(map)->get(keyString);
+}
+
+void hmap_data_put(void* map, const char* key, size_t len, void* value) {
+    if (!map) { return; }
+    std::string keyString(key, len);
+    static_cast<IHMap<std::string>*>(map)->put(keyString, value);
+}
+
+void hmap_data_del(void* map, const char* key, size_t len) {
+    if (!map) { return; }
+    std::string keyString(key, len);
+    static_cast<IHMap<std::string>*>(map)->erase(keyString);
+}
+
+void hmap_data_clear(void* map) {
+    if (!map) { return; }
+    static_cast<IHMap<std::string>*>(map)->clear();
+}
+
+void hmap_data_destroy(void* map) {
+    if (!map) { return; }
+    delete static_cast<IHMap<std::string>*>(map);
+}
+
+size_t hmap_data_len(void* map) {
+    if (!map) { return 0; }
+    return static_cast<IHMap<std::string>*>(map)->size();
+}
+}

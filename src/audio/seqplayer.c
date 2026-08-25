@@ -212,7 +212,7 @@ struct SequenceChannel *allocate_sequence_channel(void) {
 #endif
         }
     }
-    
+
     LOG_ERROR("RAN OUT OF SEQUENCE CHANNELS FOR ALLOCATION!");
     return &gSequenceChannelNone;
 }
@@ -281,7 +281,7 @@ void sequence_player_init_channels_extended(struct SequencePlayer* seqPlayer, u6
     if (!seqPlayer) { return; }
     u64 channelBits = channelBitsLower;
     LOG_DEBUG("Enabling channels (extended) with corresponding bits %llX", channelBits);
-    
+
     for (u32 i = 0; i < CHANNELS_MAX; i++) {
         if (i == sizeof(u64) * 8) {
             channelBits = channelBitsUpper;
@@ -350,6 +350,9 @@ void sequence_player_disable_channels_extended(struct SequencePlayer* seqPlayer,
 
 void sequence_player_disable_all_channels(struct SequencePlayer *seqPlayer) {
     if (!seqPlayer) { return; }
+
+    MUTEX_LOCK(gAudioThread);
+
     eu_stubbed_printf_0("SUBTRACK DIM\n");
     for (u32 i = 0; i < CHANNELS_MAX; i++) {
         struct SequenceChannel *seqChannel = seqPlayer->channels[i];
@@ -368,11 +371,16 @@ void sequence_player_disable_all_channels(struct SequencePlayer *seqPlayer) {
             seqPlayer->channels[i] = &gSequenceChannelNone;
         }
     }
+
+    MUTEX_UNLOCK(gAudioThread);
 }
 
 void sequence_channel_enable(struct SequencePlayer *seqPlayer, u8 channelIndex, void *script) {
     if (!seqPlayer) { return; }
     if (channelIndex >= CHANNELS_MAX) { return; }
+
+    MUTEX_LOCK(gAudioThread);
+
     struct SequenceChannel *seqChannel = seqPlayer->channels[channelIndex];
     s32 i;
     if (IS_SEQUENCE_CHANNEL_VALID(seqChannel) == FALSE) {
@@ -401,15 +409,19 @@ void sequence_channel_enable(struct SequencePlayer *seqPlayer, u8 channelIndex, 
                 seq_channel_layer_free(seqChannel, i);
             }
         }
-        
+
         LOG_DEBUG("Enabled sequence channel %d with script entry of %p", channelIndex, script);
     }
+
+    MUTEX_UNLOCK(gAudioThread);
 }
 
 void sequence_player_disable(struct SequencePlayer *seqPlayer) {
     if (!seqPlayer) { return; }
+    MUTEX_LOCK(gAudioThread);
+
     LOG_DEBUG("Disabling sequence player %p", seqPlayer);
-    
+
     sequence_player_disable_all_channels(seqPlayer);
     note_pool_clear(&seqPlayer->notePool);
     seqPlayer->finished = TRUE;
@@ -451,6 +463,8 @@ void sequence_player_disable(struct SequencePlayer *seqPlayer) {
         gBankLoadedPool.temporary.nextSide = 0;
     }
 #endif
+
+    MUTEX_UNLOCK(gAudioThread);
 }
 
 /**
@@ -1606,7 +1620,7 @@ u8 get_instrument(struct SequenceChannel *seqChannel, u8 instId, struct Instrume
 }
 
 void set_instrument(struct SequenceChannel *seqChannel, u8 instId) {
-    if (instId >= 0x80) {
+    if (instId >= 0x80 && instId <= 0x83) {
         seqChannel->instOrWave = instId;
         seqChannel->instrument = NULL;
     } else if (instId == 0x7f) {
@@ -1659,7 +1673,7 @@ void sequence_channel_process_script(struct SequenceChannel *seqChannel) {
     }
 
     seqPlayer = seqChannel->seqPlayer;
-    if (seqPlayer->muted && (seqChannel->muteBehavior & MUTE_BEHAVIOR_STOP_SCRIPT) != 0) {
+    if (seqPlayer == NULL || (seqPlayer->muted && (seqChannel->muteBehavior & MUTE_BEHAVIOR_STOP_SCRIPT) != 0)) {
         return;
     }
 
@@ -3039,3 +3053,38 @@ void init_sequence_players(void) {
     }
 }
 
+void sequence_player_set_tempo(u8 player, u16 tempo) {
+    gSequencePlayers[player].tempo = tempo;
+}
+
+void sequence_player_set_tempo_acc(u8 player, u16 tempoAcc) {
+    gSequencePlayers[player].tempoAcc = tempoAcc;
+}
+
+void sequence_player_set_transposition(u8 player, u16 transposition) {
+    gSequencePlayers[player].transposition = transposition;
+}
+
+u16 sequence_player_get_tempo(u8 player) {
+    return gSequencePlayers[player].tempo;
+}
+
+u16 sequence_player_get_tempo_acc(u8 player) {
+    return gSequencePlayers[player].tempoAcc;
+}
+
+u16 sequence_player_get_transposition(u8 player) {
+    return gSequencePlayers[player].transposition;
+}
+
+f32 sequence_player_get_volume(u8 player) {
+    return gSequencePlayers[player].volume;
+}
+
+f32 sequence_player_get_fade_volume(u8 player) {
+    return gSequencePlayers[player].fadeVolume;
+}
+
+f32 sequence_player_get_mute_volume_scale(u8 player) {
+    return gSequencePlayers[player].muteVolumeScale;
+}

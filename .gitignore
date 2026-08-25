@@ -17,18 +17,12 @@
 
 # Libraries
 *.lib
-*.a
 *.la
 *.lo
 
-# Shared objects (inc. Windows DLLs)
-*.dll
-*.so
-*.so.*
-*.dylib
-
 # Executables
 *.exe
+!updater/*/*.exe
 *.out
 *.app
 *.hex
@@ -87,11 +81,6 @@ sm64config.txt
 !/sound/**/*custom*/**/*.aiff
 !/assets/**/*custom*.bin
 !/assets/**/*custom*/**/*.bin
-!/lib/discordsdk/*.*
-!/lib/discordsdk/x86/*.*
-!/lib/bass/**
-!/lib/bass/x86/**
-!/lib/lua/**/*.*
 
 # visual studio
 build-windows-visual-studio/.vs
@@ -99,5 +88,7 @@ build-windows-visual-studio/.vs
 # misc
 todo.txt
 todo-old.txt
-
+*.DS_Store
 tools/ido5.3_compiler/usr/lib/libc.so.1
+/.vs
+tools/audiofile/libaudiofile.a

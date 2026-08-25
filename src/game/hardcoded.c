@@ -34,7 +34,7 @@
 #include "levels/wf/header.h"
 #include "levels/wmotr/header.h"
 
-#include "src/pc/pc_main.h"
+#include "pc/pc_main.h"
 
 extern Trajectory sThiHugeMetalBallTraj[];
 extern Trajectory sThiTinyMetalBallTraj[];
@@ -50,6 +50,7 @@ struct LevelValues gDefaultLevelValues = {
     .fixCollisionBugsGroundPoundBonks = TRUE,
     .fixCollisionBugsPickBestWall     = TRUE,
     .fixVanishFloors                  = FALSE,
+    .fixInvalidShellRides             = TRUE,
     .hudCapTimer                      = FALSE,
     .hudRedCoinsRadar                 = FALSE,
     .hudSecretsRadar                  = FALSE,
@@ -73,6 +74,7 @@ struct LevelValues gDefaultLevelValues = {
     .pssSlideStarTime                 = 630,
     .pssSlideStarIndex                = 1,
     .coinsRequiredForCoinStar         = 100,
+    .infiniteStairsRequirement        = 70,
     .wingCapDuration                  = 1800,
     .metalCapDuration                 = 600,
     .vanishCapDuration                = 600,
@@ -82,6 +84,7 @@ struct LevelValues gDefaultLevelValues = {
     .wingCapSequence                  = SEQ_EVENT_POWERUP,
     .metalCapSequence                 = SEQ_EVENT_METAL_CAP,
     .vanishCapSequence                = SEQ_EVENT_POWERUP,
+    .shellSequence                    = SEQ_EVENT_POWERUP | SEQ_VARIATION,
     .starPositions = {
         .KoopaBobStarPos              = {  3030.0f,  4500.0f, -4600.0f },
         .KoopaThiStarPos              = {  7100.0f, -1300.0f, -6000.0f },
@@ -112,7 +115,7 @@ struct LevelValues gDefaultLevelValues = {
         .CcmSlideStarPos              = {  2500.0f, -4350.0f,  5750.0f },
         .UkikiCageStarPos             = {  2500.0f, -1200.0f,  1300.0f },
         .UnagiStarPos                 = {  6833.0f, -3654.0f,  2230.0f },
-        .JetstreamRingStarPos         = {  3400.0f, -3200.0f,  -500.0f },
+        .JetstreamRingStarPos         = {  3400.0f, -3200.0f,  -500.0f }
     },
     .cellHeightLimit                  = CELL_HEIGHT_LIMIT,
     .floorLowerLimit                  = FLOOR_LOWER_LIMIT,
@@ -122,7 +125,12 @@ struct LevelValues gDefaultLevelValues = {
     .maxCoins                         = 999,
     .numCoinsToLife                   = 50,
     .wdwWaterLevelSpeed               = 10.0f,
-    .useGlobalStarIds                 = FALSE
+    .useGlobalStarIds                 = FALSE,
+    .zoomOutCameraOnPause             = TRUE,
+    .jrbDarkenSkybox                  = TRUE,
+    .wallMaxRadius                    = 200.0f,
+    .floorNormalMinY                  = 0.01,
+    .ceilNormalMaxY                   = -0.01,
 };
 
 struct LevelValues gLevelValues = { 0 };
@@ -160,6 +168,8 @@ struct BehaviorValues gDefaultBehaviorValues = {
     .RespawnShellBoxes        = TRUE,
     .MultipleCapCollection    = FALSE,
     .InfiniteRenderDistance   = TRUE,
+    .ProcessLODs              = FALSE,
+    .CourtyardBoosRequirement = 12,
     .starsNeededForDialog     = { 1, 3, 8, 30, 50, 70 },
     .dialogs = {
         .BobombBuddyBob1Dialog         = DIALOG_004,
@@ -245,7 +255,7 @@ struct BehaviorValues gDefaultBehaviorValues = {
         .WigglerAttack3Dialog          = DIALOG_151,
         .WigglerDialog                 = DIALOG_150,
         .WingCourseDialog              = DIALOG_131,
-        .YoshiDialog                   = DIALOG_161,
+        .YoshiDialog                   = DIALOG_161
     },
     .trajectories = {
         .KoopaBobTrajectory            = (Trajectory*) bob_seg7_trajectory_koopa,
@@ -277,11 +287,37 @@ struct BehaviorValues gDefaultBehaviorValues = {
         .PlatformBitfsTrajectory       = (Trajectory*) bitfs_seg7_trajectory_070159AC,
         .PlatformHmcTrajectory         = (Trajectory*) hmc_seg7_trajectory_0702B86C,
         .PlatformLllTrajectory         = (Trajectory*) lll_seg7_trajectory_0702856C,
-        .PlatformLll2Trajectory        = (Trajectory*) lll_seg7_trajectory_07028660,
+        .PlatformLll2Trajectory        = (Trajectory*) lll_seg7_trajectory_07028660
     }
 };
 
 struct BehaviorValues gBehaviorValues = { 0 };
+
+struct ExclamationBoxContent sDefaultExclamationBoxContents[] = {
+    { 0, 0, 0, E_MODEL_MARIOS_WING_CAP, id_bhvWingCap },
+    { 1, 0, 0, E_MODEL_MARIOS_METAL_CAP, id_bhvMetalCap },
+    { 2, 0, 0, E_MODEL_MARIOS_CAP, id_bhvVanishCap },
+    { 3, 0, 0, E_MODEL_KOOPA_SHELL, id_bhvKoopaShell },
+    { 4, 0, 0, E_MODEL_YELLOW_COIN, id_bhvSingleCoinGetsSpawned },
+    { 5, 0, 0, E_MODEL_NONE, id_bhvThreeCoinsSpawn },
+    { 6, 0, 0, E_MODEL_NONE, id_bhvTenCoinsSpawn },
+    { 7, 0, 0, E_MODEL_1UP, id_bhv1upWalking },
+    { 8, 0, 0, E_MODEL_STAR, id_bhvSpawnedStar },
+    { 9, 0, 0, E_MODEL_1UP, id_bhv1upRunningAway },
+    { 10, 0, 1, E_MODEL_STAR, id_bhvSpawnedStar },
+    { 11, 0, 2, E_MODEL_STAR, id_bhvSpawnedStar },
+    { 12, 0, 3, E_MODEL_STAR, id_bhvSpawnedStar },
+    { 13, 0, 4, E_MODEL_STAR, id_bhvSpawnedStar },
+    { 14, 0, 5, E_MODEL_STAR, id_bhvSpawnedStar }
+};
+
+// Hack: Create 2 arrays: one that is constantly default and one that can be changed.
+
+struct ExclamationBoxContent sDummyContents[EXCLAMATION_BOX_MAX_SIZE];
+
+struct ExclamationBoxContent* gExclamationBoxContents = sDummyContents;
+
+u8 gExclamationBoxSize = 15;
 
   //////////////
  // Painting //
@@ -332,6 +368,10 @@ AT_STARTUP void hardcoded_reset_default_values(void) {
     memcpy(&sl_painting, &default_sl_painting, sizeof(struct Painting));
     memcpy(&thi_huge_painting, &default_thi_huge_painting, sizeof(struct Painting));
     memcpy(&ttm_slide_painting, &default_ttm_slide_painting, sizeof(struct Painting));
+    memcpy(sDummyContents, sDefaultExclamationBoxContents, sizeof(struct ExclamationBoxContent) * 15);
+
+    gExclamationBoxContents = sDummyContents;
+    gExclamationBoxSize = 15;
 
     gPaintingValues = gDefaultPaintingValues;
 }

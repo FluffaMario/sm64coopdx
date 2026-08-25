@@ -2,9 +2,11 @@
 #include <string.h>
 
 #include "memory.h"
+#include "print.h"
 #include "pc/debuglog.h"
 
-#define ALIGN16(val) (((val) + 0xF) & ~0xF)
+// Alignment to a data size
+#define ALIGN_UP(val, align) (((val) + ((align) - 1)) & ~((align) - 1))
 
   //////////////////
  // dynamic pool //
@@ -13,7 +15,8 @@
 struct DynamicPool *gLevelPool = NULL;
 
 struct DynamicPool* dynamic_pool_init(void) {
-    struct DynamicPool* pool = calloc(1, sizeof(struct DynamicPool));
+    struct DynamicPool* pool = malloc(sizeof(struct DynamicPool));
+    if (!pool) { return NULL; }
     pool->usedSpace = 0;
     pool->tail = NULL;
     pool->nextFree = NULL;
@@ -23,14 +26,17 @@ struct DynamicPool* dynamic_pool_init(void) {
 void* dynamic_pool_alloc(struct DynamicPool *pool, u32 size) {
     if (!pool) { return NULL; }
 
-    struct DynamicPoolNode* node = calloc(1, sizeof(struct DynamicPoolNode));
-    node->ptr = calloc(1, size);
+    size_t header = ALIGN_UP(sizeof(struct DynamicPoolNode), sizeof(void*));
+    struct DynamicPoolNode* node = malloc(header + size);
+    if (!node) { return NULL; }
+    node->ptr = (u8*)node + header;
     node->prev = pool->tail;
     node->size = size;
 
     pool->tail = node;
     pool->usedSpace += size;
 
+    memset(node->ptr, 0, size);
     return node->ptr;
 }
 
@@ -49,8 +55,7 @@ void dynamic_pool_free(struct DynamicPool *pool, void* ptr) {
                 next->prev = prev;
             }
             pool->usedSpace -= node->size;
-            free(node->ptr);
-            free(node);
+            free(node); // node->ptr is freed here too; it's part of the same allocation
             return;
         }
         next = node;
@@ -80,8 +85,7 @@ void dynamic_pool_free_pool(struct DynamicPool *pool) {
     struct DynamicPoolNode* node = pool->nextFree;
     while (node) {
         struct DynamicPoolNode* prev = node->prev;
-        free(node->ptr);
-        free(node);
+        free(node); // node->ptr is freed here too; it's part of the same allocation
         node = prev;
     }
 
@@ -106,7 +110,8 @@ struct GrowingPool* growing_pool_init(struct GrowingPool* pool, u32 nodeSize) {
         pool->usedSpace = 0;
     } else {
         // allocate a new pool
-        pool = calloc(1, sizeof(struct GrowingPool));
+        pool = malloc(sizeof(struct GrowingPool));
+        if (!pool) { return NULL; }
         pool->usedSpace = 0;
         pool->nodeSize = nodeSize;
         pool->tail = NULL;
@@ -118,19 +123,22 @@ void* growing_pool_alloc(struct GrowingPool *pool, u32 size) {
     if (!pool) { return NULL; }
 
     // maintain alignment
-    size = ALIGN16(size);
+    size = ALIGN_UP(size, sizeof(void*));
 
     // check if it's too big for a node
     if (size >= pool->nodeSize) {
         // create a node just for this
-        struct GrowingPoolNode* node = calloc(1, sizeof(struct GrowingPoolNode));
-        node->ptr = calloc(1, size);
+        size_t header = ALIGN_UP(sizeof(struct GrowingPoolNode), sizeof(void*));
+        struct GrowingPoolNode* node = malloc(header + size);
+        if (!node) { return NULL; }
+        node->ptr = (u8*) node + header;
         node->prev = pool->tail;
         node->usedSpace = size;
 
         pool->tail = node;
         pool->usedSpace += size;
 
+        memset(node->ptr, 0, size);
         return node->ptr;
     }
 
@@ -142,7 +150,7 @@ void* growing_pool_alloc(struct GrowingPool *pool, u32 size) {
         while (node && depth < 128) {
             depth++;
             s64 freeSpace = (s64)pool->nodeSize - (s64)node->usedSpace;
-            if (freeSpace > size) { break; }
+            if (freeSpace >= (s64) size) { break; }
             node = node->prev;
         }
         if (depth >= 128) {
@@ -152,9 +160,11 @@ void* growing_pool_alloc(struct GrowingPool *pool, u32 size) {
 
     // allocate new node
     if (!node) {
-        node = calloc(1, sizeof(struct GrowingPoolNode));
+        size_t header = ALIGN_UP(sizeof(struct GrowingPoolNode), sizeof(void*));
+        node = malloc(header + pool->nodeSize);
+        if (!node) { return NULL; }
         node->usedSpace = 0;
-        node->ptr = calloc(1, pool->nodeSize);
+        node->ptr = (u8*) node + header;
         node->prev = pool->tail;
         pool->tail = node;
     }
@@ -173,11 +183,156 @@ void growing_pool_free_pool(struct GrowingPool *pool) {
     struct GrowingPoolNode* node = pool->tail;
     while (node) {
         struct GrowingPoolNode* prev = node->prev;
-        free(node->ptr);
-        free(node);
+        free(node); // node->ptr is freed here too; it's part of the same allocation
         node = prev;
     }
     free(pool);
+}
+
+  ///////////////////
+ // growing array //
+///////////////////
+
+static void growing_array_free_elements(struct GrowingArray *array) {
+    if (array) {
+        if (array->buffer) {
+            for (u32 i = 0; i != array->capacity; ++i) {
+                if (array->buffer[i]) {
+                    array->free(array->buffer[i]);
+                }
+            }
+            memset(array->buffer, 0, sizeof(void *) * array->capacity);
+        }
+        array->count = 0;
+    }
+}
+
+struct GrowingArray *growing_array_init(struct GrowingArray *array, u32 capacity, GrowingArrayAllocFunc alloc, GrowingArrayFreeFunc free) {
+    growing_array_free_elements(array);
+
+    // reuse buffer if array was already allocated
+    if (array) {
+        if (!array->buffer || array->capacity != capacity) {
+            void **buffer = realloc(array->buffer, sizeof(void *) * capacity);
+
+            // if realloc fails, destroy the array and create a new one
+            if (!buffer) {
+                growing_array_free(&array);
+                return growing_array_init(NULL, capacity, alloc, free);
+            }
+
+            memset(buffer, 0, sizeof(void *) * capacity);
+            array->buffer = buffer;
+        }
+    } else {
+        array = malloc(sizeof(struct GrowingArray));
+        if (!array) { return NULL; }
+        array->buffer = calloc(capacity, sizeof(void *));
+        if (!array->buffer) {
+            free(array);
+            return NULL;
+        }
+    }
+
+    array->capacity = capacity;
+    array->count = 0;
+    array->alloc = alloc;
+    array->free = free;
+    return array;
+}
+
+void *growing_array_alloc(struct GrowingArray *array, u32 size) {
+    if (array && array->buffer) {
+
+        // Increase capacity if needed
+        while (array->count >= array->capacity) {
+            u32 newCapacity = array->capacity * 2;
+            void **newBuffer = realloc(array->buffer, newCapacity * sizeof(void *));
+            if (!newBuffer) { return NULL; }
+            memset(newBuffer + array->capacity, 0, (newCapacity - array->capacity) * sizeof(void *));
+            array->buffer = newBuffer;
+            array->capacity = newCapacity;
+        }
+
+        // Alloc element if needed
+        void **elem = &array->buffer[array->count++];
+        if (!*elem) {
+            *elem = array->alloc(size);
+        }
+        memset(*elem, 0, size);
+        return *elem;
+    }
+    return NULL;
+}
+
+void growing_array_move(struct GrowingArray *array, u32 from, u32 to, u32 count) {
+    if (array && array->buffer && count > 0 &&
+        (to < from || to > from + count) &&
+        (from + count) <= array->count && to <= array->count) {
+
+        void **temp = malloc(sizeof(void *) * count);
+        if (!temp) { return; }
+
+        // Copy elements to move to temporary buffer
+        memcpy(temp, array->buffer + from, sizeof(void *) * count);
+
+        // Remove copied elements from the array
+        memmove(array->buffer + from, array->buffer + (from + count), sizeof(void *) * (array->count - (from + count)));
+
+        // Make place for the copied elements
+        // If moving left to right, account for the removed elements
+        if (to > from) { to -= count; }
+        memmove(array->buffer + (to + count), array->buffer + to, sizeof(void *) * (array->count - (to + count)));
+
+        // Insert copied elements
+        memcpy(array->buffer + to, temp, sizeof(void *) * count);
+
+        free(temp);
+    }
+}
+
+/**
+ * Swap-and-pop the entry at position `index` out of the array.
+ * The slot is filled by the last live entry, and the count is decremented.
+ * Returns true if the index was valid.
+ */
+bool growing_array_swap_and_pop_index(struct GrowingArray *array, u32 index) {
+    if (!array || index >= array->count) { return false; }
+    array->count--;
+    void *tmp            = array->buffer[index];
+    array->buffer[index] = array->buffer[array->count];
+    array->buffer[array->count] = tmp;
+    return true;
+}
+
+/**
+ * Swap-and-pop the first slot whose pointer equals `ptr`.
+ * Returns true if the entry was found and removed.
+ */
+bool growing_array_swap_and_pop(struct GrowingArray *array, void *ptr) {
+    if (!array) { return false; }
+    for (u32 i = 0; i < array->count; i++) {
+        if (array->buffer[i] == ptr) {
+            return growing_array_swap_and_pop_index(array, i);
+        }
+    }
+    return false;
+}
+
+void growing_array_free(struct GrowingArray **array) {
+    if (*array) {
+        growing_array_free_elements(*array);
+        free((*array)->buffer);
+        free(*array);
+        *array = NULL;
+    }
+}
+
+void growing_array_debug_print(struct GrowingArray *array, const char *name, s32 x, s32 y) {
+    char text[256];
+    u32 allocated = 0; for (u32 i = 0; i != array->capacity; ++i) { allocated += (array->buffer[i] != NULL); }
+    snprintf(text, 256, "%-12s %5u/%5u/%5u", name, array->count, allocated, array->capacity);
+    print_text(x, y, text);
 }
 
   ///////////////////
@@ -240,19 +395,37 @@ void alloc_anim_dma_table(struct MarioAnimation* marioAnim, void* srcAddr, struc
     marioAnim->targetAnim = targetAnim;
 }
 
-s32 load_patchable_table(struct MarioAnimation *a, u32 index) {
-    struct MarioAnimDmaRelatedThing *sp20 = a->animDmaTable;
+s32 load_patchable_table(struct MarioAnimation *a, u32 index, bool isAnim) {
+    if (isAnim) {
+        static struct MarioAnimDmaRelatedThing *marioAnims = (struct MarioAnimDmaRelatedThing *) gMarioAnims;
+        if (index < marioAnims->count) {
+            u8* addr = gMarioAnims + marioAnims->anim[index].offset;
 
-    if (index < sp20->count) {
-        u8* addr = sp20->srcAddr + sp20->anim[index].offset;
-        u32 size = sp20->anim[index].size;
+            if (a->currentAnimAddr != addr) {
+                a->targetAnim = (struct Animation *) addr;
+                a->currentAnimAddr = addr;
 
-        if (a->targetAnim && a->currentAnimAddr != addr) {
-            memcpy(a->targetAnim, addr, size);
-            a->currentAnimAddr = addr;
-            return TRUE;
+                if ((uintptr_t) a->targetAnim->values < (uintptr_t) a->targetAnim) {
+                    a->targetAnim->values = (void *) VIRTUAL_TO_PHYSICAL((u8 *) a->targetAnim + (uintptr_t) a->targetAnim->values);
+                }
+                if ((uintptr_t) a->targetAnim->index < (uintptr_t) a->targetAnim) {
+                    a->targetAnim->index = (void *) VIRTUAL_TO_PHYSICAL((u8 *) a->targetAnim + (uintptr_t) a->targetAnim->index);
+                }
+            }
         }
+    } else {
+        struct MarioAnimDmaRelatedThing *sp20 = a->animDmaTable;
+        if (index < sp20->count) {
+            u8* addr = sp20->srcAddr + sp20->anim[index].offset;
+            u32 size = sp20->anim[index].size;
 
+            if (a->targetAnim && a->currentAnimAddr != addr) {
+                memcpy(a->targetAnim, addr, size);
+                a->currentAnimAddr = addr;
+                return TRUE;
+            }
+        }
     }
+
     return FALSE;
 }

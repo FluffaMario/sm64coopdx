@@ -2,18 +2,16 @@
 #include "pc/djui/djui.h"
 #include "pc/crash_handler.h"
 #include "pc/debuglog.h"
+#include "pc/platform.h"
 
-#if defined(_WIN32) || defined(_WIN64)
-#include <windows.h>
-#include <winuser.h>
+#if defined(_WIN32)
+#include <minwindef.h>
 #else
-#include <unistd.h>
 #define MAX_PATH 1024
 #endif
 
-#define MAX_LAUNCH_CMD (MAX_PATH + 12)
+#define MAX_LAUNCH_CMD (MAX_PATH + 2)
 
-#define APPLICATION_ID_COOP   752700005210390568
 #define APPLICATION_ID_COOPDX 1159627283506679839
 
 struct DiscordApplication app = { 0 };
@@ -47,7 +45,7 @@ void discord_fatal(int rc) {
     }
 }
 
-static void get_oauth2_token_callback(UNUSED void* data, enum EDiscordResult result, struct DiscordOAuth2Token* token) {
+UNUSED static void get_oauth2_token_callback(UNUSED void* data, enum EDiscordResult result, struct DiscordOAuth2Token* token) {
     LOG_INFO("> get_oauth2_token_callback returned %d", result);
     if (result != DiscordResult_Ok) { return; }
     LOG_INFO("OAuth2 token: %s", token->access_token);
@@ -55,26 +53,17 @@ static void get_oauth2_token_callback(UNUSED void* data, enum EDiscordResult res
 
 static void register_launch_command(void) {
     char cmd[MAX_LAUNCH_CMD] = { 0 };
-    int rc;
-#if defined(_WIN32) || defined(_WIN64)
-    HMODULE hModule = GetModuleHandle(NULL);
-    if (hModule == NULL) {
-        LOG_ERROR("unable to retrieve absolute path!");
-        return;
-    }
-    GetModuleFileName(hModule, cmd, sizeof(cmd));
+
+    const char *exe_path = sys_exe_path_file();
+    if (exe_path[0] == '\0') { return; }
+
+#if defined(_WIN32)
+    snprintf(cmd, MAX_LAUNCH_CMD, "\"%s\"", exe_path);  // argv[0] double-quoted
 #else
-    char pidpath[MAX_LAUNCH_CMD] = { 0 };
-    char fullpath[MAX_LAUNCH_CMD] = { 0 };
-    snprintf(pidpath, MAX_LAUNCH_CMD - 1, "/proc/%d/exe", getpid());
-    rc = readlink(pidpath, fullpath, MAX_LAUNCH_CMD - 1);
-    if (rc <= 0) {
-        LOG_ERROR("unable to retrieve absolute path! rc = %d", rc);
-        return;
-    }
-    snprintf(cmd, MAX_LAUNCH_CMD, "%s", fullpath);
+    snprintf(cmd, MAX_LAUNCH_CMD, "'%s'", exe_path);  // argv[0] single-quoted
 #endif
-    rc = app.activities->register_command(app.activities, cmd);
+
+    int rc = app.activities->register_command(app.activities, cmd);
     if (rc != DiscordResult_Ok) {
         LOG_ERROR("register command failed %d", rc);
         return;
@@ -95,7 +84,7 @@ static void on_current_user_update(UNUSED void* data) {
     if (configPlayerName[0] == '\0' && strlen(user.username) > 0) {
         char* cname = configPlayerName;
         char* dname = user.username;
-        for (int i = 0; i < MAX_PLAYER_STRING - 1; i++) {
+        for (int i = 0; i < MAX_CONFIG_STRING - 1; i++) {
             if (*dname >= '!' && *dname <= '~') {
                 *cname = *dname;
                 cname++;
@@ -128,7 +117,7 @@ static void discord_initialize(void) {
     // set up discord params
     struct DiscordCreateParams params = { 0 };
     DiscordCreateParamsSetDefault(&params);
-    params.client_id = configCoopCompatibility ? APPLICATION_ID_COOP : APPLICATION_ID_COOPDX; // you have to have activity status on if you don't want discord to prompt you to authorize on every boot
+    params.client_id = APPLICATION_ID_COOPDX;
     params.flags = DiscordCreateFlags_NoRequireDiscord;
     params.event_data = &app;
     params.user_events = discord_user_initialize();
@@ -154,9 +143,6 @@ static void discord_initialize(void) {
         app.application = app.core->get_application_manager(app.core);
     }
 
-    // get oath2 token
-    app.application->get_oauth2_token(app.application, NULL, get_oauth2_token_callback);
-
     // set activity
     discord_activity_update();
     sDiscordFailed = false;
@@ -173,7 +159,10 @@ u64 discord_get_user_id(void) {
 
 void discord_update(void) {
     if (sDiscordFailed) { return; }
-    if (!gDiscordInitialized) { discord_initialize(); }
+    if (!gDiscordInitialized) {
+        if (gCLIOpts.noDiscord) { return; }
+        discord_initialize();
+    }
     if (sDiscordFailed) { return; }
 
     discord_activity_update_check();

@@ -9,15 +9,15 @@
  * Hitbox for goomba.
  */
 static struct ObjectHitbox sGoombaHitbox = {
-    /* interactType:      */ INTERACT_BOUNCE_TOP,
-    /* downOffset:        */ 0,
-    /* damageOrCoinValue: */ 1,
-    /* health:            */ 0,
-    /* numLootCoins:      */ 1,
-    /* radius:            */ 72,
-    /* height:            */ 50,
-    /* hurtboxRadius:     */ 42,
-    /* hurtboxHeight:     */ 40,
+    .interactType = INTERACT_BOUNCE_TOP,
+    .downOffset = 0,
+    .damageOrCoinValue = 1,
+    .health = 0,
+    .numLootCoins = 1,
+    .radius = 72,
+    .height = 50,
+    .hurtboxRadius = 42,
+    .hurtboxHeight = 40,
 };
 
 /**
@@ -117,8 +117,8 @@ void bhv_goomba_init(void) {
     o->oGravity = -8.0f / 3.0f * o->oGoombaScale;
 
     sync_object_init(o, 4000.0f);
-    sync_object_init_field(o, &o->oGoombaTargetYaw);
-    sync_object_init_field(o, &o->oGoombaWalkTimer);
+    sync_object_init_field(o, o->oGoombaTargetYaw);
+    sync_object_init_field(o, o->oGoombaWalkTimer);
 }
 
 /**

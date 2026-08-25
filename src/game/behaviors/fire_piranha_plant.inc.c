@@ -1,25 +1,25 @@
 struct ObjectHitbox sFirePiranhaPlantHitbox = {
-    /* interactType:      */ INTERACT_BOUNCE_TOP,
-    /* downOffset:        */ 0,
-    /* damageOrCoinValue: */ 2,
-    /* health:            */ 0,
-    /* numLootCoins:      */ 1,
-    /* radius:            */ 80,
-    /* height:            */ 160,
-    /* hurtboxRadius:     */ 50,
-    /* hurtboxHeight:     */ 150,
+    .interactType = INTERACT_BOUNCE_TOP,
+    .downOffset = 0,
+    .damageOrCoinValue = 2,
+    .health = 0,
+    .numLootCoins = 1,
+    .radius = 80,
+    .height = 160,
+    .hurtboxRadius = 50,
+    .hurtboxHeight = 150,
 };
 
 struct ObjectHitbox sPiranhaPlantFireHitbox = {
-    /* interactType:      */ INTERACT_FLAME,
-    /* downOffset:        */ 10,
-    /* damageOrCoinValue: */ 0,
-    /* health:            */ 0,
-    /* numLootCoins:      */ 0,
-    /* radius:            */ 10,
-    /* height:            */ 20,
-    /* hurtboxRadius:     */ 10,
-    /* hurtboxHeight:     */ 20,
+    .interactType = INTERACT_FLAME,
+    .downOffset = 10,
+    .damageOrCoinValue = 0,
+    .health = 0,
+    .numLootCoins = 0,
+    .radius = 10,
+    .height = 20,
+    .hurtboxRadius = 10,
+    .hurtboxHeight = 20,
 };
 
 s32 sNumActiveFirePiranhaPlants;
@@ -46,8 +46,8 @@ void bhv_fire_piranha_plant_init(void) {
     sNumActiveFirePiranhaPlants = sNumKilledFirePiranhaPlants = 0;
 
     sync_object_init(o, SYNC_DISTANCE_ONLY_EVENTS);
-    sync_object_init_field(o, &sNumActiveFirePiranhaPlants);
-    sync_object_init_field(o, &sNumKilledFirePiranhaPlants);
+    sync_object_init_field(o, sNumActiveFirePiranhaPlants);
+    sync_object_init_field(o, sNumKilledFirePiranhaPlants);
 }
 
 static void fire_piranha_plant_act_hide(void) {

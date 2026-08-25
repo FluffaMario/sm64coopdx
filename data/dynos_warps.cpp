@@ -6,18 +6,16 @@ extern "C" {
 #include "audio/external.h"
 #include "engine/surface_collision.h"
 #include "game/mario.h"
+#include "game/hardcoded.h"
 #include "game/ingame_menu.h"
 #include "game/level_update.h"
 #include "game/sound_init.h"
 #include "game/object_list_processor.h"
 #include "pc/network/packets/packet.h"
 #include "pc/lua/smlua_hooks.h"
-extern s8 gDialogBoxState;
-extern s16 gMenuMode;
 extern s32 gWdwWaterLevelSet;
 extern u8 sSpawnTypeFromWarpBhv[];
 extern void set_mario_initial_action(struct MarioState *, u32, u32);
-extern void set_play_mode(s16);
 }
 
 //
@@ -146,6 +144,8 @@ bool DynOS_Warp_ToCastle(s32 aLevel) {
 static void *DynOS_Warp_UpdateWarp(void *aCmd, bool aIsLevelInitDone) {
     static s32 sDynosWarpTargetArea = -1;
 
+    static WarpDest sBackupWarpDest;
+
     // Phase 1 - Clear the previous level and set up the new level
     if (sDynosWarpTargetArea == -1) {
 
@@ -176,6 +176,7 @@ static void *DynOS_Warp_UpdateWarp(void *aCmd, bool aIsLevelInitDone) {
         gMarioState->numCoins = 0;
         gMarioState->input = 0;
         gMarioState->controller->buttonPressed = 0;
+        gMarioState->controller->buttonReleased = 0;
         gHudDisplay.coins = 0;
 
         // Set up new level values
@@ -189,6 +190,7 @@ static void *DynOS_Warp_UpdateWarp(void *aCmd, bool aIsLevelInitDone) {
         sDynosWarpTargetArea = gCurrAreaIndex;
 
         // Set up new level script
+        memcpy(&sBackupWarpDest, &sWarpDest, sizeof(WarpDest));
         sWarpDest.type = 0;
         sWarpDest.levelNum = 0;
         sWarpDest.areaIdx = gCurrAreaIndex;
@@ -214,6 +216,7 @@ static void *DynOS_Warp_UpdateWarp(void *aCmd, bool aIsLevelInitDone) {
             } else {
                 _Warp = DynOS_Level_GetWarp(gCurrLevelNum, gCurrAreaIndex, sDynosWarpNodeNum);
             }
+            if (!_Warp) { return NULL; }
             s16 sDynosWarpSpawnType = sSpawnTypeFromWarpBhv[_Warp[2]];
 
             // Init Mario
@@ -234,23 +237,20 @@ static void *DynOS_Warp_UpdateWarp(void *aCmd, bool aIsLevelInitDone) {
             }
             sDelayedWarpOp = WARP_OP_NONE;
             switch (sDynosWarpSpawnType) {
-                case MARIO_SPAWN_UNKNOWN_03:           play_transition(WARP_TRANSITION_FADE_FROM_STAR,   0x10, 0x00, 0x00, 0x00); break;
+                case MARIO_SPAWN_PIPE:                 play_transition(WARP_TRANSITION_FADE_FROM_STAR,   0x10, 0x00, 0x00, 0x00); break;
                 case MARIO_SPAWN_DOOR_WARP:            play_transition(WARP_TRANSITION_FADE_FROM_CIRCLE, 0x10, 0x00, 0x00, 0x00); break;
                 case MARIO_SPAWN_TELEPORT:             play_transition(WARP_TRANSITION_FADE_FROM_COLOR,  0x14, 0xFF, 0xFF, 0xFF); break;
                 case MARIO_SPAWN_SPIN_AIRBORNE:        play_transition(WARP_TRANSITION_FADE_FROM_COLOR,  0x1A, 0xFF, 0xFF, 0xFF); break;
                 case MARIO_SPAWN_SPIN_AIRBORNE_CIRCLE: play_transition(WARP_TRANSITION_FADE_FROM_CIRCLE, 0x10, 0x00, 0x00, 0x00); break;
-                case MARIO_SPAWN_UNKNOWN_27:           play_transition(WARP_TRANSITION_FADE_FROM_COLOR,  0x10, 0x00, 0x00, 0x00); break;
+                case MARIO_SPAWN_FADE_FROM_BLACK:      play_transition(WARP_TRANSITION_FADE_FROM_COLOR,  0x10, 0x00, 0x00, 0x00); break;
                 default:                               play_transition(WARP_TRANSITION_FADE_FROM_STAR,   0x10, 0x00, 0x00, 0x00); break;
             }
 
             // Set music
-            if (sWarpDest.type != WARP_TYPE_SAME_AREA && sWarpDest.type != WARP_TYPE_NOT_WARPING) {
+            if ((sWarpDest.type != WARP_TYPE_SAME_AREA && sWarpDest.type != WARP_TYPE_NOT_WARPING)) {
                 if (gCurrentArea != NULL) {
                     set_background_music(gCurrentArea->musicParam, gCurrentArea->musicParam2, 0);
                 }
-                if (gMarioState->flags & MARIO_METAL_CAP)  play_cap_music(SEQUENCE_ARGS(4, SEQ_EVENT_METAL_CAP));
-                if (gMarioState->flags & MARIO_VANISH_CAP) play_cap_music(SEQUENCE_ARGS(4, SEQ_EVENT_POWERUP));
-                if (gMarioState->flags & MARIO_WING_CAP)   play_cap_music(SEQUENCE_ARGS(4, SEQ_EVENT_POWERUP));
                 if (gCurrLevelNum == LEVEL_BOWSER_1 ||
                     gCurrLevelNum == LEVEL_BOWSER_2 ||
                     gCurrLevelNum == LEVEL_BOWSER_3) {
@@ -258,8 +258,13 @@ static void *DynOS_Warp_UpdateWarp(void *aCmd, bool aIsLevelInitDone) {
                 }
             }
 
+            // Enable power-up cap music
+            if (gMarioState->flags & MARIO_METAL_CAP)  play_cap_music(SEQUENCE_ARGS(4, gLevelValues.metalCapSequence));
+            if (gMarioState->flags & MARIO_VANISH_CAP) play_cap_music(SEQUENCE_ARGS(4, gLevelValues.vanishCapSequence));
+            if (gMarioState->flags & MARIO_WING_CAP)   play_cap_music(SEQUENCE_ARGS(4, gLevelValues.wingCapSequence));
+
             // lua hooks
-            smlua_call_event_hooks(HOOK_ON_WARP);
+            smlua_call_event_hooks(HOOK_ON_WARP, sBackupWarpDest.type, sDynosWarpLevelNum, sDynosWarpAreaNum, sDynosWarpNodeNum, sBackupWarpDest.arg);
 
             // Reset values
             sDynosWarpTargetArea = -1;
@@ -308,6 +313,8 @@ static void *DynOS_Warp_UpdateExit(void *aCmd, bool aIsLevelInitDone) {
     static s32  sDynosExitTargetArea = -1;
     static s16 *sDynosExitTargetWarp = NULL;
 
+    static WarpDest sBackupWarpDest;
+
     // Phase 0 - Wait for the Mario head transition to end
     if (sDynosExitTargetArea == -1 && DynOS_IsTransitionActive()) {
         return NULL;
@@ -337,6 +344,7 @@ static void *DynOS_Warp_UpdateExit(void *aCmd, bool aIsLevelInitDone) {
         gMarioState->numCoins = 0;
         gMarioState->input = 0;
         gMarioState->controller->buttonPressed = 0;
+        gMarioState->controller->buttonReleased = 0;
         gHudDisplay.coins = 0;
 
         // Set up new level values
@@ -348,6 +356,7 @@ static void *DynOS_Warp_UpdateExit(void *aCmd, bool aIsLevelInitDone) {
         sDynosExitTargetArea = _ExitWarp[8];
 
         // Set up new level script
+        memcpy(&sBackupWarpDest, &sWarpDest, sizeof(WarpDest));
         sWarpDest.type = 0;
         sWarpDest.levelNum = 0;
         sWarpDest.areaIdx = gCurrAreaIndex;
@@ -385,7 +394,7 @@ static void *DynOS_Warp_UpdateExit(void *aCmd, bool aIsLevelInitDone) {
             gMarioSpawnInfo->startAngle[2] = 0;
             gMarioSpawnInfo->areaIndex = gCurrAreaIndex;
             init_mario();
-            set_mario_initial_action(gMarioState, MARIO_SPAWN_UNKNOWN_02, 0);
+            set_mario_initial_action(gMarioState, MARIO_SPAWN_IDLE, 0);
 
             // Init transition
             if (gCurrentArea != NULL) {
@@ -393,7 +402,7 @@ static void *DynOS_Warp_UpdateExit(void *aCmd, bool aIsLevelInitDone) {
                 init_camera(gCurrentArea->camera);
             }
             sDelayedWarpOp = WARP_OP_NONE;
-            play_transition(WARP_TRANSITION_FADE_FROM_STAR, 15, 0x00, 0x00, 0x00);
+            play_transition(WARP_TRANSITION_FADE_FROM_STAR, 0x10, 0x00, 0x00, 0x00);
             play_sound(SOUND_MENU_MARIO_CASTLE_WARP, gGlobalSoundSource);
 
             // Set music
@@ -403,7 +412,7 @@ static void *DynOS_Warp_UpdateExit(void *aCmd, bool aIsLevelInitDone) {
             sDynosExitTargetWarp = NULL;
 
             // lua hooks
-            smlua_call_event_hooks(HOOK_ON_WARP);
+            smlua_call_event_hooks(HOOK_ON_WARP, sBackupWarpDest.type, sDynosWarpLevelNum, sDynosWarpAreaNum, sDynosWarpNodeNum, sBackupWarpDest.arg);
         }
 
         // Phase 4 - Unlock Mario as soon as the second transition is ended

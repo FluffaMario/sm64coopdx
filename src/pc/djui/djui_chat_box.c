@@ -4,37 +4,38 @@
 #include "pc/network/network.h"
 #include "pc/lua/smlua_hooks.h"
 #include "pc/chat_commands.h"
+#include "pc/configfile.h"
 #include "djui.h"
+#include "engine/math_util.h"
 
 struct DjuiChatBox* gDjuiChatBox = NULL;
 bool gDjuiChatBoxFocus = false;
 static bool sDjuiChatBoxClearText = false;
 
 #define MAX_HISTORY_SIZE 256
-#define MAX_MSG_LENGTH 201
 
 typedef struct {
     s32 initialized;
     s32 size;
-    char messages[MAX_HISTORY_SIZE][MAX_MSG_LENGTH];
+    char messages[MAX_HISTORY_SIZE][MAX_CHAT_MSG_LENGTH];
     s32 currentIndex;
-    char currentMessage[MAX_MSG_LENGTH];
+    char currentMessage[MAX_CHAT_MSG_LENGTH];
 } ArrayList;
 
 ArrayList sentHistory;
 
 static s32 sCommandsTabCompletionIndex = -1;
-static char sCommandsTabCompletionOriginalText[MAX_MSG_LENGTH];
+static char sCommandsTabCompletionOriginalText[MAX_CHAT_MSG_LENGTH];
 static s32 sPlayersTabCompletionIndex = -1;
-static char sPlayersTabCompletionOriginalText[MAX_MSG_LENGTH];
+static char sPlayersTabCompletionOriginalText[MAX_CHAT_MSG_LENGTH];
 
 void reset_tab_completion_commands(void) {
     sCommandsTabCompletionIndex = -1;
-    snprintf(sCommandsTabCompletionOriginalText, MAX_MSG_LENGTH, "%s", "");
+    snprintf(sCommandsTabCompletionOriginalText, MAX_CHAT_MSG_LENGTH, "%s", "");
 }
 void reset_tab_completion_players(void) {
     sPlayersTabCompletionIndex = -1;
-    snprintf(sPlayersTabCompletionOriginalText, MAX_MSG_LENGTH, "%s", "");
+    snprintf(sPlayersTabCompletionOriginalText, MAX_CHAT_MSG_LENGTH, "%s", "");
 }
 void reset_tab_completion_all(void) {
     reset_tab_completion_commands();
@@ -46,27 +47,28 @@ void sent_history_init(ArrayList *arrayList) {
         arrayList->size = 0;
         arrayList->initialized = 1;
         arrayList->currentIndex = -1;
-        snprintf(arrayList->currentMessage, MAX_MSG_LENGTH, "%s", "");
+        snprintf(arrayList->currentMessage, MAX_CHAT_MSG_LENGTH, "%s", "");
     }
 }
 
 void sent_history_add_message(ArrayList *arrayList, const char *newMessage) {
-    if (!newMessage || newMessage[0] != '/') { return; }
+    if (!configUseStandardKeyBindingsChat && (!newMessage || newMessage[0] != '/')) { return; }
+
     if (arrayList->size == MAX_HISTORY_SIZE) {
         for (s32 i = 1; i < MAX_HISTORY_SIZE; i++) {
-            snprintf(arrayList->messages[i-1], MAX_MSG_LENGTH, "%s", arrayList->messages[i]);
+            snprintf(arrayList->messages[i-1], MAX_CHAT_MSG_LENGTH, "%s", arrayList->messages[i]);
         }
         arrayList->size--;
     }
 
-    snprintf(arrayList->messages[arrayList->size], MAX_MSG_LENGTH, "%s", newMessage);
-    arrayList->messages[arrayList->size][MAX_MSG_LENGTH - 1] = '\0';
+    snprintf(arrayList->messages[arrayList->size], MAX_CHAT_MSG_LENGTH, "%s", newMessage);
+    arrayList->messages[arrayList->size][MAX_CHAT_MSG_LENGTH - 1] = '\0';
     arrayList->size++;
 }
 
 void sent_history_update_current_message(ArrayList *arrayList, const char *message) {
     if (arrayList->currentIndex == -1) {
-        snprintf(arrayList->currentMessage, MAX_MSG_LENGTH, "%s", message);
+        snprintf(arrayList->currentMessage, MAX_CHAT_MSG_LENGTH, "%s", message);
     }
 }
 
@@ -91,7 +93,7 @@ void sent_history_navigate(ArrayList *arrayList, bool navigateUp) {
 }
 
 void sent_history_reset_navigation(ArrayList *arrayList) {
-    snprintf(arrayList->currentMessage, MAX_MSG_LENGTH, "%s", "");
+    snprintf(arrayList->currentMessage, MAX_CHAT_MSG_LENGTH, "%s", "");
     arrayList->currentIndex = -1;
 }
 
@@ -99,6 +101,16 @@ bool djui_chat_box_render(struct DjuiBase* base) {
     struct DjuiChatBox* chatBox = (struct DjuiChatBox*)base;
     struct DjuiBase* ccBase = &chatBox->chatContainer->base;
     djui_base_set_size(ccBase, 1.0f, chatBox->base.comp.height - 32 - 8);
+    if (chatBox->scrolling) {
+        f32 yMax = chatBox->chatContainer->base.elem.height - chatBox->chatFlow->base.height.value;
+        f32 target = chatBox->chatFlow->base.y.value + (chatBox->scrollY - chatBox->chatFlow->base.y.value) * (configSmoothScrolling ? 0.5f : 1.f);
+
+        chatBox->chatFlow->base.y.value = clamp(target, yMax, 0.f);
+        if (target < yMax || 0.f < target) {
+            chatBox->scrollY = clamp(target, yMax, 0.f);
+        }
+    } else { chatBox->scrollY = chatBox->chatFlow->base.y.value; }
+
     if (sDjuiChatBoxClearText) {
         sDjuiChatBoxClearText = false;
         djui_inputbox_set_text(gDjuiChatBox->chatInput, "");
@@ -130,7 +142,7 @@ static void djui_chat_box_input_enter(struct DjuiInputbox* chatInput) {
             if (strcmp(chatInput->buffer, "/help") == 0 || strcmp(chatInput->buffer, "/?") == 0 || strcmp(chatInput->buffer, "/") == 0) {
                 display_chat_commands();
             } else if (!exec_chat_command(chatInput->buffer)) {
-                char extendedUnknownCommandMessage[MAX_MSG_LENGTH];
+                char extendedUnknownCommandMessage[MAX_CHAT_MSG_LENGTH];
                 snprintf(extendedUnknownCommandMessage, sizeof(extendedUnknownCommandMessage), "%s (/help)", DLANG(CHAT, UNRECOGNIZED));
                 djui_chat_message_create(extendedUnknownCommandMessage);
             }
@@ -186,8 +198,8 @@ static bool complete_subcommand(const char* mainCommand, const char* subCommandP
         for (s32 i = 0; subcommands[i] != NULL; i++) {
             if (strncmp(subcommands[i], subCommandPrefix, strlen(subCommandPrefix)) == 0) {
                 if (currentIndex == sCommandsTabCompletionIndex) {
-                    char completion[MAX_MSG_LENGTH];
-                    snprintf(completion, MAX_MSG_LENGTH, "/%s %s", mainCommand, subcommands[i]);
+                    char completion[MAX_CHAT_MSG_LENGTH];
+                    snprintf(completion, MAX_CHAT_MSG_LENGTH, "/%s %s", mainCommand, subcommands[i]);
                     djui_inputbox_set_text(gDjuiChatBox->chatInput, completion);
                     djui_inputbox_move_cursor_to_end(gDjuiChatBox->chatInput);
                     completionSuccess = true;
@@ -207,13 +219,13 @@ static bool complete_subcommand(const char* mainCommand, const char* subCommandP
 }
 
 typedef struct {
-    char word[MAX_MSG_LENGTH];
+    char word[MAX_CHAT_MSG_LENGTH];
     s32 index;
 } CurrentWordInfo;
 
 CurrentWordInfo get_current_word_info(char* buffer, s32 position) {
     CurrentWordInfo info;
-    memset(info.word, 0, MAX_MSG_LENGTH);
+    memset(info.word, 0, MAX_CHAT_MSG_LENGTH);
     info.index = -1;
 
     s32 currentWordStart = position;
@@ -228,8 +240,8 @@ CurrentWordInfo get_current_word_info(char* buffer, s32 position) {
     }
 
     s32 wordLength = currentWordEnd - currentWordStart;
-    if (wordLength > MAX_MSG_LENGTH - 1) {
-        wordLength = MAX_MSG_LENGTH - 1;
+    if (wordLength > MAX_CHAT_MSG_LENGTH - 1) {
+        wordLength = MAX_CHAT_MSG_LENGTH - 1;
     }
 
     snprintf(info.word, wordLength + 1, "%.*s", wordLength, &buffer[currentWordStart]);
@@ -254,8 +266,8 @@ void djui_inputbox_replace_current_word(struct DjuiInputbox* inputbox, char* tex
     while (currentWordStart > 0 && inputbox->buffer[currentWordStart - 1] != ' ') { currentWordStart--; }
     while (inputbox->buffer[currentWordEnd] != '\0' && inputbox->buffer[currentWordEnd] != ' ') { currentWordEnd++; }
 
-    char newBuffer[MAX_MSG_LENGTH];
-    snprintf(newBuffer, MAX_MSG_LENGTH, "%.*s%s%s", currentWordStart, inputbox->buffer, text, &inputbox->buffer[currentWordEnd]);
+    char newBuffer[MAX_CHAT_MSG_LENGTH];
+    snprintf(newBuffer, MAX_CHAT_MSG_LENGTH, "%.*s%s%s", currentWordStart, inputbox->buffer, text, &inputbox->buffer[currentWordEnd]);
 
     djui_inputbox_set_text(inputbox, newBuffer);
     djui_inputbox_move_cursor_to_position(inputbox, currentWordStart + strlen(text));
@@ -318,28 +330,28 @@ static void handle_tab_completion(void) {
             }
         } else {
             if (sCommandsTabCompletionIndex == -1) {
-                snprintf(sCommandsTabCompletionOriginalText, MAX_MSG_LENGTH, "%s", gDjuiChatBox->chatInput->buffer);
+                snprintf(sCommandsTabCompletionOriginalText, MAX_CHAT_MSG_LENGTH, "%s", gDjuiChatBox->chatInput->buffer);
             }
-            
+
             char* bufferWithoutSlash = sCommandsTabCompletionOriginalText + 1;
             char** commands = smlua_get_chat_maincommands_list();
             s32 foundCommandsCount = 0;
-            
+
             for (s32 i = 0; commands[i] != NULL; i++) {
                 if (strncmp(commands[i], bufferWithoutSlash, strlen(bufferWithoutSlash)) == 0) {
                     foundCommandsCount++;
                 }
             }
-            
+
             if (foundCommandsCount > 0) {
                 sCommandsTabCompletionIndex = (sCommandsTabCompletionIndex + 1) % foundCommandsCount;
                 s32 currentIndex = 0;
-                
+
                 for (s32 i = 0; commands[i] != NULL; i++) {
                     if (strncmp(commands[i], bufferWithoutSlash, strlen(bufferWithoutSlash)) == 0) {
                         if (currentIndex == sCommandsTabCompletionIndex) {
-                            char completion[MAX_MSG_LENGTH];
-                            snprintf(completion, MAX_MSG_LENGTH, "/%s", commands[i]);
+                            char completion[MAX_CHAT_MSG_LENGTH];
+                            snprintf(completion, MAX_CHAT_MSG_LENGTH, "/%s", commands[i]);
                             djui_inputbox_set_text(gDjuiChatBox->chatInput, completion);
                             djui_inputbox_move_cursor_to_end(gDjuiChatBox->chatInput);
                             alreadyTabCompleted = true;
@@ -361,7 +373,7 @@ static void handle_tab_completion(void) {
                     }
                 }
             }
-            
+
             for (s32 i = 0; commands[i] != NULL; i++) {
                 free(commands[i]);
             }
@@ -390,7 +402,7 @@ static void handle_tab_completion(void) {
         CurrentWordInfo wordInfo = get_current_word_info(gDjuiChatBox->chatInput->buffer, gDjuiChatBox->chatInput->selection[0]);
         if (wordInfo.index != -1) {
             if (sPlayersTabCompletionIndex == -1) {
-                snprintf(sPlayersTabCompletionOriginalText, MAX_MSG_LENGTH, "%s", wordInfo.word);
+                snprintf(sPlayersTabCompletionOriginalText, MAX_CHAT_MSG_LENGTH, "%s", wordInfo.word);
             }
             if (!complete_player_name(sPlayersTabCompletionOriginalText)) {
                 reset_tab_completion_players();
@@ -401,61 +413,49 @@ static void handle_tab_completion(void) {
     }
 }
 
-static bool djui_chat_box_input_on_key_down(struct DjuiBase* base, int scancode) {
+static bool djui_chat_box_input_on_key_down(UNUSED struct DjuiBase* base, int scancode) {
     sent_history_init(&sentHistory);
 
     if (gDjuiChatBox == NULL) { return false; }
-    f32 yMax = gDjuiChatBox->chatContainer->base.elem.height - gDjuiChatBox->chatFlow->base.height.value;
 
-    f32* yValue = &gDjuiChatBox->chatFlow->base.y.value;
-    bool canScrollUp   = (*yValue > yMax);
-    bool canScrollDown = (*yValue < 0);
     f32 pageAmount = gDjuiChatBox->chatContainer->base.elem.height * 3.0f / 4.0f;
 
-    char previousText[MAX_MSG_LENGTH];
-    snprintf(previousText, MAX_MSG_LENGTH, "%s", gDjuiChatBox->chatInput->buffer);
+    char previousText[MAX_CHAT_MSG_LENGTH];
+    snprintf(previousText, MAX_CHAT_MSG_LENGTH, "%s", gDjuiChatBox->chatInput->buffer);
 
     switch (scancode) {
         case SCANCODE_UP:
-            if (gDjuiChatBox->chatInput && gDjuiChatBox->chatInput->buffer && gDjuiChatBox->chatInput->buffer[0] != '/') {
-                gDjuiChatBox->scrolling = true;
-                if (canScrollDown) { *yValue = fmin(*yValue + 15, 0); }
+            if (!configUseStandardKeyBindingsChat && (gDjuiChatBox->chatInput && gDjuiChatBox->chatInput->buffer && gDjuiChatBox->chatInput->buffer[0] != '/')) {
+                gDjuiChatBox->scrollY += 15;
+                break;
             } else {
                 sent_history_update_current_message(&sentHistory, gDjuiChatBox->chatInput->buffer);
                 sent_history_navigate(&sentHistory, true);
-                if (strcmp(previousText, gDjuiChatBox->chatInput->buffer) != 0) {
-                    reset_tab_completion_all();
-                }
+                if (strcmp(previousText, gDjuiChatBox->chatInput->buffer) != 0) { reset_tab_completion_all(); }
+                return true;
             }
-            return true;
         case SCANCODE_DOWN:
-            if (gDjuiChatBox->chatInput && gDjuiChatBox->chatInput->buffer && gDjuiChatBox->chatInput->buffer[0] != '/') {
-                gDjuiChatBox->scrolling = true;
-                if (canScrollUp) { *yValue = fmax(*yValue - 15, yMax); }
+            if (!configUseStandardKeyBindingsChat && (gDjuiChatBox->chatInput && gDjuiChatBox->chatInput->buffer && gDjuiChatBox->chatInput->buffer[0] != '/')) {
+                gDjuiChatBox->scrollY -= 15;
+                break;
             } else {
                 sent_history_update_current_message(&sentHistory, gDjuiChatBox->chatInput->buffer);
                 sent_history_navigate(&sentHistory, false);
-                if (strcmp(previousText, gDjuiChatBox->chatInput->buffer) != 0) {
-                    reset_tab_completion_all();
-                }
+                if (strcmp(previousText, gDjuiChatBox->chatInput->buffer) != 0) { reset_tab_completion_all(); }
+                return true;
             }
-            return true;
         case SCANCODE_PAGE_UP:
-            gDjuiChatBox->scrolling = true;
-            if (canScrollDown) { *yValue = fmin(*yValue + pageAmount, 0); }
-            return true;
+            gDjuiChatBox->scrollY += configUseStandardKeyBindingsChat ? 15 : pageAmount;
+            break;
         case SCANCODE_PAGE_DOWN:
-            gDjuiChatBox->scrolling = true;
-                if (canScrollUp) { *yValue = fmax(*yValue - pageAmount, yMax); }
-            return true;
+            gDjuiChatBox->scrollY -= configUseStandardKeyBindingsChat ? 15 : pageAmount;
+            break;
         case SCANCODE_POS1:
-            gDjuiChatBox->scrolling = true;
-            if (canScrollDown) { *yValue = fmin(*yValue + pageAmount, 0); }
-            return true;
+            gDjuiChatBox->scrollY += pageAmount;
+            break;
         case SCANCODE_END:
-            gDjuiChatBox->scrolling = true;
-            if (canScrollUp) { *yValue = fmax(*yValue - pageAmount, yMax); }
-            return true;
+            gDjuiChatBox->scrollY -= pageAmount;
+            break;
         case SCANCODE_TAB:
             handle_tab_completion();
             return true;
@@ -469,23 +469,45 @@ static bool djui_chat_box_input_on_key_down(struct DjuiBase* base, int scancode)
             sent_history_reset_navigation(&sentHistory);
             djui_chat_box_input_escape(gDjuiChatBox->chatInput);
             return true;
-        default:
-            {
-                bool returnValueOnOtherKeyDown = djui_inputbox_on_key_down(base, scancode);
-                if (strcmp(previousText, gDjuiChatBox->chatInput->buffer) != 0) {
-                    reset_tab_completion_all();
-                }
-                return returnValueOnOtherKeyDown;
+        default: {
+            bool returnValueOnOtherKeyDown = djui_inputbox_on_key_down(base, scancode);
+            if (strcmp(previousText, gDjuiChatBox->chatInput->buffer) != 0) {
+                reset_tab_completion_all();
             }
+            return returnValueOnOtherKeyDown;
+        }
     }
+
+    if (!gDjuiChatBox->scrolling) {
+        gDjuiChatBox->scrolling = gDjuiChatBox->scrollY < 0.f;
+    }
+    return true;
 }
 
 static void djui_chat_box_input_on_text_input(struct DjuiBase *base, char* text) {
     size_t expectedIndex = strlen(gDjuiChatBox->chatInput->buffer);
-    bool isTextDifferent = (expectedIndex >= MAX_MSG_LENGTH) || (gDjuiChatBox->chatInput->buffer[expectedIndex] != text[0]);
+    bool isTextDifferent = (expectedIndex >= MAX_CHAT_MSG_LENGTH) || (gDjuiChatBox->chatInput->buffer[expectedIndex] != text[0]);
     djui_inputbox_on_text_input(base, text);
     if (isTextDifferent) {
         reset_tab_completion_all();
+    }
+}
+
+static void djui_chat_box_input_on_text_editing(struct DjuiBase *base, char* text, int cursorPos) {
+    djui_inputbox_on_text_editing(base, text, cursorPos);
+}
+
+static void djui_chat_box_input_on_scroll(UNUSED struct DjuiBase *base, UNUSED float x, float y) {
+    if (gDjuiChatBox == NULL) { return; }
+
+    y *= 24.f;
+    if (gDjuiInputHeldControl) { y /= 2; }
+    if (gDjuiInputHeldShift) { y *= 3; }
+
+    gDjuiChatBox->scrollY += y;
+
+    if (!gDjuiChatBox->scrolling) {
+        gDjuiChatBox->scrolling = gDjuiChatBox->scrollY < 0.f;
     }
 }
 
@@ -525,7 +547,7 @@ struct DjuiChatBox* djui_chat_box_create(void) {
     struct DjuiBase* cfBase = &chatFlow->base;
     djui_base_set_location(cfBase, 0, 0);
     djui_base_set_size_type(cfBase, DJUI_SVT_RELATIVE, DJUI_SVT_ABSOLUTE);
-    djui_base_set_size(cfBase, 1.0f, 2);
+    djui_base_set_size(cfBase, 1.0f, 0);
     djui_base_set_color(cfBase, 0, 0, 0, 128);
     djui_base_set_padding(cfBase, 2, 2, 2, 2);
     djui_flow_layout_set_margin(chatFlow, 2);
@@ -534,13 +556,15 @@ struct DjuiChatBox* djui_chat_box_create(void) {
     cfBase->abandonAfterChildRenderFail = true;
     chatBox->chatFlow = chatFlow;
 
-    struct DjuiInputbox* chatInput = djui_inputbox_create(base, 200);
+    struct DjuiInputbox* chatInput = djui_inputbox_create(base, MAX_CHAT_MSG_LENGTH);
     struct DjuiBase* ciBase = &chatInput->base;
     djui_base_set_size_type(ciBase, DJUI_SVT_RELATIVE, DJUI_SVT_ABSOLUTE);
     djui_base_set_size(ciBase, 1.0f, 32);
     djui_base_set_alignment(ciBase, DJUI_HALIGN_LEFT, DJUI_VALIGN_BOTTOM);
     djui_interactable_hook_key(&chatInput->base, djui_chat_box_input_on_key_down, djui_inputbox_on_key_up);
     djui_interactable_hook_text_input(&chatInput->base, djui_chat_box_input_on_text_input);
+    djui_interactable_hook_text_editing(&chatInput->base, djui_chat_box_input_on_text_editing);
+    djui_interactable_hook_scroll(&chatInput->base, djui_chat_box_input_on_scroll);
     chatBox->chatInput = chatInput;
 
     gDjuiChatBox = chatBox;

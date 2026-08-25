@@ -4,11 +4,14 @@
 #include "djui_panel_main.h"
 #include "djui_panel_options.h"
 #include "djui_panel_misc.h"
+#include "djui_panel_modlist.h"
 #include "djui_panel_pause.h"
+#include "djui_panel_playerlist.h"
 #include "pc/debuglog.h"
 #include "pc/utils/misc.h"
 #include "pc/configfile.h"
-#include "pc/os/os.h"
+#include "pc/lua/smlua_hooks.h"
+#include "game/bettercamera.h"
 
 extern bool directory_sanity_check(struct dirent* dir, char* dirPath, char* outPath);
 static bool sTrue = true;
@@ -31,9 +34,14 @@ static void select_language(struct DjuiBase* caller) {
         child = child->next;
     }
 
-    if (strcmp(configLanguage, checkbox->text->message)) {
-        snprintf(configLanguage, MAX_CONFIG_STRING, "%s", checkbox->text->message);
+    char* langName = checkbox->text->message;
+    char* key = djui_language_find_key("LANGUAGE",langName);
+    if (key) langName = key;
+
+    if (strcmp(configLanguage, langName)) {
+        snprintf(configLanguage, MAX_CONFIG_STRING, "%s", langName);
         sLanguageChanged = true;
+        smlua_call_event_hooks(HOOK_ON_LANGUAGE_CHANGED, configLanguage);
     }
 
     checkbox->value = &sTrue;
@@ -51,42 +59,47 @@ static void djui_panel_language_destroy(UNUSED struct DjuiBase* caller) {
         if (gPanelLanguageOnStartup) {
             djui_panel_shutdown();
             gDjuiInMainMenu = true;
+            djui_panel_playerlist_create(NULL);
+            djui_panel_modlist_create(NULL);
             djui_panel_main_create(NULL);
         } else if (gDjuiInMainMenu) {
             djui_panel_shutdown();
             gDjuiInMainMenu = true;
+            djui_panel_playerlist_create(NULL);
+            djui_panel_modlist_create(NULL);
             djui_panel_main_create(NULL);
             djui_panel_options_create(NULL);
             djui_panel_misc_create(NULL);
         } else if (gDjuiPanelPauseCreated) {
             djui_panel_shutdown();
+            djui_panel_playerlist_create(NULL);
+            djui_panel_modlist_create(NULL);
             djui_panel_pause_create(NULL);
             djui_panel_options_create(NULL);
             djui_panel_misc_create(NULL);
-        } else {
-            djui_panel_shutdown();
         }
     }
     if (configLanguage[0] == '\0') {
         snprintf(configLanguage, MAX_CONFIG_STRING, "%s", "English");
     }
+    newcam_init_settings();
     gPanelLanguageOnStartup = false;
 }
 
 void djui_panel_language_create(struct DjuiBase* caller) {
-    struct DjuiThreePanel* panel = djui_panel_menu_create(DLANG(LANGUAGE, LANGUAGE));
+    struct DjuiThreePanel* panel = djui_panel_menu_create(DLANG(LANGUAGE, LANGUAGE), false);
     struct DjuiBase* body = djui_three_panel_get_body(panel);
     sLanguageChanged = false;
 
     {
         // construct lang path
         char lpath[SYS_MAX_PATH] = "";
-        snprintf(lpath, SYS_MAX_PATH, "%s/lang", sys_exe_path());
+        snprintf(lpath, SYS_MAX_PATH, "%s/lang", sys_resource_path());
 
         // open directory
-        os_dirent* dir = NULL;
+        struct dirent* dir = NULL;
 
-        OS_DIR* d = os_opendir(lpath);
+        DIR* d = opendir(lpath);
         if (!d) {
             LOG_ERROR("Could not open directory '%s'", lpath);
 
@@ -109,10 +122,10 @@ void djui_panel_language_create(struct DjuiBase* caller) {
 
         // iterate
         char path[SYS_MAX_PATH] = { 0 };
-        while ((dir = os_readdir(d)) != NULL) {
+        while ((dir = readdir(d)) != NULL) {
             // sanity check / fill path[]
             //if (!directory_sanity_check(dir, lpath, path)) { continue; }
-            snprintf(path, SYS_MAX_PATH, "%s", os_get_dir_name(dir));
+            snprintf(path, SYS_MAX_PATH, "%s", dir->d_name);
 
             // strip the name before the .
             char* c = path;
@@ -124,11 +137,23 @@ void djui_panel_language_create(struct DjuiBase* caller) {
 
             bool match = !strcmp(path, configLanguage);
             if (match) { foundMatch = true; }
-            struct DjuiCheckbox* checkbox = djui_checkbox_create(sLayoutBase, path, match ? &sTrue : &sFalse, select_language);
+
+            struct DjuiCheckbox* checkbox = NULL;
+
+            char* displayName = djui_language_get("LANGUAGE",path);
+            if (displayName != (char*)path) {
+                char newName[SYS_MAX_PATH + 32] = { 0 };
+                snprintf(newName, SYS_MAX_PATH + 32, "%s", displayName);
+                checkbox = djui_checkbox_create(sLayoutBase, newName, match ? &sTrue : &sFalse, select_language);
+            }
+            else {
+                checkbox = djui_checkbox_create(sLayoutBase, path, match ? &sTrue : &sFalse, select_language);
+            }
+
             if (!strcmp(path, "English")) { chkEnglish = checkbox; }
         }
 
-        os_closedir(d);
+        closedir(d);
 
         if (!foundMatch && chkEnglish) {
             chkEnglish->value = &sTrue;
@@ -140,10 +165,10 @@ void djui_panel_language_create(struct DjuiBase* caller) {
 
 skip_langs:
         djui_button_create(body, DLANG(MENU, BACK), DJUI_BUTTON_STYLE_BACK, djui_panel_menu_back);
-
     }
 
     struct DjuiPanel* p = djui_panel_add(caller, panel, NULL);
+    if (!p) { return; }
     p->on_panel_destroy = djui_panel_language_destroy;
 
 }

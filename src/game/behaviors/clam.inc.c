@@ -1,15 +1,15 @@
 // clam.inc.c
 
 struct ObjectHitbox sClamShellHitbox = {
-    /* interactType:      */ INTERACT_CLAM_OR_BUBBA,
-    /* downOffset:        */ 0,
-    /* damageOrCoinValue: */ 2,
-    /* health:            */ 99,
-    /* numLootCoins:      */ 0,
-    /* radius:            */ 150,
-    /* height:            */ 80,
-    /* hurtboxRadius:     */ 150,
-    /* hurtboxHeight:     */ 80,
+    .interactType = INTERACT_CLAM_OR_BUBBA,
+    .downOffset = 0,
+    .damageOrCoinValue = 2,
+    .health = 99,
+    .numLootCoins = 0,
+    .radius = 150,
+    .height = 80,
+    .hurtboxRadius = 150,
+    .hurtboxHeight = 80,
 };
 
 void clam_act_0(void) {
@@ -58,9 +58,9 @@ void clam_act_1(void) {
 void bhv_clam_loop(void) {
     if (!sync_object_is_initialized(o->oSyncID)) {
         sync_object_init(o, SYNC_DISTANCE_ONLY_EVENTS);
-        sync_object_init_field(o, &o->oAction);
-        sync_object_init_field(o, &o->oTimer);
-        sync_object_init_field(o, &o->oClamUnkF4);
+        sync_object_init_field(o, o->oAction);
+        sync_object_init_field(o, o->oTimer);
+        sync_object_init_field(o, o->oClamUnkF4);
     }
     o->header.gfx.scale[1] = 1.5f;
 

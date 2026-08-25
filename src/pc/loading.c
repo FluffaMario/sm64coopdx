@@ -1,12 +1,14 @@
-#include "gfx_dimensions.h"
-#include "game/segment2.h"
+#include "loading.h"
+
+#include <assert.h>
 
 #include "djui/djui.h"
 #include "pc/djui/djui_unicode.h"
 
 #include "pc_main.h"
-#include "loading.h"
 #include "pc/utils/misc.h"
+#include "pc/cliopts.h"
+#include "rom_checker.h"
 
 extern ALIGNED8 u8 texture_coopdx_logo[];
 
@@ -15,60 +17,52 @@ struct LoadingSegment gCurrLoadingSegment = { "", 0 };
 struct LoadingScreen {
     struct DjuiBase base;
     struct DjuiImage* splashImage;
+    struct DjuiText* splashText;
     struct DjuiText* loadingDesc;
     struct DjuiProgressBar *loadingBar;
 };
 
-struct LoadingScreen* sLoading = NULL;
-pthread_t gLoadingThreadId;
-pthread_mutex_t gLoadingThreadMutex = PTHREAD_MUTEX_INITIALIZER;
+static struct LoadingScreen* sLoading = NULL;
 
-bool gIsThreaded = false;
+struct ThreadHandle gLoadingThread = { 0 };
 
-extern Vp D_8032CF00;
+void loading_screen_set_segment_text(const char* text) {
+    snprintf(gCurrLoadingSegment.str, 256, "%s", text);
+}
+
+void loading_screen_reset_progress_bar(void) {
+    sLoading->loadingBar->smoothValue = 0;
+}
+
+static void loading_screen_produce_frame_callback(void) {
+    if (sLoading) { djui_base_render(&sLoading->base); }
+}
 
 static void loading_screen_produce_one_frame(void) {
-    // start frame
-    gfx_start_frame();
-    config_gfx_pool();
-    init_render_image();
-    create_dl_ortho_matrix();
-    djui_gfx_displaylist_begin();
-
-    // fix scaling issues
-    gSPViewport(gDisplayListHead++, VIRTUAL_TO_PHYSICAL(&D_8032CF00));
-    gDPSetScissor(gDisplayListHead++, G_SC_NON_INTERLACE, 0, BORDER_HEIGHT, SCREEN_WIDTH, SCREEN_HEIGHT - BORDER_HEIGHT);
-
-    // clear screen
-    create_dl_translation_matrix(MENU_MTX_PUSH, GFX_DIMENSIONS_FROM_LEFT_EDGE(0), 240.f, 0.f);
-    create_dl_scale_matrix(MENU_MTX_NOPUSH, (GFX_DIMENSIONS_ASPECT_RATIO * SCREEN_HEIGHT) / 130.f, 3.f, 1.f);
-    gDPSetEnvColor(gDisplayListHead++, 0x00, 0x00, 0x00, 0xFF);
-    gSPDisplayList(gDisplayListHead++, dl_draw_text_bg_box);
-    gSPPopMatrix(gDisplayListHead++, G_MTX_MODELVIEW);
-
-    // render loading screen elements
-    if (sLoading) { djui_base_render(&sLoading->base); }
-
-    // render frame
-    djui_gfx_displaylist_end();
-    end_master_display_list();
-    alloc_display_list(0);
-    gfx_run((Gfx*) gGfxSPTask->task.t.data_ptr); // send_display_list
-    display_and_vsync();
-    gfx_end_frame();
+    produce_one_dummy_frame(loading_screen_produce_frame_callback, 0x00, 0x00, 0x00);
 }
 
 static bool loading_screen_on_render(struct DjuiBase* base) {
-    pthread_mutex_lock(&gLoadingThreadMutex);
+    MUTEX_LOCK(gLoadingThread);
 
     u32 windowWidth, windowHeight;
-    WAPI.get_dimensions(&windowWidth, &windowHeight);
+    gfx_get_dimensions(&windowWidth, &windowHeight);
     f32 scale = djui_gfx_get_scale();
     windowWidth /= scale;
     windowHeight /= scale;
 
+    f32 loadingDescY1 = windowHeight * 0.5f - sLoading->loadingDesc->base.height.value * 0.5f;
+    f32 loadingDescY2 = windowHeight * 0.5f + sLoading->loadingDesc->base.height.value * 0.5f;
+
     // fill the screen
     djui_base_set_size(base, windowWidth, windowHeight);
+
+    // splash logo
+    if (configExCoopTheme) {
+        djui_base_set_location(&sLoading->splashText->base, 0, loadingDescY1 - sLoading->splashText->base.height.value);
+    } else {
+        djui_base_set_location(&sLoading->splashImage->base, 0, loadingDescY1 - sLoading->splashImage->base.height.value);
+    }
 
     {
         // loading text description
@@ -76,7 +70,7 @@ static bool loading_screen_on_render(struct DjuiBase* base) {
         u32 length = strlen(gCurrLoadingSegment.str);
         if (length > 0) {
             if (gCurrLoadingSegment.percentage > 0) {
-                snprintf(buffer, 256, "%s\n\\#c8c8c8\\%d%%", gCurrLoadingSegment.str, (u8)floor(gCurrLoadingSegment.percentage * 100));
+                snprintf(buffer, 256, "%s\n\\#dcdcdc\\%d%%", gCurrLoadingSegment.str, (u8)floor(gCurrLoadingSegment.percentage * 100));
             } else {
                 snprintf(buffer, 256, "%s...", gCurrLoadingSegment.str);
             }
@@ -84,16 +78,16 @@ static bool loading_screen_on_render(struct DjuiBase* base) {
             sys_swap_backslashes(buffer);
         }
         djui_text_set_text(sLoading->loadingDesc, buffer);
-        djui_base_set_location(&sLoading->loadingDesc->base, 0, windowHeight - 250);
+        djui_base_set_location(&sLoading->loadingDesc->base, 0, loadingDescY1);
     }
 
     // loading bar
-    djui_base_set_location(&sLoading->loadingBar->base, windowWidth / 4, windowHeight - 100);
+    djui_base_set_location(&sLoading->loadingBar->base, windowWidth / 4, loadingDescY2 + 64);
     djui_base_set_visible(&sLoading->loadingBar->base, gCurrLoadingSegment.percentage > 0 && strlen(gCurrLoadingSegment.str) > 0);
 
     djui_base_compute(base);
 
-    pthread_mutex_unlock(&gLoadingThreadMutex);
+    MUTEX_UNLOCK(gLoadingThread);
 
     return true;
 }
@@ -104,18 +98,32 @@ static void loading_screen_destroy(struct DjuiBase* base) {
     sLoading = NULL;
 }
 
-void render_loading_screen(void) {
-    struct LoadingScreen* load = malloc(sizeof(struct LoadingScreen));
+static void init_loading_screen(void) {
+    struct LoadingScreen* load = calloc(1, sizeof(struct LoadingScreen));
     struct DjuiBase* base = &load->base;
 
     djui_base_init(NULL, base, loading_screen_on_render, loading_screen_destroy);
 
-    {
-        // splash image
-        struct DjuiImage* splashImage = djui_image_create(base, texture_coopdx_logo, 2048, 1024, 32);
-        djui_base_set_size(&splashImage->base, 740.0f, 364.0f);
-        djui_base_set_alignment(&splashImage->base, DJUI_HALIGN_CENTER, DJUI_VALIGN_CENTER);
+    // splash text (easter egg)
+    if (configExCoopTheme) {
+        struct DjuiText* splashDjuiText = djui_text_create(base, "\\#ff0800\\SM\\#1be700\\64\\#00b3ff\\EX\n\\#ffef00\\COOP");
+        djui_base_set_location_type(&splashDjuiText->base, DJUI_SVT_RELATIVE, DJUI_SVT_ABSOLUTE);
+        djui_base_set_location(&splashDjuiText->base, 0, 0);
+        djui_text_set_font(splashDjuiText, gDjuiFonts[1]);
+        djui_text_set_font_scale(splashDjuiText, gDjuiFonts[1]->defaultFontScale);
+        djui_text_set_alignment(splashDjuiText, DJUI_HALIGN_CENTER, DJUI_VALIGN_CENTER);
+        djui_base_set_size_type(&splashDjuiText->base, DJUI_SVT_RELATIVE, DJUI_SVT_ABSOLUTE);
+        djui_base_set_size(&splashDjuiText->base, 1.0f, gDjuiFonts[1]->defaultFontScale * 3.0f);
+
+        load->splashText = splashDjuiText;
+
+    // splash image
+    } else {
+        struct DjuiImage* splashImage = djui_image_create(base, texture_coopdx_logo, 2048, 1024, G_IM_FMT_RGBA, G_IM_SIZ_32b);
+        djui_base_set_location_type(&splashImage->base, DJUI_SVT_RELATIVE, DJUI_SVT_ABSOLUTE);
+        djui_base_set_alignment(&splashImage->base, DJUI_HALIGN_CENTER, DJUI_VALIGN_TOP);
         djui_base_set_location(&splashImage->base, 0, -100);
+        djui_base_set_size(&splashImage->base, 512, 256);
 
         load->splashImage = splashImage;
     }
@@ -127,11 +135,11 @@ void render_loading_screen(void) {
         djui_base_set_location(&text->base, 0, 0);
 
         djui_base_set_size_type(&text->base, DJUI_SVT_RELATIVE, DJUI_SVT_ABSOLUTE);
-        djui_base_set_size(&text->base, 1.0f, gDjuiFonts[0]->defaultFontScale * 4.0f);
-        djui_base_set_color(&text->base, 200, 200, 200, 255);
+        djui_base_set_size(&text->base, 1.0f, gDjuiFonts[0]->defaultFontScale * 3.0f);
+        djui_base_set_color(&text->base, 220, 220, 220, 255);
         djui_text_set_alignment(text, DJUI_HALIGN_CENTER, DJUI_VALIGN_TOP);
         djui_text_set_font(text, gDjuiFonts[0]);
-        djui_text_set_font_scale(text, gDjuiFonts[0]->defaultFontScale * 1.5f);
+        djui_text_set_font_scale(text, gDjuiFonts[0]->defaultFontScale);
 
         load->loadingDesc = text;
     }
@@ -143,25 +151,45 @@ void render_loading_screen(void) {
         djui_base_set_location(&progressBar->base, 0, 0);
         djui_base_set_visible(&progressBar->base, false);
         progressBar->base.width.value = 0.5;
+        progressBar->smoothenHigh = 0.75f;
+        progressBar->smoothenLow = 0.25f;
 
         load->loadingBar = progressBar;
     }
 
     sLoading = load;
+}
+
+void loading_screen_reset(void) {
+    if (sLoading) {
+        djui_base_destroy(&sLoading->base);
+        sLoading = NULL;
+    }
+    djui_shutdown();
+    alloc_display_list_reset();
+    gDisplayListHead = NULL;
+    rendering_init();
+    configWindow.settings_changed = true;
+}
+
+void render_loading_screen(void) {
+    if (!sLoading) { init_loading_screen(); }
 
     // loading screen loop
     while (!gGameInited) {
-        WAPI.main_loop(loading_screen_produce_one_frame);
+        gWindowApi->main_loop(loading_screen_produce_one_frame);
     }
 
-    pthread_join(gLoadingThreadId, NULL);
+    int err = join_thread(&gLoadingThread);
+    assert(err == 0);
+}
 
-    // reset some things after rendering the loading screen
-    reset_djui();
-    alloc_display_list_reset();
-    gDisplayListHead = NULL;
-    djui_init();
-    djui_unicode_init();
-    rendering_init();
-    configWindow.settings_changed = true;
+void render_rom_setup_screen(void) {
+    if (!sLoading) { init_loading_screen(); }
+
+    loading_screen_set_segment_text("No rom detected, drag & drop Super Mario 64 (U) [!].z64 on to this screen");
+
+    while (!gRomIsValid) {
+        gWindowApi->main_loop(loading_screen_produce_one_frame);
+    }
 }

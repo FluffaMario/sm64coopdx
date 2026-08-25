@@ -23,7 +23,7 @@
 /**
  * The maximum number of objects that can be loaded at once.
  */
-#define OBJECT_POOL_CAPACITY 960
+#define OBJECT_POOL_CAPACITY 1200
 
 /**
  * Every object is categorized into an object list, which controls the order
@@ -32,7 +32,7 @@
 enum ObjectList
 {
     OBJ_LIST_PLAYER,      //  (0) Mario
-    OBJ_LIST_UNUSED_1,    //  (1) (unused)
+    OBJ_LIST_EXT,         //  (1) extra object list for Lua mods to use
     OBJ_LIST_DESTRUCTIVE, //  (2) things that can be used to destroy other objects, like
                           //      bob-ombs and corkboxes
     OBJ_LIST_UNUSED_3,    //  (3) (unused)
@@ -91,11 +91,6 @@ extern struct Object *gCurrentObject;
 extern const BehaviorScript *gCurBhvCommand;
 extern s16 gPrevFrameObjectCount;
 
-extern s32 gSurfaceNodesAllocated;
-extern s32 gSurfacesAllocated;
-extern s32 gNumStaticSurfaceNodes;
-extern s32 gNumStaticSurfaces;
-
 extern struct Object* gCheckingSurfaceCollisionsForObject;
 extern s16 gCheckingSurfaceCollisionsForCamera;
 extern s16 gFindFloorIncludeSurfaceIntangible;
@@ -118,6 +113,7 @@ extern s16 gMarioOnMerryGoRound;
 
 
 void bhv_mario_update(void);
+/* |description|Runs an OR operator on the `obj`'s respawn info with `bits` << 8. If `bits` is 0xFF, this prevents the object from respawning after leaving and re-entering the area|descriptionEnd| */
 void set_object_respawn_info_bits(struct Object *obj, u8 bits);
 void unload_objects_from_area(UNUSED s32 unused, s32 areaIndex);
 void spawn_objects_from_info(UNUSED s32 unused, struct SpawnInfo *spawnInfo);
