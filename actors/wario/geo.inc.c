@@ -154,7 +154,7 @@ const GeoLayout wario_geo_body[] = {
                   GEO_CLOSE_NODE(),
                GEO_CLOSE_NODE(),
             GEO_CLOSE_NODE(),
-            GEO_ANIMATED_PART(LAYER_OPAQUE, -13, -8, 78, NULL),
+            GEO_ANIMATED_PART(LAYER_OPAQUE, 13, -8, 78, NULL),
             GEO_OPEN_NODE(),
                GEO_ANIMATED_PART(LAYER_OPAQUE, 0, 0, 0, wario_left_thigh), // starts sharing solid color of his dl with wario_left_leg (purple)
                GEO_OPEN_NODE(),
@@ -164,7 +164,7 @@ const GeoLayout wario_geo_body[] = {
                   GEO_CLOSE_NODE(),
                GEO_CLOSE_NODE(),
             GEO_CLOSE_NODE(),
-            GEO_ANIMATED_PART(LAYER_OPAQUE, -13, -8, -78, NULL),
+            GEO_ANIMATED_PART(LAYER_OPAQUE, 13, -8, -78, NULL),
             GEO_OPEN_NODE(),
                GEO_ANIMATED_PART(LAYER_OPAQUE, 0, 0, 0, wario_right_thigh), // starts sharing solid color of his dl with wario_left_leg (purple)
                GEO_OPEN_NODE(),
@@ -343,7 +343,7 @@ const GeoLayout wario_vanish_geo_body[] = {
                   GEO_CLOSE_NODE(),
                GEO_CLOSE_NODE(),
             GEO_CLOSE_NODE(),
-            GEO_ANIMATED_PART(LAYER_TRANSPARENT, -13, -8, 78, NULL),
+            GEO_ANIMATED_PART(LAYER_TRANSPARENT, 13, -8, 78, NULL),
             GEO_OPEN_NODE(),
                GEO_ANIMATED_PART(LAYER_TRANSPARENT, 0, 0, 0, wario_left_thigh), // starts sharing solid color of his dl with wario_left_leg (purple)
                GEO_OPEN_NODE(),
@@ -353,7 +353,7 @@ const GeoLayout wario_vanish_geo_body[] = {
                   GEO_CLOSE_NODE(),
                GEO_CLOSE_NODE(),
             GEO_CLOSE_NODE(),
-            GEO_ANIMATED_PART(LAYER_TRANSPARENT, -13, -8, -78, NULL),
+            GEO_ANIMATED_PART(LAYER_TRANSPARENT, 13, -8, -78, NULL),
             GEO_OPEN_NODE(),
                GEO_ANIMATED_PART(LAYER_TRANSPARENT, 0, 0, 0, wario_right_thigh), // starts sharing solid color of his dl with wario_left_leg (purple)
                GEO_OPEN_NODE(),
@@ -511,7 +511,7 @@ const GeoLayout wario_metal_geo_body[] = {
                   GEO_CLOSE_NODE(),
                GEO_CLOSE_NODE(),
             GEO_CLOSE_NODE(),
-            GEO_ANIMATED_PART(LAYER_OPAQUE, -13, -8, 78, NULL),
+            GEO_ANIMATED_PART(LAYER_OPAQUE, 13, -8, 78, NULL),
             GEO_OPEN_NODE(),
                GEO_ANIMATED_PART(LAYER_OPAQUE, 0, 0, 0, wario_metal_left_thigh), // starts sharing metal texture with the dls below
                GEO_OPEN_NODE(),
@@ -521,7 +521,7 @@ const GeoLayout wario_metal_geo_body[] = {
                   GEO_CLOSE_NODE(),
                GEO_CLOSE_NODE(),
             GEO_CLOSE_NODE(),
-            GEO_ANIMATED_PART(LAYER_OPAQUE, -13, -8, -78, NULL),
+            GEO_ANIMATED_PART(LAYER_OPAQUE, 13, -8, -78, NULL),
             GEO_OPEN_NODE(),
                GEO_ANIMATED_PART(LAYER_OPAQUE, 0, 0, 0, wario_right_thigh_shared_dl),
                GEO_OPEN_NODE(),
@@ -679,7 +679,7 @@ const GeoLayout wario_metal_vanish_geo_body[] = {
                   GEO_CLOSE_NODE(),
                GEO_CLOSE_NODE(),
             GEO_CLOSE_NODE(),
-            GEO_ANIMATED_PART(LAYER_TRANSPARENT, -13, -8, 78, NULL),
+            GEO_ANIMATED_PART(LAYER_TRANSPARENT, 13, -8, 78, NULL),
             GEO_OPEN_NODE(),
                GEO_ANIMATED_PART(LAYER_TRANSPARENT, 0, 0, 0, wario_metal_left_thigh), // starts sharing metal texture with the dls below
                GEO_OPEN_NODE(),
@@ -689,7 +689,7 @@ const GeoLayout wario_metal_vanish_geo_body[] = {
                   GEO_CLOSE_NODE(),
                GEO_CLOSE_NODE(),
             GEO_CLOSE_NODE(),
-            GEO_ANIMATED_PART(LAYER_TRANSPARENT, -13, -8, -78, NULL),
+            GEO_ANIMATED_PART(LAYER_TRANSPARENT, 13, -8, -78, NULL),
             GEO_OPEN_NODE(),
                GEO_ANIMATED_PART(LAYER_TRANSPARENT, 0, 0, 0, wario_right_thigh_shared_dl),
                GEO_OPEN_NODE(),
