@@ -1120,6 +1120,7 @@ static const struct BuiltinTexInfo sDynosBuiltinTexs[] = {
     define_builtin_tex(wario_texture_white_button, "actors/wario/custom_wario_overalls_button.rgba16.png", 32, 32, G_IM_FMT_RGBA, G_IM_SIZ_16b),
     define_builtin_tex(wario_texture_w_logo, "actors/wario/custom_wario_logo.ia16.png", 32, 32, G_IM_FMT_IA, G_IM_SIZ_16b),
     define_builtin_tex(wario_texture_hair_sideburn, "actors/wario/custom_wario_sideburn.ia16.png", 32, 32, G_IM_FMT_IA, G_IM_SIZ_16b),
+    define_builtin_tex(wario_texture_nose, "actors/wario/custom_wario_nose.rgba16.png", 32, 32, G_IM_FMT_RGBA, G_IM_SIZ_16b),
     define_builtin_tex(wario_texture_mouth, "actors/wario/custom_wario_mouth.rgba16.png", 64, 32, G_IM_FMT_RGBA, G_IM_SIZ_16b),
     define_builtin_tex(wario_texture_mouth_dead, "actors/wario/custom_wario_mouth_dead.rgba16.png", 64, 32, G_IM_FMT_RGBA, G_IM_SIZ_16b),
     define_builtin_tex(wario_texture_eyes_front, "actors/wario/custom_wario_eyes_center.rgba16.png", 64, 32, G_IM_FMT_RGBA, G_IM_SIZ_16b),

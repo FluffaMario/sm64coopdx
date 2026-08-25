@@ -106,30 +106,30 @@ const Gfx luigi_cap_seg3_dl_03022D10[] = {
 
 // 0x03022D38
 static const Vtx luigi_cap_seg3_vertex_03022D38[] = {
-    {{{   199,    247,    -55}, 0, {   990,      0}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{   131,    274,     20}, 0, {     0,      0}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{    69,     71,     38}, 0, {     0,   2012}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{   199,    247,    -55}, 0, {   990,      0}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{    69,     71,     38}, 0, {     0,   2012}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{   138,     44,    -37}, 0, {   990,   2012}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{  -137,     44,    -37}, 0, {   990,   2012}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{   -68,     71,     38}, 0, {     0,   2012}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{  -198,    247,    -55}, 0, {   990,      0}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{   -68,     71,     38}, 0, {     0,   2012}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{  -130,    274,     20}, 0, {     0,      0}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{  -198,    247,    -55}, 0, {   990,      0}, {0xff, 0xff, 0xff, 0xff}}},
+    {{{   199,    247,    -55}, 0, {   990,      0}, {0x59, 0xed, 0x58, 0xff}}},
+    {{{   131,    274,     20}, 0, {     0,      0}, {0x59, 0xed, 0x58, 0xff}}},
+    {{{    69,     71,     38}, 0, {     0,   2012}, {0x59, 0xed, 0x58, 0xff}}},
+    {{{   199,    247,    -55}, 0, {   990,      0}, {0x58, 0xee, 0x58, 0xff}}},
+    {{{    69,     71,     38}, 0, {     0,   2012}, {0x58, 0xee, 0x58, 0xff}}},
+    {{{   138,     44,    -37}, 0, {   990,   2012}, {0x58, 0xee, 0x58, 0xff}}},
+    {{{  -137,     44,    -37}, 0, {   990,   2012}, {0xa8, 0xee, 0x58, 0xff}}},
+    {{{   -68,     71,     38}, 0, {     0,   2012}, {0xa8, 0xee, 0x58, 0xff}}},
+    {{{  -198,    247,    -55}, 0, {   990,      0}, {0xa8, 0xee, 0x58, 0xff}}},
+    {{{   -68,     71,     38}, 0, {     0,   2012}, {0xa7, 0xed, 0x58, 0xff}}},
+    {{{  -130,    274,     20}, 0, {     0,      0}, {0xa7, 0xed, 0x58, 0xff}}},
+    {{{  -198,    247,    -55}, 0, {   990,      0}, {0xa7, 0xed, 0x58, 0xff}}},
 };
 
 // 0x03022DF8
 static const Vtx luigi_cap_seg3_vertex_03022DF8[] = {
-    {{{   268,    219,   -132}, 0, {   990,      0}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{   199,    247,    -55}, 0, {     0,      0}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{   138,     44,    -37}, 0, {     0,   2012}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{   207,     16,   -114}, 0, {   990,   2012}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{  -206,     16,   -114}, 0, {   990,   2012}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{  -137,     44,    -37}, 0, {     0,   2012}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{  -267,    219,   -132}, 0, {   990,      0}, {0xff, 0xff, 0xff, 0xff}}},
-    {{{  -198,    247,    -55}, 0, {     0,      0}, {0xff, 0xff, 0xff, 0xff}}},
+    {{{   268,    219,   -132}, 0, {   990,      0}, {0x59, 0xed, 0x57, 0xff}}},
+    {{{   199,    247,    -55}, 0, {     0,      0}, {0x59, 0xed, 0x57, 0xff}}},
+    {{{   138,     44,    -37}, 0, {     0,   2012}, {0x59, 0xed, 0x57, 0xff}}},
+    {{{   207,     16,   -114}, 0, {   990,   2012}, {0x59, 0xed, 0x57, 0xff}}},
+    {{{  -206,     16,   -114}, 0, {   990,   2012}, {0xa7, 0xed, 0x57, 0xff}}},
+    {{{  -137,     44,    -37}, 0, {     0,   2012}, {0xa7, 0xed, 0x57, 0xff}}},
+    {{{  -267,    219,   -132}, 0, {   990,      0}, {0xa7, 0xed, 0x57, 0xff}}},
+    {{{  -198,    247,    -55}, 0, {     0,      0}, {0xa7, 0xed, 0x57, 0xff}}},
 };
 
 // 0x03022E78 - 0x03022EA8
@@ -151,7 +151,7 @@ const Gfx luigi_cap_seg3_dl_03022EA8[] = {
 // 0x03022ED8 - 0x03022F20
 const Gfx luigi_cap_seg3_dl_03022ED8[] = {
     gsDPPipeSync(),
-    gsDPSetCombineMode(G_CC_MODULATERGBA, G_CC_MODULATERGBA),
+    gsDPSetCombineMode(G_CC_DECALRGBA, G_CC_DECALRGBA),
     gsSPClearGeometryMode(G_LIGHTING | G_CULL_BACK),
     gsDPSetTile(G_IM_FMT_RGBA, G_IM_SIZ_16b, 0, 0, G_TX_LOADTILE, 0, G_TX_WRAP | G_TX_NOMIRROR, G_TX_NOMASK, G_TX_NOLOD, G_TX_WRAP | G_TX_NOMIRROR, G_TX_NOMASK, G_TX_NOLOD),
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_ON),

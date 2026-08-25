@@ -1690,6 +1690,7 @@ extern ALIGNED8 const Texture toad_player_texture_eyes_dead[];
 extern ALIGNED8 const Texture wario_texture_white_button[];
 extern ALIGNED8 const Texture wario_texture_w_logo[];
 extern ALIGNED8 const Texture wario_texture_hair_sideburn[];
+extern ALIGNED8 const Texture wario_texture_nose[];
 extern ALIGNED8 const Texture wario_texture_mouth[];
 extern ALIGNED8 const Texture wario_texture_mouth_dead[];
 extern ALIGNED8 const Texture wario_texture_eyes_front[];
